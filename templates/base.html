@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Карта Полей{% end %}</title>
+    <!-- Leaflet CSS (общий для всех страниц, где нужна карта или базовые стили) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <!-- DataTables CSS (общий для всех страниц, где нужна таблица) -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Предотвращаем горизонтальную прокрутку */
+        }
+        body.sidebar-open {
+            overflow-y: hidden; /* Предотвращаем вертикальную прокрутку основного контента, когда сайдбар открыт */
+        }
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: -250px; /* Изначально скрыт */
+            width: 250px;
+            height: 100%;
+            background-color: #f8f9fa;
+            padding: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 1001;
+            overflow-y: auto;
+            transition: left 0.3s ease, box-shadow 0.3s ease; /* Плавная анимация для left и box-shadow */
+        }
+        #sidebar.open {
+            left: 0; /* Открыт */
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3); /* Более выраженная тень при открытии */
+        }
+        #sidebar a {
+            display: block;
+            padding: 8px 0;
+            color: #007bff;
+            text-decoration: none;
+            margin-bottom: 5px;
+        }
+        #sidebar a:hover {
+            text-decoration: underline;
+        }
+        .main-content {
+            margin-left: 0; /* Изначально без отступа */
+            height: 100%;
+            width: 100%; /* Изначально на всю ширину */
+            overflow-y: auto;
+            transition: margin-left 0.3s ease, width 0.3s ease; /* Плавная анимация */
+        }
+        body.sidebar-open .main-content {
+            margin-left: 250px; /* Отступ, когда сайдбар открыт */
+            width: calc(100% - 250px); /* Ширина, когда сайдбар открыт */
+        }
+        #sidebar-toggle {
+            position: fixed;
+            top: 10px;
+            left: 10px; /* Изначальное положение */
+            z-index: 1002; /* Выше сайдбара */
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: left 0.3s ease; /* Плавная анимация для кнопки */
+        }
+        body.sidebar-open #sidebar-toggle {
+            left: 260px; /* Сдвигаем кнопку, когда сайдбар открыт */
+        }
+        #map { /* Стили для карты, если она находится в main-content */
+            height: 100%;
+            width: 100%;
+        }
+        #upload-form-container {
+            position: static;
+            padding: 0;
+            box-shadow: none;
+            margin-bottom: 20px;
+        }
+        #upload-form-container h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        #upload-form input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+        }
+        #upload-form button {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #upload-form button:hover {
+            background-color: #0056b3;
+        }
+        #upload-status {
+            font-size: 0.9em;
+        }
+        /* Стили для DataTables */
+        .dataTables_wrapper .dataTables_filter input {
+            margin-left: 0.5em;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .dataTables_wrapper .dataTables_length select {
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 0.5em 1em;
+            margin-left: 2px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background-color: #007bff;
+            color: white !important;
+            border-color: #007bff;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+            color: #ccc !important;
+        }
+    </style>
+    {% block head_extra %}{% end %}
+</head>
+<body>
+
+<button id="sidebar-toggle">☰</button>
+
+<div id="sidebar">
+    <h3>Загрузка полей</h3>
+    <div id="upload-form-container">
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" name="shapefile_zip" accept=".zip" required>
+            <button type="submit">Загрузить Shapefile (ZIP)</button>
+        </form>
+        <div id="upload-status" style="margin-top: 5px; color: green;"></div>
+    </div>
+    <hr> <!-- Разделитель -->
+    <a href="/">Карта</a>
+    <a href="/fields_list">Список полей</a>
+    <!-- Здесь можно будет добавить другие элементы управления -->
+</div>
+
+<div class="main-content">
+    {% block content %}{% end %}
+</div>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<!-- DataTables JS -->
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+
+<!-- Наш общий скрипт для сайдбара и загрузки -->
+<script src="/static/js/main.js"></script>
+
+{% block scripts %}{% end %}
+
+</body>
+</html>

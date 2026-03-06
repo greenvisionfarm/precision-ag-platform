@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# IDEs
+.idea/
+.vscode/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Geopandas/Shapefile temp files
+*.cpg
+*.sbn
+*.sbx
+*.fbn
+*.fbx
+*.ain
+*.aih
+*.atx
+*.ixs
+*.mxs
+*.prj
+*.qix
+*.shp.xml
+*.shx.xml
+*.dbf.xml
+*.cpg.xml
+*.sbn.xml
+*.sbx.xml
+*.fbn.xml
+*.fbx.xml
+*.ain.xml
+*.aih.xml
+*.atx.xml
+*.ixs.xml
+*.mxs.xml
+*.qix.xml
+*.zip # Ignore uploaded zips if they are stored in the project dir
+tmp/
