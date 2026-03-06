@@ -28,12 +28,12 @@
         #sidebar {
             position: fixed;
             top: 0;
-            left: -250px; /* Изначально скрыт */
+            left: -280px; /* Изначально скрыт */
             width: 250px;
             height: 100%;
             background-color: #f8f9fa;
             padding: 15px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            box-shadow: none; /* Убираем тень, когда скрыт */
             z-index: 1001;
             overflow-y: auto;
             transition: left 0.3s ease, box-shadow 0.3s ease; /* Плавная анимация для left и box-shadow */
@@ -77,7 +77,7 @@
             transition: left 0.3s ease; /* Плавная анимация для кнопки */
         }
         body.sidebar-open #sidebar-toggle {
-            left: 260px; /* Сдвигаем кнопку, когда сайдбар открыт */
+            left: 290px; /* Сдвигаем кнопку, когда сайдбар открыт */
         }
         #map { /* Стили для карты, если она находится в main-content */
             height: 100%;

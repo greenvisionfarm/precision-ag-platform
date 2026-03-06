@@ -188,7 +188,10 @@ class UploadHandler(tornado.web.RequestHandler):
                             cleaned_properties[key] = value
                     properties_json = json.dumps(cleaned_properties)
 
-                    field_name = properties.get('name') or properties.get('NAME') or properties.get('ID')
+                    field_name = properties.get('Field_Name') or \
+                                 properties.get('name') or \
+                                 properties.get('NAME') or \
+                                 properties.get('ID')
                     if isinstance(field_name, (int, float)):
                         field_name = str(field_name)
                     

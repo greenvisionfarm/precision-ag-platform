@@ -1,13 +1,8 @@
-let geoJsonLayer = null; // Глобальная переменная для слоя GeoJSON
 let userLocationMarker = null; // Маркер для местоположения пользователя
 let mapInstance = null; // Сохраняем экземпляр карты
 let editableLayers = null; // Группа слоев для редактирования Leaflet.draw
 
 function loadFieldsAndRenderMap() {
-    // Удаляем предыдущий слой GeoJSON, если он существует
-    if (geoJsonLayer) {
-        mapInstance.removeLayer(geoJsonLayer);
-    }
     // Очищаем editableLayers перед загрузкой новых данных
     if (editableLayers) {
         editableLayers.clearLayers();
@@ -17,7 +12,7 @@ function loadFieldsAndRenderMap() {
         console.log("Данные полей получены:", data);
 
         if (data.features && data.features.length > 0) {
-            geoJsonLayer = L.geoJSON(data, {
+            L.geoJSON(data, {
                 style: function(feature) {
                     return {
                         color: "#007BFF",
@@ -32,14 +27,12 @@ function loadFieldsAndRenderMap() {
                         layer.bindPopup(`Поле: ${fieldName}`);
                     }
                     // Добавляем каждый загруженный слой в editableLayers
-                    if (editableLayers) {
-                        editableLayers.addLayer(layer);
-                    }
+                    editableLayers.addLayer(layer);
                 }
-            }).addTo(mapInstance);
+            }); // Не добавляем напрямую на карту, так как editableLayers уже на карте
 
-            if (geoJsonLayer.getBounds().isValid()) {
-                mapInstance.fitBounds(geoJsonLayer.getBounds());
+            if (editableLayers.getBounds().isValid()) {
+                mapInstance.fitBounds(editableLayers.getBounds());
             }
         } else {
             console.log("Нет данных для отображения.");
