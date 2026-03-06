@@ -1,86 +1,207 @@
+import sys
+import os
+# Добавляем корень проекта в sys.path, чтобы импорты работали корректно
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import pytest
 import json
+import geopandas as gpd
+from shapely.geometry import Polygon
+import io
+import zipfile
+import socket
+import tempfile
 from unittest.mock import patch
-from app import make_app
-from db import initialize_db, database, Field, get_database
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
+from tornado.testing import AsyncHTTPTestCase # get_unused_port удален
 
-# Фикстура для создания тестового приложения Tornado
+from app import make_app # Добавляем импорт make_app
+from db import Field, get_database # Добавляем импорт Field и get_database
+
+# Указываем pytest, что все тесты в этом файле асинхронные (режим auto)
+# pytest_plugins = "pytest_asyncio" # Теперь это настраивается в conftest.py
+
+# --- Вспомогательная функция для получения свободного порта ---
+def find_unused_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+# --- Фикстуры для тестов ---
+
 @pytest.fixture
 def app():
+    """Фикстура для создания экземпляра приложения Tornado."""
     return make_app()
 
-# Фикстура для изоляции базы данных в тестах
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope='function')
 def test_db():
-    # Используем in-memory SQLite для тестов
-    test_db_instance = get_database(None) # None означает in-memory
-    test_db_instance.connect()
-    test_db_instance.create_tables([Field])
+    """
+    Фикстура для создания и очистки изолированной in-memory SQLite базы данных для каждого теста.
+    """
+    db_instance = get_database(':memory:')
+    with patch('db.database', db_instance):
+        with patch('app.database', db_instance):
+            db_instance.connect()
+            db_instance.create_tables([Field])
+            yield db_instance
+            db_instance.drop_tables([Field]) # Добавляем очистку таблиц
+            db_instance.close()
 
-    # Подменяем глобальный объект базы данных в db.py и app.py
-    # Это важно, чтобы приложение использовало тестовую БД
-    with patch('db.database', test_db_instance):
-        with patch('app.database', test_db_instance):
-            yield test_db_instance
+@pytest.fixture
+def sample_field_data():
+    """Фикстура, предоставляющая тестовые данные для одного поля."""
+    return {
+        "name": "Test Field 1",
+        "geometry_wkt": "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))",
+        "properties_json": json.dumps({"area": 100, "type": "farm"})
+    }
+
+@pytest.fixture
+def create_shapefile_zip() -> bytes:
+    """
+    Фикстура для создания фиктивного shapefile в ZIP-архиве в памяти.
+    """
+    p1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    p2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
+    gdf = gpd.GeoDataFrame({'id': [1, 2]}, geometry=[p1, p2], crs="EPSG:4326")
+    gdf['name'] = ['Field A', 'Field B']
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        shapefile_path = os.path.join(tmpdir, "test_shapefile.shp")
+        gdf.to_file(shapefile_path, driver='ESRI Shapefile')
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(tmpdir):
+                for file in files:
+                    zipf.write(os.path.join(root, file), arcname=file)
+        zip_buffer.seek(0)
+        return zip_buffer.read()
+
+@pytest.fixture
+async def http_server_client(app, test_db):
+    """
+    Запускает Tornado сервер на свободном порту и предоставляет http-клиент.
+    """
+    port = find_unused_port() # Используем нашу новую функцию
+    server = app.listen(port)
+    client = AsyncHTTPClient()
     
-    test_db_instance.drop_tables([Field])
-    test_db_instance.close()
+    yield client, f"http://localhost:{port}"
+    
+    client.close()
+    server.stop()
 
+# --- Тесты ---
 
-@pytest.mark.gen_test
-async def test_main_page(http_client, base_url):
-    """Тест главной страницы."""
-    response = await http_client.fetch(base_url)
+async def test_main_page(http_server_client):
+    """Тест доступности главной страницы."""
+    client, base_url = http_server_client
+    response = await client.fetch(f"{base_url}/")
     assert response.code == 200
     assert "Карта Полей" in response.body.decode('utf-8')
 
-@pytest.mark.gen_test
-async def test_fields_api_empty(http_client, base_url, test_db):
-    """Тест API полей, когда база данных пуста."""
-    response = await http_client.fetch(f"{base_url}/api/fields")
+async def test_fields_list_page(http_server_client):
+    """Тест доступности страницы со списком полей."""
+    client, base_url = http_server_client
+    response = await client.fetch(f"{base_url}/fields_list")
+    assert response.code == 200
+    assert "Список полей" in response.body.decode('utf-8')
+
+async def test_api_endpoints_when_db_is_empty(http_server_client):
+    """Тест API эндпоинтов, когда база данных пуста."""
+    client, base_url = http_server_client
+    
+    response_fields = await client.fetch(f"{base_url}/api/fields")
+    assert response_fields.code == 200
+    data_fields = json.loads(response_fields.body)
+    print(f"Actual GeoJSON response: {data_fields}") # Для отладки
+    assert data_fields == {"type": "FeatureCollection", "features": []}
+
+    response_data = await client.fetch(f"{base_url}/api/fields_data")
+    assert response_data.code == 200
+    assert json.loads(response_data.body) == {"data": []}
+
+async def test_api_endpoints_with_data(http_server_client, sample_field_data):
+    """Тест API эндпоинтов, когда в базе данных есть данные."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+
+    response = await client.fetch(f"{base_url}/api/fields")
     assert response.code == 200
     data = json.loads(response.body)
-    assert data == {"type": "FeatureCollection", "features": []}
+    assert len(data["features"]) == 1
+    assert data["features"][0]["properties"]["name"] == sample_field_data["name"]
 
-@pytest.mark.gen_test
-async def test_fields_api_with_data(http_client, base_url, test_db):
-    """Тест API полей, когда в базе данных есть данные."""
-    # Добавляем тестовые данные в БД
-    with test_db.atomic():
-        Field.create(
-            name="Test Field 1",
-            geometry_wkt="POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))",
-            properties_json=json.dumps({"area": 100, "type": "farm"})
-        )
-        Field.create(
-            name="Test Field 2",
-            geometry_wkt="POLYGON ((50 10, 60 40, 40 40, 30 20, 50 10))",
-            properties_json=json.dumps({"area": 150, "owner": "John Doe"})
-        )
+async def test_delete_field(http_server_client, sample_field_data):
+    """Тест успешного удаления поля."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+    assert Field.select().count() == 1
 
-    response = await http_client.fetch(f"{base_url}/api/fields")
+    request = HTTPRequest(f"{base_url}/api/field/delete/{field.id}", method='DELETE')
+    response = await client.fetch(request)
+    
+    response_json = json.loads(response.body)
+    assert response_json["message"] == f"Поле с ID {field.id} успешно удалено."
+    
+    # Проверяем, что поле действительно удалено из БД
+    assert Field.select().count() == 0
+
+async def test_delete_nonexistent_field(http_server_client):
+    """Тест удаления несуществующего поля."""
+    client, base_url = http_server_client
+    request = HTTPRequest(f"{base_url}/api/field/delete/999", method='DELETE')
+    
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 404
+
+async def test_upload_success(http_server_client, create_shapefile_zip):
+    """Тест успешной загрузки корректного ZIP-архива с shapefile."""
+    client, base_url = http_server_client
+    zip_bytes = create_shapefile_zip
+    
+    boundary = '---boundary---'
+    headers = {'Content-Type': f'multipart/form-data; boundary={boundary}'}
+    body = (
+        f'--{boundary}\r\n'
+        'Content-Disposition: form-data; name="shapefile_zip"; filename="test.zip"\r\n'
+        'Content-Type: application/zip\r\n\r\n'
+    ).encode('utf-8') + zip_bytes + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+
+    request = HTTPRequest(f"{base_url}/upload", method='POST', headers=headers, body=body)
+    response = await client.fetch(request)
+
+    print(f"test_upload_success: response.code = {response.code}")
+    print(f"test_upload_success: response.body = {response.body}")
+
     assert response.code == 200
-    data = json.loads(response.body)
-    assert data["type"] == "FeatureCollection"
-    assert len(data["features"]) == 2
+    response_json = json.loads(response.body)
+    print(f"test_upload_success: response_json = {response_json}")
+    assert "успешно загружены" in response_json["message"]
+    assert Field.select().count() == 2
 
-    # Проверяем одно из полей
-    feature1 = data["features"][0]
-    assert feature1["properties"]["name"] == "Test Field 1"
-    assert feature1["properties"]["area"] == 100
-    assert feature1["geometry"]["type"] == "Polygon"
+async def test_upload_invalid_zip(http_server_client):
+    """Тест загрузки ZIP-архива без .shp файла."""
+    client, base_url = http_server_client
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.writestr("test.txt", "this is not a shapefile")
+    zip_bytes = zip_buffer.read()
 
-# TODO: Добавить тесты для UploadHandler. Это потребует создания фиктивного ZIP-файла
-# с компонентами Shapefile, что является более сложной задачей.
-# @pytest.mark.gen_test
-# async def test_upload_handler_success(http_client, base_url, test_db):
-#     """Тест успешной загрузки Shapefile."""
-#     # Создать фиктивный ZIP-файл
-#     # Отправить POST-запрос на /upload
-#     # Проверить, что данные сохранены в БД
-#     pass
+    boundary = '---boundary---'
+    headers = {'Content-Type': f'multipart/form-data; boundary={boundary}'}
+    body = (
+        f'--{boundary}\r\n'
+        'Content-Disposition: form-data; name="shapefile_zip"; filename="invalid.zip"\r\n'
+        'Content-Type: application/zip\r\n\r\n'
+    ).encode('utf-8') + zip_bytes + f'\r\n--{boundary}--\r\n'.encode('utf-8')
 
-# @pytest.mark.gen_test
-# async def test_upload_handler_invalid_zip(http_client, base_url):
-#     """Тест загрузки невалидного ZIP-файла."""
-#     pass
+    request = HTTPRequest(f"{base_url}/upload", method='POST', headers=headers, body=body)
+
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 500
+    response_data = json.loads(e.value.response.body)
+    assert "File is not a zip file" in response_data["error"]
