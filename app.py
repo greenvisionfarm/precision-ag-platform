@@ -270,6 +270,55 @@ class FieldAddHandler(tornado.web.RequestHandler):
             if not database.is_closed():
                 database.close()
 
+class FieldUpdateGeometryHandler(tornado.web.RequestHandler):
+    def put(self, field_id):
+        logging.info(f"Получен запрос на обновление геометрии поля с ID: {field_id}")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            field = Field.get_or_none(Field.id == field_id)
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено."})
+                return
+
+            request_data = json.loads(self.request.body)
+            geometry = request_data.get('geometry')
+
+            if not geometry:
+                self.set_status(400)
+                self.write({"error": "Геометрия обязательна."})
+                return
+
+            # Превращаем GeoJSON в объект Shapely и WKT
+            poly = shape(geometry)
+            geom_wkt = poly.wkt
+
+            # Пересчет площади
+            temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
+            temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
+            area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
+
+            # Обновляем свойства в JSON
+            properties = json.loads(field.properties_json) if field.properties_json else {}
+            properties['area_sq_m'] = area_sq_m
+            
+            field.geometry_wkt = geom_wkt
+            field.properties_json = json.dumps(properties)
+            field.save()
+
+            logging.info(f"Геометрия поля ID {field_id} успешно обновлена. Новая площадь: {area_sq_m:.2f} кв.м.")
+            self.write({"message": "Геометрия поля успешно обновлена."})
+
+        except Exception as e:
+            logging.error(f"Ошибка при обновлении геометрии поля {field_id}:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
 class OwnersDataApiHandler(tornado.web.RequestHandler):
     def get(self):
         logging.info("Запрос данных владельцев через API.")
@@ -421,6 +470,7 @@ def make_app():
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),
         (r"/api/field/add", FieldAddHandler),
+        (r"/api/field/update_geometry/([0-9]+)", FieldUpdateGeometryHandler),
         (r"/upload", UploadHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)

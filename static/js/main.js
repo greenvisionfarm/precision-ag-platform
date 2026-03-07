@@ -82,7 +82,7 @@ $(document).ready(function() {
             edit: {
                 featureGroup: editableLayers,
                 remove: true, // Включаем инструмент удаления
-                edit: false   // Отключаем инструмент редактирования (пока)
+                edit: true    // Включаем инструмент редактирования
             },
             draw: {
                 polygon: {
@@ -132,6 +132,41 @@ $(document).ready(function() {
                     const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при добавлении.';
                     alert("Ошибка: " + errorMsg);
                 }
+            });
+        });
+
+        // Обработка редактирования существующих полигонов
+        mapInstance.on(L.Draw.Event.EDITED, function (e) {
+            const layers = e.layers;
+            layers.eachLayer(function (layer) {
+                // Пытаемся получить db_id из свойств GeoJSON
+                const fieldId = layer.feature ? layer.feature.properties.db_id : null;
+                if (!fieldId) {
+                    console.warn("Попытка редактировать слой без db_id.");
+                    return;
+                }
+
+                const geometry = layer.toGeoJSON().geometry;
+                console.log("Обновление геометрии для поля ID:", fieldId);
+
+                $.ajax({
+                    url: `/api/field/update_geometry/${fieldId}`,
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        geometry: geometry
+                    }),
+                    success: function(response) {
+                        console.log(`Геометрия поля ${fieldId} успешно обновлена.`);
+                        // Перезагружаем карту, чтобы получить актуальные данные (например, обновленную площадь)
+                        loadFieldsAndRenderMap();
+                    },
+                    error: function(jqXHR) {
+                        const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при сохранении изменений.';
+                        console.error(`Ошибка при обновлении поля ${fieldId}:`, errorMsg);
+                        alert(`Ошибка при обновлении поля ${fieldId}: ${errorMsg}`);
+                    }
+                });
             });
         });
 

@@ -337,3 +337,54 @@ async def test_add_field_manually_missing_geometry(http_server_client):
         await client.fetch(request)
     assert e.value.code == 400
     assert "Геометрия обязательна" in json.loads(e.value.response.body)["error"]
+
+async def test_update_field_geometry_success(http_server_client, sample_field_data):
+    """Тест успешного обновления геометрии поля и пересчета площади."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+    
+    # Новая геометрия (в два раза больше по размеру)
+    new_geometry = {
+        "type": "Polygon",
+        "coordinates": [[[30, 50], [32, 50], [32, 52], [30, 52], [30, 50]]]
+    }
+    
+    request_body = json.dumps({"geometry": new_geometry})
+    request = HTTPRequest(
+        f"{base_url}/api/field/update_geometry/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    response = await client.fetch(request)
+    assert response.code == 200
+    
+    # Проверяем изменения в БД
+    updated_field = Field.get(Field.id == field.id)
+    properties = json.loads(updated_field.properties_json)
+    
+    # Площадь должна была измениться (старая была для POLGYON((30 10...)) из фикстуры)
+    original_properties = json.loads(sample_field_data["properties_json"])
+    assert properties["area_sq_m"] != original_properties["area_sq_m"]
+    assert properties["area_sq_m"] > 0
+
+async def test_update_field_geometry_not_found(http_server_client):
+    """Тест ошибки 404 при попытке обновить геометрию несуществующего поля."""
+    client, base_url = http_server_client
+    
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[30, 50], [31, 50], [31, 51], [30, 51], [30, 50]]]
+    }
+    request_body = json.dumps({"geometry": geometry})
+    request = HTTPRequest(
+        f"{base_url}/api/field/update_geometry/9999",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 404
+    assert "Поле не найдено" in json.loads(e.value.response.body)["error"]
