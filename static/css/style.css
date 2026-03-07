@@ -1,0 +1,244 @@
+/* Общие стили приложения */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden; /* Предотвращаем горизонтальную прокрутку */
+}
+
+body.sidebar-open {
+    overflow-y: hidden; /* Предотвращаем вертикальную прокрутку основного контента, когда сайдбар открыт */
+}
+
+h1 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.main-content {
+    padding: 20px;
+    margin-left: 0; /* Изначально без отступа */
+    height: 100%;
+    width: 100%; /* Изначально на всю ширину */
+    overflow-y: auto;
+    transition: margin-left 0.3s ease, width 0.3s ease; /* Плавная анимация */
+    box-sizing: border-box;
+}
+
+body.sidebar-open .main-content {
+    margin-left: 250px; /* Отступ, когда сайдбар открыт */
+    width: calc(100% - 250px); /* Ширина, когда сайдбар открыт */
+}
+
+/* Сайдбар */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px; /* Изначально скрыт */
+    width: 270px;
+    height: 100%;
+    background-color: #f8f9fa;
+    padding: 15px;
+    box-shadow: none; /* Убираем тень, когда скрыт */
+    z-index: 1001;
+    overflow-y: auto;
+    transition: left 0.3s ease, box-shadow 0.3s ease; /* Плавная анимация для left и box-shadow */
+}
+
+#sidebar.open {
+    left: 0; /* Открыт */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.3); /* Более выраженная тень при открытии */
+}
+
+#sidebar a {
+    display: block;
+    padding: 8px 0;
+    color: #007bff;
+    text-decoration: none;
+    margin-bottom: 5px;
+}
+
+#sidebar a:hover {
+    text-decoration: underline;
+}
+
+#sidebar-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px; /* Изначальное положение */
+    z-index: 1002; /* Выше сайдбара */
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: left 0.3s ease; /* Плавная анимация для кнопки */
+}
+
+/* Карта */
+#map {
+    height: 100%;
+    width: 100%;
+}
+
+/* Секции и контейнеры таблиц */
+#fields-table-container, 
+#owners-table-container, 
+#add-owner-section {
+    background-color: white;
+    padding: 2rem;
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+#upload-section {
+    background-color: #f8f9fa;
+    padding: 0 2rem;
+    width: 90%;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+}
+
+/* Формы */
+#upload-form {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    flex-direction: column;
+}
+
+#upload-form-container {
+    position: static;
+    padding: 0;
+    box-shadow: none;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* Кнопки */
+#upload-button, #add-owner-btn {
+    padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#add-owner-btn {
+    background-color: #28a745;
+}
+
+#upload-button:hover {
+    background-color: #0056b3;
+}
+
+#add-owner-btn:hover {
+    background-color: #218838;
+}
+
+.btn-save-owner {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.btn-save-owner:hover {
+    background-color: #218838;
+}
+
+.btn-rename, .btn-delete {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.btn-rename { background-color: #ffc107; display: none; }
+.btn-delete { background-color: #dc3545; color: white; }
+
+/* Инлайн-редактирование */
+.editable-name {
+    cursor: pointer;
+    border-bottom: 1px dashed #007bff;
+    padding: 2px 4px;
+    display: inline-block;
+    min-width: 100px;
+}
+
+.editable-name:hover {
+    background-color: #f0f7ff;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 4px;
+    box-sizing: border-box;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+}
+
+.owner-select {
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    width: 100%;
+}
+
+/* Стили для DataTables */
+.dataTables_wrapper .dataTables_filter input {
+    margin-left: 0.5em;
+    border: 1px solid #ccc;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border: 1px solid #ccc;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.5em 1em;
+    margin-left: 2px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f8f8f8;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background-color: #007bff;
+    color: white !important;
+    border-color: #007bff;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+    color: #ccc !important;
+}
