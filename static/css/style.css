@@ -64,12 +64,12 @@ html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    overflow-x: hidden;
+    overflow: hidden; /* Важно для SPA: убираем скролл у body */
     transition: background-color 0.3s ease;
 }
 
 body.sidebar-open {
-    overflow-y: hidden;
+    overflow: hidden;
 }
 
 h1, h2, h3 {
@@ -80,15 +80,43 @@ h1, h2, h3 {
 
 /* Основной контент */
 .main-content {
-    padding: var(--spacing-lg);
     margin-left: 0;
-    min-height: 100%;
+    height: 100vh; /* Занимаем всю высоту экрана */
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     transition: margin-left 0.3s ease, width 0.3s ease;
     box-sizing: border-box;
+    position: relative;
+}
+
+/* Секции (Views) */
+.view-section {
+    width: 100%;
+    height: 100%;
+    display: none; /* По умолчанию скрыты, управляются JS */
+    flex-direction: column;
+    padding: var(--spacing-lg);
+    box-sizing: border-box;
+}
+
+/* Вид карты без паддингов, чтобы она была на весь экран */
+#view-map {
+    padding: 0; 
+}
+
+/* Стили активной ссылки в меню */
+.nav-link {
+    padding: var(--spacing-sm);
+    border-radius: var(--radius);
+    transition: background 0.2s;
+}
+
+.nav-link.active {
+    font-weight: bold;
+    color: white !important;
+    background-color: var(--primary-color);
 }
 
 /* Десктопная версия: сдвиг контента при открытом сайдбаре */
@@ -113,6 +141,8 @@ h1, h2, h3 {
     transition: left 0.3s ease, box-shadow 0.3s ease;
     border-right: 1px solid var(--border-color);
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 #sidebar.open {
@@ -120,17 +150,19 @@ h1, h2, h3 {
     box-shadow: 5px 0 15px rgba(0,0,0,0.2);
 }
 
+#sidebar h2 { margin-bottom: var(--spacing-xl); }
+
+#sidebar nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
 #sidebar a {
-    display: block;
-    padding: var(--spacing-sm) 0;
     color: var(--sidebar-link);
     text-decoration: none;
     font-weight: 500;
-    transition: color 0.2s;
-}
-
-#sidebar a:hover {
-    text-decoration: underline;
 }
 
 /* Кнопка переключения сайдбара */
@@ -154,68 +186,23 @@ h1, h2, h3 {
 
 /* Карта */
 #map {
-    flex: 1;
+    width: 100%;
     height: 100%;
-    width: 100%;
-    border-radius: var(--radius);
-    overflow: hidden;
+    /* На мобильных может понадобиться форсировать высоту */
+    min-height: 100%; 
 }
 
-/* Карточки и секции */
-.card-section {
-    background-color: var(--card-bg);
-    padding: var(--spacing-xl);
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto var(--spacing-lg) auto;
-    border-radius: var(--radius);
-    box-shadow: var(--card-shadow);
-    box-sizing: border-box;
-}
-
+/* Карточки и контейнеры таблиц */
 #fields-table-container, 
 #owners-table-container, 
-#add-owner-section {
-    /* Переиспользуем стили карточки через наследование или явное применение */
-    composes: card-section;
+#add-owner-section,
+#upload-section {
     background-color: var(--card-bg);
     padding: var(--spacing-xl);
     width: 100%;
     border-radius: var(--radius);
     box-shadow: var(--card-shadow);
     margin-bottom: var(--spacing-lg);
-    box-sizing: border-box;
-}
-
-#upload-section {
-    background-color: var(--sidebar-bg);
-    padding: var(--spacing-md) var(--spacing-xl);
-    width: 100%;
-    border-radius: var(--radius);
-    margin-bottom: var(--spacing-lg);
-    border: 1px solid var(--border-color);
-    box-sizing: border-box;
-}
-
-/* Формы */
-.form-group {
-    margin-bottom: var(--spacing-md);
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: var(--spacing-xs);
-    font-weight: 500;
-}
-
-.form-group input, .form-group select {
-    width: 100%;
-    padding: var(--spacing-sm);
-    border: 1px solid var(--input-border);
-    border-radius: var(--radius);
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    font-size: 1rem;
     box-sizing: border-box;
 }
 
@@ -233,82 +220,61 @@ h1, h2, h3 {
     gap: 8px;
 }
 
-.btn:active {
-    transform: scale(0.98);
-}
-
 .btn-primary { background-color: var(--primary-color); color: white; }
-.btn-primary:hover { background-color: var(--primary-hover); }
-
 .btn-success { background-color: var(--success-color); color: white; }
-.btn-success:hover { background-color: var(--success-hover); }
-
 .btn-danger { background-color: var(--danger-color); color: white; }
-
 .btn-sm { padding: 5px 12px; font-size: 0.9rem; }
 
-/* Старые ID-селекторы для совместимости */
-#upload-button { composes: btn btn-primary; }
-#add-owner-btn { composes: btn btn-success; }
-.btn-save-owner { composes: btn btn-success btn-sm; margin-right: 5px; }
-.btn-rename, .btn-delete { composes: btn btn-sm; border: 1px solid var(--input-border); }
-.btn-rename { background-color: var(--warning-color); display: none; }
-.btn-delete { background-color: var(--danger-color); color: white; }
-
 /* Таблицы (DataTables) */
-.table-responsive {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
 table.dataTable {
     width: 100% !important;
     color: var(--text-color) !important;
     background-color: var(--card-bg) !important;
     border-collapse: collapse !important;
-    margin: var(--spacing-md) 0 !important;
 }
 
 table.dataTable thead th {
     background-color: var(--table-header-bg) !important;
-    padding: var(--spacing-md) var(--spacing-sm) !important;
-    border-bottom: 2px solid var(--border-color) !important;
-    text-align: left !important;
+    color: var(--text-color) !important;
+}
+
+table.dataTable tbody tr {
+    background-color: var(--card-bg) !important;
 }
 
 table.dataTable tbody td {
-    padding: var(--spacing-md) var(--spacing-sm) !important;
     background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
     border-top: 1px solid var(--border-color) !important;
 }
 
-table.dataTable.display tbody tr.odd td { background-color: var(--table-header-bg) !important; }
-table.dataTable.display tbody tr:hover td { background-color: var(--hover-bg) !important; }
-
-/* Инлайн-редактирование */
-.editable-name {
-    cursor: pointer;
-    border-bottom: 1px dashed var(--primary-color);
-    padding: 2px 4px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+/* Зебра и наведение */
+table.dataTable.display tbody tr.odd td { 
+    background-color: var(--table-header-bg) !important; 
 }
 
-.editable-name:hover { background-color: var(--hover-bg); }
+table.dataTable.display tbody tr:hover td { 
+    background-color: var(--hover-bg) !important; 
+}
+
+/* Инлайн-редактирование */
+.editable-name, .editable-parcel {
+    cursor: pointer;
+    border-bottom: 1px dashed var(--primary-color);
+}
 
 .edit-input {
     width: 100%;
-    padding: 6px;
-    border: 1px solid var(--primary-color);
-    border-radius: 4px;
+    padding: 4px;
     background-color: var(--input-bg);
     color: var(--text-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
 }
 
 /* Переключатель темы */
 .theme-switch-wrapper {
-    margin-top: var(--spacing-lg);
+    margin-top: auto;
     padding-top: var(--spacing-lg);
     border-top: 1px solid var(--border-color);
 }
@@ -325,75 +291,36 @@ table.dataTable.display tbody tr:hover td { background-color: var(--hover-bg) !i
     align-items: center;
     justify-content: center;
     gap: 10px;
-    transition: background-color 0.2s;
 }
-
-#theme-toggle-btn:hover { background-color: var(--hover-bg); }
 
 /* Мобильная адаптация */
 @media (max-width: 768px) {
     :root {
-        --spacing-xl: 1rem;
         --sidebar-width: 100%;
     }
 
     .main-content {
+        padding: 0;
+    }
+
+    .view-section {
         padding: var(--spacing-sm);
     }
 
+    #view-map { padding: 0; }
+
     #sidebar {
         left: -100%;
-        border-right: none;
     }
 
     #sidebar.open {
         left: 0;
     }
-
-    .card-section, 
-    #fields-table-container, 
-    #owners-table-container, 
-    #add-owner-section,
-    #upload-section {
-        width: 100%;
-        padding: var(--spacing-md);
-        margin-bottom: var(--spacing-md);
-    }
-
-    #sidebar-toggle {
-        top: 5px;
-        right: 5px;
-        padding: 8px 10px;
-    }
-
-    /* На мобильных таблица всегда со скроллом */
-    .dataTables_wrapper {
-        overflow-x: auto;
-    }
 }
 
-/* Специфические фиксы для DataTables в темной теме */
+/* DataTables Dark Mode Fixes */
 .dataTables_wrapper .dataTables_length select,
 .dataTables_wrapper .dataTables_filter input {
     background-color: var(--input-bg) !important;
     color: var(--text-color) !important;
-    border: 1px solid var(--input-border) !important;
-    border-radius: 4px !important;
-}
-
-.dataTables_wrapper .dataTables_info,
-.dataTables_wrapper .dataTables_paginate {
-    color: var(--text-color) !important;
-    margin-top: var(--spacing-md);
-}
-
-.dataTables_wrapper .dataTables_paginate .paginate_button {
-    background: var(--input-bg) !important;
-    color: var(--text-color) !important;
-    border: 1px solid var(--border-color) !important;
-}
-
-.dataTables_wrapper .dataTables_paginate .paginate_button.current {
-    background: var(--primary-color) !important;
-    color: white !important;
 }

@@ -24,18 +24,8 @@ logging.info("База данных инициализирована.")
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        logging.info("Запрос главной страницы.")
-        self.render("index.html")
-
-class FieldsListPageHandler(tornado.web.RequestHandler):
-    def get(self):
-        logging.info("Запрос страницы со списком полей.")
-        self.render("fields_list.html")
-
-class OwnersPageHandler(tornado.web.RequestHandler):
-    def get(self):
-        logging.info("Запрос страницы владельцев.")
-        self.render("owners_list.html")
+        # Отдаем наше SPA приложение
+        self.render("static/index.html")
 
 class FieldsApiHandler(tornado.web.RequestHandler):
     def get(self):
@@ -84,7 +74,6 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
             if database.is_closed():
                 database.connect()
             
-            # Предварительно загружаем владельцев, чтобы избежать N+1 проблемы
             fields_from_db = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER)
 
             data = []
@@ -103,7 +92,6 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
                 }
                 data.append(row_data)
 
-            logging.info(f"Отправлено {len(data)} полей для таблицы.")
             self.write(json.dumps({"data": data}))
 
         except Exception as e:
@@ -128,7 +116,6 @@ class FieldDeleteHandler(tornado.web.RequestHandler):
                 self.set_status(200)
                 self.write({"message": f"Поле с ID {field_id} успешно удалено."})
             else:
-                logging.warning(f"Поле с ID {field_id} не найдено для удаления.")
                 self.set_status(404)
                 self.write({"error": f"Поле с ID {field_id} не найдено."})
 
@@ -147,9 +134,8 @@ class FieldRenameHandler(tornado.web.RequestHandler):
             if database.is_closed():
                 database.connect()
             
-            field_to_rename = Field.get_or_none(Field.id == field_id)
-            if not field_to_rename:
-                logging.warning(f"Поле с ID {field_id} не найдено для переименования.")
+            field = Field.get_or_none(Field.id == field_id)
+            if not field:
                 self.set_status(404)
                 self.write({"error": f"Поле с ID {field_id} не найдено."})
                 return
@@ -158,21 +144,17 @@ class FieldRenameHandler(tornado.web.RequestHandler):
                 request_data = json.loads(self.request.body)
                 new_name = request_data.get('new_name')
             except json.JSONDecodeError:
-                logging.error("Неверный формат JSON в запросе на переименование.")
                 self.set_status(400)
                 self.write({"error": "Неверный формат JSON."})
                 return
             
             if not new_name:
-                logging.warning("Новое имя поля не предоставлено.")
                 self.set_status(400)
                 self.write({"error": "Новое имя поля не может быть пустым."})
                 return
 
-            field_to_rename.name = new_name
-            field_to_rename.save()
-            logging.info(f"Поле с ID {field_id} успешно переименовано в '{new_name}'.")
-            self.set_status(200)
+            field.name = new_name
+            field.save()
             self.write({"message": f"Поле с ID {field_id} успешно переименовано."})
 
         except Exception as e:
@@ -210,7 +192,6 @@ class FieldAssignOwnerHandler(tornado.web.RequestHandler):
                 field.owner = owner
             
             field.save()
-            logging.info(f"Владелец для поля {field_id} обновлен (owner_id: {owner_id}).")
             self.write({"message": "Владелец успешно обновлен."})
                 
         except Exception as e:
@@ -262,12 +243,9 @@ class FieldAddHandler(tornado.web.RequestHandler):
                 self.write({"error": "Геометрия обязательна."})
                 return
 
-            # Превращаем GeoJSON в объект Shapely
             poly = shape(geometry)
             geom_wkt = poly.wkt
 
-            # Расчет площади (переводим в EPSG:3857 для метров)
-            # Для простоты создаем временный GeoDataFrame
             temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
             temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
             area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
@@ -286,7 +264,6 @@ class FieldAddHandler(tornado.web.RequestHandler):
                 properties_json=json.dumps(properties)
             )
 
-            logging.info(f"Создано новое поле ID {new_field.id} вручную.")
             self.write({
                 "message": "Поле успешно добавлено.",
                 "id": new_field.id
@@ -321,16 +298,13 @@ class FieldUpdateGeometryHandler(tornado.web.RequestHandler):
                 self.write({"error": "Геометрия обязательна."})
                 return
 
-            # Превращаем GeoJSON в объект Shapely и WKT
             poly = shape(geometry)
             geom_wkt = poly.wkt
 
-            # Пересчет площади
             temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
             temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
             area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
 
-            # Обновляем свойства в JSON
             properties = json.loads(field.properties_json) if field.properties_json else {}
             properties['area_sq_m'] = area_sq_m
             
@@ -338,7 +312,6 @@ class FieldUpdateGeometryHandler(tornado.web.RequestHandler):
             field.properties_json = json.dumps(properties)
             field.save()
 
-            logging.info(f"Геометрия поля ID {field_id} успешно обновлена. Новая площадь: {area_sq_m:.2f} кв.м.")
             self.write({"message": "Геометрия поля успешно обновлена."})
 
         except Exception as e:
@@ -386,7 +359,6 @@ class AddOwnerApiHandler(tornado.web.RequestHandler):
             
             owner, created = Owner.get_or_create(name=owner_name)
             if created:
-                logging.info(f"Создан новый владелец: {owner_name}")
                 self.write({"message": f"Владелец '{owner_name}' успешно добавлен."})
             else:
                 self.set_status(400)
@@ -407,17 +379,14 @@ class UploadHandler(tornado.web.RequestHandler):
             uploaded_file = self.request.files['shapefile_zip'][0]
             original_filename = uploaded_file['filename']
             file_body = uploaded_file['body']
-            logging.info(f"Получен файл: {original_filename}")
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 zip_path = os.path.join(tmpdir, original_filename)
                 with open(zip_path, 'wb') as f:
                     f.write(file_body)
-                logging.info(f"ZIP-файл сохранен во временную директорию: {zip_path}")
 
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(tmpdir)
-                logging.info(f"ZIP-файл '{original_filename}' успешно распакован в '{tmpdir}'.")
 
                 shp_file = None
                 for root, _, files in os.walk(tmpdir):
@@ -430,15 +399,11 @@ class UploadHandler(tornado.web.RequestHandler):
 
                 if not shp_file:
                     raise ValueError("В ZIP-архиве не найден .shp файл.")
-                logging.info(f"Найден .shp файл: {shp_file}")
 
                 gdf = gpd.read_file(shp_file)
                 gdf_wgs84 = gdf.to_crs(epsg=4326)
-                logging.info(f"Shapefile прочитан и перепроецирован в WGS84. Найдено {len(gdf_wgs84)} объектов.")
-
                 gdf_projected_for_area = gdf_wgs84.to_crs(epsg=3857)
                 gdf_wgs84['area_sq_m'] = gdf_projected_for_area.geometry.area
-                logging.info(f"Площади полей рассчитаны в EPSG:3857.")
 
             if database.is_closed():
                 database.connect()
@@ -468,7 +433,6 @@ class UploadHandler(tornado.web.RequestHandler):
                         geometry_wkt=geom_wkt,
                         properties_json=properties_json
                     )
-            logging.info(f"Все {len(gdf_wgs84)} полей успешно сохранены в БД.")
             
             self.set_status(200)
             self.write({"message": "Файлы успешно загружены и данные сохранены в БД."})
@@ -484,14 +448,12 @@ class UploadHandler(tornado.web.RequestHandler):
 
 def make_app():
     settings = {
-        "template_path": os.path.join(os.path.dirname(__file__), "templates"),
+        "template_path": os.path.dirname(__file__),
         "static_path": os.path.join(os.path.dirname(__file__), "static"),
         "debug": True,
     }
     return tornado.web.Application([
-        (r"/", MainHandler),
-        (r"/fields_list", FieldsListPageHandler),
-        (r"/owners", OwnersPageHandler),
+        (r"/", MainHandler), # Теперь просто отдает index.html
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
         (r"/api/owners", OwnersDataApiHandler),
@@ -503,11 +465,14 @@ def make_app():
         (r"/api/field/add", FieldAddHandler),
         (r"/api/field/update_geometry/([0-9]+)", FieldUpdateGeometryHandler),
         (r"/upload", UploadHandler),
+        (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
+        (r"/(manifest\.json)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
+        (r"/(favicon\.ico)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)
 
 if __name__ == "__main__":
     app = make_app()
     app.listen(8888)
-    logging.info("Сервер запущен. Откройте http://localhost:8888 in your browser.")
+    logging.info("Сервер запущен. Откройте http://localhost:8888 в вашем браузере.")
     tornado.ioloop.IOLoop.current().start()
