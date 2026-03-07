@@ -10,8 +10,9 @@ import logging
 import math
 from shapely.geometry import mapping, shape
 from shapely.wkt import loads as wkt_loads
+from peewee import JOIN
 
-from db import initialize_db, database, Field
+from db import initialize_db, database, Field, Owner
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,
@@ -30,6 +31,11 @@ class FieldsListPageHandler(tornado.web.RequestHandler):
     def get(self):
         logging.info("Запрос страницы со списком полей.")
         self.render("fields_list.html")
+
+class OwnersPageHandler(tornado.web.RequestHandler):
+    def get(self):
+        logging.info("Запрос страницы владельцев.")
+        self.render("owners_list.html")
 
 class FieldsApiHandler(tornado.web.RequestHandler):
     def get(self):
@@ -78,7 +84,8 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
             if database.is_closed():
                 database.connect()
             
-            fields_from_db = Field.select()
+            # Предварительно загружаем владельцев, чтобы избежать N+1 проблемы
+            fields_from_db = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER)
 
             data = []
             for field in fields_from_db:
@@ -88,7 +95,7 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
                     "id": field.id,
                     "name": field.name if field.name else "N/A",
                     "area": f"{properties.get('area_sq_m', 0) / 10000:.2f} га" if isinstance(properties.get('area_sq_m'), (int, float)) else "N/A",
-                    "owner": properties.get('owner', 'N/A'),
+                    "owner": field.owner.name if field.owner else "N/A",
                     "properties": json.dumps(properties)
                 }
                 data.append(row_data)
@@ -98,32 +105,6 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
 
         except Exception as e:
             logging.error("Ошибка при получении данных полей из БД (для таблицы):", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
-        finally:
-            if not database.is_closed():
-                database.close()
-
-class FieldDeleteHandler(tornado.web.RequestHandler):
-    def delete(self, field_id):
-        logging.info(f"Получен запрос на удаление поля с ID: {field_id}")
-        try:
-            if database.is_closed():
-                database.connect()
-            
-            field_to_delete = Field.get_or_none(Field.id == field_id)
-            if field_to_delete:
-                field_to_delete.delete_instance()
-                logging.info(f"Поле с ID {field_id} успешно удалено.")
-                self.set_status(200)
-                self.write({"message": f"Поле с ID {field_id} успешно удалено."})
-            else:
-                logging.warning(f"Поле с ID {field_id} не найдено для удаления.")
-                self.set_status(404)
-                self.write({"error": f"Поле с ID {field_id} не найдено."})
-
-        except Exception as e:
-            logging.error(f"Ошибка при удалении поля с ID {field_id}:", exc_info=True)
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
@@ -199,6 +180,57 @@ class FieldRenameHandler(tornado.web.RequestHandler):
             if not database.is_closed():
                 database.close()
 
+class OwnersDataApiHandler(tornado.web.RequestHandler):
+    def get(self):
+        logging.info("Запрос данных владельцев через API.")
+        self.set_header("Content-Type", "application/json")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            owners = Owner.select()
+            data = [{"id": o.id, "name": o.name} for o in owners]
+            
+            self.write(json.dumps({"data": data}))
+        except Exception as e:
+            logging.error("Ошибка при получении владельцев:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
+class AddOwnerApiHandler(tornado.web.RequestHandler):
+    def post(self):
+        logging.info("Запрос на добавление нового владельца.")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            request_data = json.loads(self.request.body)
+            owner_name = request_data.get('name')
+            
+            if not owner_name:
+                self.set_status(400)
+                self.write({"error": "Имя владельца обязательно."})
+                return
+            
+            owner, created = Owner.get_or_create(name=owner_name)
+            if created:
+                logging.info(f"Создан новый владелец: {owner_name}")
+                self.write({"message": f"Владелец '{owner_name}' успешно добавлен."})
+            else:
+                self.set_status(400)
+                self.write({"error": f"Владелец '{owner_name}' уже существует."})
+                
+        except Exception as e:
+            logging.error("Ошибка при добавлении владельца:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
 class UploadHandler(tornado.web.RequestHandler):
     def post(self):
         logging.info("Получен запрос на загрузку файла.")
@@ -243,8 +275,6 @@ class UploadHandler(tornado.web.RequestHandler):
                 database.connect()
             
             with database.atomic():
-                # Field.delete().execute() # Раскомментировать, если нужно очищать БД при каждой загрузке
-
                 for _, row in gdf_wgs84.iterrows():
                     geom_wkt = row.geometry.wkt
                     
@@ -292,10 +322,13 @@ def make_app():
     return tornado.web.Application([
         (r"/", MainHandler),
         (r"/fields_list", FieldsListPageHandler),
+        (r"/owners", OwnersPageHandler),
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
-        (r"/api/field/delete/([0-9]+)", FieldDeleteHandler), # Новый маршрут для удаления
-        (r"/api/field/rename/([0-9]+)", FieldRenameHandler), # Новый маршрут для переименования
+        (r"/api/owners", OwnersDataApiHandler),
+        (r"/api/owner/add", AddOwnerApiHandler),
+        (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
+        (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/upload", UploadHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)

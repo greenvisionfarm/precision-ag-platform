@@ -24,7 +24,14 @@ function loadFieldsAndRenderMap() {
                 onEachFeature: function(feature, layer) {
                     if (feature.properties) {
                         const fieldName = feature.properties.name || feature.properties.NAME || feature.properties.db_id || 'N/A';
-                        layer.bindPopup(`Поле: ${fieldName}`);
+                        let popupContent = `<b>Поле:</b> ${fieldName}`;
+
+                        const areaSqM = feature.properties.area_sq_m;
+                        if (typeof areaSqM === 'number') {
+                            const areaHa = (areaSqM / 10000).toFixed(2); // Переводим в гектары и округляем
+                            popupContent += `<br><b>Площадь:</b> ${areaHa} га`;
+                        }
+                        layer.bindPopup(popupContent);
                     }
                     // Добавляем каждый загруженный слой в editableLayers
                     editableLayers.addLayer(layer);
@@ -123,6 +130,21 @@ $(document).ready(function() {
 
         loadFieldsAndRenderMap();
     }
+
+
+    // Управление видимостью кнопки загрузки
+    $('#shapefile-input').on('change', function() {
+        const uploadButton = $('#upload-button');
+        const uploadStatus = $('#upload-status');
+        
+        if (this.files && this.files.length > 0) {
+            uploadButton.show();
+        } else {
+            uploadButton.hide();
+        }
+        // Очищаем статус при выборе нового файла
+        uploadStatus.text('');
+    });
 
 
     // Обработчик формы загрузки (всегда активен, так как форма в сайдбаре)

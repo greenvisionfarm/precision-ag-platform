@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Список Владельцев{% end %}
+
+{% block head_extra %}
+    <style>
+        .main-content {
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        #owners-table-container, #add-owner-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #add-owner-btn {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #add-owner-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+{% end %}
+
+{% block content %}
+    <h1>Управление Владельцами</h1>
+
+    <div id="add-owner-section">
+        <h3>Добавить владельца</h3>
+        <form id="add-owner-form">
+            <div class="form-group">
+                <label for="owner-name">ФИО / Название организации:</label>
+                <input type="text" id="owner-name" name="name" required placeholder="Введите имя владельца">
+            </div>
+            <button type="submit" id="add-owner-btn">Добавить</button>
+        </form>
+    </div>
+
+    <div id="owners-table-container">
+        <table id="owners-table" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя / Название</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Данные будут загружены сюда -->
+            </tbody>
+        </table>
+    </div>
+{% end %}
+
+{% block scripts %}
+    <script>
+        $(document).ready(function() {
+            const table = $('#owners-table').DataTable({
+                "ajax": "/api/owners",
+                "columns": [
+                    { "data": "id" },
+                    { "data": "name" }
+                ],
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"
+                }
+            });
+
+            $('#add-owner-form').on('submit', function(e) {
+                e.preventDefault();
+                const name = $('#owner-name').val();
+
+                $.ajax({
+                    url: '/api/owner/add',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: name }),
+                    success: function(response) {
+                        alert(response.message);
+                        $('#owner-name').val('');
+                        table.ajax.reload();
+                    },
+                    error: function(jqXHR) {
+                        const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при добавлении.';
+                        alert("Ошибка: " + errorMsg);
+                    }
+                });
+            });
+        });
+    </script>
+{% end %}
