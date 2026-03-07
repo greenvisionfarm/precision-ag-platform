@@ -219,6 +219,57 @@ class FieldAssignOwnerHandler(tornado.web.RequestHandler):
             if not database.is_closed():
                 database.close()
 
+class FieldAddHandler(tornado.web.RequestHandler):
+    def post(self):
+        logging.info("Получен запрос на добавление нового поля вручную.")
+        try:
+            request_data = json.loads(self.request.body)
+            geometry = request_data.get('geometry')
+            name = request_data.get('name', 'Новое поле')
+
+            if not geometry:
+                self.set_status(400)
+                self.write({"error": "Геометрия обязательна."})
+                return
+
+            # Превращаем GeoJSON в объект Shapely
+            poly = shape(geometry)
+            geom_wkt = poly.wkt
+
+            # Расчет площади (переводим в EPSG:3857 для метров)
+            # Для простоты создаем временный GeoDataFrame
+            temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
+            temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
+            area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
+
+            properties = {
+                "area_sq_m": area_sq_m,
+                "source": "manual_draw"
+            }
+
+            if database.is_closed():
+                database.connect()
+            
+            new_field = Field.create(
+                name=name,
+                geometry_wkt=geom_wkt,
+                properties_json=json.dumps(properties)
+            )
+
+            logging.info(f"Создано новое поле ID {new_field.id} вручную.")
+            self.write({
+                "message": "Поле успешно добавлено.",
+                "id": new_field.id
+            })
+
+        except Exception as e:
+            logging.error("Ошибка при ручном добавлении поля:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
 class OwnersDataApiHandler(tornado.web.RequestHandler):
     def get(self):
         logging.info("Запрос данных владельцев через API.")
@@ -369,6 +420,7 @@ def make_app():
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),
+        (r"/api/field/add", FieldAddHandler),
         (r"/upload", UploadHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)

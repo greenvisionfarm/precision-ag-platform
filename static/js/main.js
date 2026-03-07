@@ -85,7 +85,17 @@ $(document).ready(function() {
                 edit: false   // Отключаем инструмент редактирования (пока)
             },
             draw: {
-                polygon: false, // Отключаем инструменты рисования (пока)
+                polygon: {
+                    allowIntersection: false,
+                    showArea: true,
+                    drawError: {
+                        color: '#e1e100',
+                        message: '<strong>Ошибка:</strong> полигоны не могут пересекаться!'
+                    },
+                    shapeOptions: {
+                        color: '#007BFF'
+                    }
+                },
                 polyline: false,
                 rectangle: false,
                 circle: false,
@@ -94,6 +104,36 @@ $(document).ready(function() {
             }
         });
         mapInstance.addControl(drawControl);
+
+        // Обработка создания нового полигона
+        mapInstance.on(L.Draw.Event.CREATED, function (e) {
+            const layer = e.layer;
+            const geometry = layer.toGeoJSON().geometry;
+
+            const name = prompt("Введите название поля:", "Новое поле");
+            if (name === null) return; // Отмена
+
+            $.ajax({
+                url: '/api/field/add',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    geometry: geometry,
+                    name: name
+                }),
+                success: function(response) {
+                    console.log("Поле успешно добавлено:", response);
+                    // Добавляем слой в группу редактируемых
+                    editableLayers.addLayer(layer);
+                    // Перезагружаем карту, чтобы получить полные данные (включая ID и площадь из БД)
+                    loadFieldsAndRenderMap();
+                },
+                error: function(jqXHR) {
+                    const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при добавлении.';
+                    alert("Ошибка: " + errorMsg);
+                }
+            });
+        });
 
         mapInstance.on(L.Draw.Event.DELETED, function (e) {
             const layers = e.layers;

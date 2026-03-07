@@ -283,3 +283,57 @@ async def test_assign_owner_invalid_id(http_server_client, sample_field_data):
         await client.fetch(request)
     assert e.value.code == 400
     assert "Владелец не найден" in json.loads(e.value.response.body)["error"]
+
+async def test_add_field_manually_success(http_server_client):
+    """Тест успешного ручного добавления поля."""
+    client, base_url = http_server_client
+    
+    # Геометрия 1x1 градус (примерно 111x111 км в метрах, но в EPSG:3857 будет больше)
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[30, 50], [31, 50], [31, 51], [30, 51], [30, 50]]]
+    }
+    field_name = "Manual Field"
+    request_body = json.dumps({
+        "geometry": geometry,
+        "name": field_name
+    })
+    
+    request = HTTPRequest(
+        f"{base_url}/api/field/add",
+        method='POST',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    response = await client.fetch(request)
+    assert response.code == 200
+    
+    data = json.loads(response.body)
+    assert "успешно добавлено" in data["message"]
+    
+    # Проверяем в БД
+    field_id = data["id"]
+    field = Field.get(Field.id == field_id)
+    assert field.name == field_name
+    
+    properties = json.loads(field.properties_json)
+    assert "area_sq_m" in properties
+    assert properties["area_sq_m"] > 0
+    assert properties["source"] == "manual_draw"
+
+async def test_add_field_manually_missing_geometry(http_server_client):
+    """Тест ошибки при отсутствии геометрии в запросе."""
+    client, base_url = http_server_client
+    
+    request_body = json.dumps({"name": "No Geometry Field"})
+    request = HTTPRequest(
+        f"{base_url}/api/field/add",
+        method='POST',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 400
+    assert "Геометрия обязательна" in json.loads(e.value.response.body)["error"]
