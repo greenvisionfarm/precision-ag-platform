@@ -27,6 +27,12 @@ class Field(BaseModel):
     properties_json = TextField(null=True)
     # Связь с владельцем
     owner = ForeignKeyField(Owner, backref='fields', null=True)
+    
+    # Новые поля для земельного учета
+    land_status = CharField(null=True) # Собственность, Аренда, и т.д.
+    parcel_number = CharField(null=True)
+    lease_start = DateField(null=True)
+    lease_end = DateField(null=True)
 
     class Meta:
         table_name = 'fields'

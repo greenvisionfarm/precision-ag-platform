@@ -22,6 +22,8 @@
                     <th>Название (кликните для правки)</th>
                     <th>Площадь</th>
                     <th>Владелец</th>
+                    <th>Статус</th>
+                    <th>Кадастр № (кликните)</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -58,8 +60,7 @@
                         { 
                             "data": "owner_id",
                             "render": function(data, type, row) {
-                                // Сохраняем оригинальное значение в data-атрибуте
-                                let select = `<select class="owner-select" data-id="${row.id}" data-original-value="${data || ''}">`;
+                                let select = `<select class="owner-select" data-id="${row.id}">`;
                                 select += `<option value="">Не назначен</option>`;
                                 owners.forEach(owner => {
                                     const selected = (owner.id == data) ? 'selected' : '';
@@ -70,11 +71,30 @@
                             }
                         },
                         {
+                            "data": "land_status",
+                            "render": function(data, type, row) {
+                                const statuses = ["Собственность", "Аренда", "Субаренда"];
+                                let select = `<select class="status-select" data-id="${row.id}">`;
+                                select += `<option value="">Не указан</option>`;
+                                statuses.forEach(s => {
+                                    const selected = (s === data) ? 'selected' : '';
+                                    select += `<option value="${s}" ${selected}>${s}</option>`;
+                                });
+                                select += `</select>`;
+                                return select;
+                            }
+                        },
+                        {
+                            "data": "parcel_number",
+                            "render": function(data, type, row) {
+                                return `<span class="editable-parcel" data-id="${row.id}">${data || 'N/A'}</span>`;
+                            }
+                        },
+                        {
                             "data": null,
                             "render": function(data, type, row) {
                                 return `
-                                    <button class="btn-save-owner" data-id="${row.id}" style="display: none;">Сохранить</button>
-                                    <button class="btn-rename">Имя</button>
+                                    <button class="btn-save-details" data-id="${row.id}" style="display: none;">Сохранить</button>
                                     <button class="btn-delete">Удалить</button>
                                 `;
                             },
@@ -86,46 +106,58 @@
                     }
                 });
 
-                // Обработчик изменения выбора владельца
-                $('#fields-table tbody').on('change', '.owner-select', function() {
-                    const select = $(this);
-                    const currentValue = select.val();
-                    const originalValue = select.attr('data-original-value');
-                    const row = select.closest('tr');
-                    const saveBtn = row.find('.btn-save-owner');
-
-                    // Показываем кнопку только если значение изменилось
-                    if (currentValue != originalValue) {
-                        saveBtn.show();
-                    } else {
-                        saveBtn.hide();
-                    }
+                // Обработчик изменения выбора владельца или статуса
+                $('#fields-table tbody').on('change', '.owner-select, .status-select', function() {
+                    $(this).closest('tr').find('.btn-save-details').show();
                 });
 
-                // Обработчик сохранения владельца
-                $('#fields-table tbody').on('click', '.btn-save-owner', function () {
-                    const saveBtn = $(this);
-                    const fieldId = saveBtn.data('id');
-                    const row = saveBtn.closest('tr');
-                    const select = row.find('.owner-select');
-                    const ownerId = select.val();
+                // Обработчик сохранения деталей
+                $('#fields-table tbody').on('click', '.btn-save-details', function () {
+                    const btn = $(this);
+                    const fieldId = btn.data('id');
+                    const row = btn.closest('tr');
+                    
+                    const ownerId = row.find('.owner-select').val();
+                    const landStatus = row.find('.status-select').val();
+                    const parcelNumber = row.find('.editable-parcel').text();
 
                     $.ajax({
                         url: `/api/field/assign_owner/${fieldId}`,
                         type: 'PUT',
                         contentType: 'application/json',
                         data: JSON.stringify({ owner_id: ownerId }),
-                        success: function(response) {
-                            // Обновляем оригинальное значение и скрываем кнопку
-                            select.attr('data-original-value', ownerId || '');
-                            saveBtn.hide();
-                            console.log(response.message);
-                            // Можно не перезагружать всю таблицу, так как мы уже обновили стейт в DOM
-                        },
-                        error: function(jqXHR) {
-                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка.';
-                            alert("Ошибка: " + errorMsg);
+                        success: function() {
+                            $.ajax({
+                                url: `/api/field/update_details/${fieldId}`,
+                                type: 'PUT',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ 
+                                    land_status: landStatus,
+                                    parcel_number: parcelNumber
+                                }),
+                                success: function() {
+                                    btn.hide();
+                                    console.log("Детали сохранены.");
+                                }
+                            });
                         }
+                    });
+                });
+
+                // Инлайн-редактирование кадастрового номера
+                $('#fields-table tbody').on('click', '.editable-parcel', function() {
+                    const span = $(this);
+                    if (span.find('input').length > 0) return;
+
+                    const current = span.text();
+                    const input = $('<input type="text" class="edit-input">').val(current === 'N/A' ? '' : current);
+                    span.html(input);
+                    input.focus();
+
+                    input.on('blur', function() {
+                        const newVal = input.val().trim() || 'N/A';
+                        span.text(newVal);
+                        span.closest('tr').find('.btn-save-details').show();
                     });
                 });
 
@@ -135,14 +167,12 @@
                     const fieldId = span.data('id');
                     const currentName = span.text();
 
-                    // Если уже есть input, ничего не делаем
                     if (span.find('input').length > 0) return;
 
                     const input = $('<input type="text" class="edit-input">').val(currentName);
                     span.html(input);
                     input.focus();
 
-                    // Сохранение при потере фокуса или нажатии Enter
                     const saveChange = function() {
                         const newName = input.val().trim();
                         if (newName === "" || newName === currentName) {
@@ -155,25 +185,15 @@
                             type: 'PUT',
                             contentType: 'application/json',
                             data: JSON.stringify({ new_name: newName }),
-                            success: function(response) {
+                            success: function() {
                                 span.text(newName);
-                                // Обновляем данные в DataTable без перезагрузки всей таблицы
                                 table.row(span.parents('tr')).data().name = newName;
-                            },
-                            error: function(jqXHR) {
-                                const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка.';
-                                alert("Ошибка при переименовании: " + errorMsg);
-                                span.text(currentName);
                             }
                         });
                     };
 
                     input.on('blur', saveChange);
-                    input.on('keypress', function(e) {
-                        if (e.which == 13) { // Enter
-                            saveChange();
-                        }
-                    });
+                    input.on('keypress', function(e) { if (e.which == 13) saveChange(); });
                 });
 
                 // Обработчик удаления
@@ -183,10 +203,7 @@
                         $.ajax({
                             url: `/api/field/delete/${data.id}`,
                             type: 'DELETE',
-                            success: function(response) {
-                                alert(response.message);
-                                table.ajax.reload(null, false);
-                            }
+                            success: function() { table.ajax.reload(null, false); }
                         });
                     }
                 });

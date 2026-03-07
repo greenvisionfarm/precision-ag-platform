@@ -97,6 +97,8 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
                     "area": f"{properties.get('area_sq_m', 0) / 10000:.2f} га" if isinstance(properties.get('area_sq_m'), (int, float)) else "N/A",
                     "owner": field.owner.name if field.owner else "N/A",
                     "owner_id": field.owner.id if field.owner else None,
+                    "land_status": field.land_status or "Не указан",
+                    "parcel_number": field.parcel_number or "N/A",
                     "properties": json.dumps(properties)
                 }
                 data.append(row_data)
@@ -213,6 +215,34 @@ class FieldAssignOwnerHandler(tornado.web.RequestHandler):
                 
         except Exception as e:
             logging.error(f"Ошибка при назначении владельца:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
+class FieldUpdateDetailsHandler(tornado.web.RequestHandler):
+    def put(self, field_id):
+        logging.info(f"Запрос на обновление деталей поля ID: {field_id}")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            field = Field.get_or_none(Field.id == field_id)
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено."})
+                return
+
+            request_data = json.loads(self.request.body)
+            field.land_status = request_data.get('land_status', field.land_status)
+            field.parcel_number = request_data.get('parcel_number', field.parcel_number)
+            field.save()
+            
+            self.write({"message": "Детали поля успешно обновлены."})
+
+        except Exception as e:
+            logging.error(f"Ошибка при обновлении деталей поля {field_id}:", exc_info=True)
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
@@ -469,6 +499,7 @@ def make_app():
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),
+        (r"/api/field/update_details/([0-9]+)", FieldUpdateDetailsHandler),
         (r"/api/field/add", FieldAddHandler),
         (r"/api/field/update_geometry/([0-9]+)", FieldUpdateGeometryHandler),
         (r"/upload", UploadHandler),
@@ -478,5 +509,5 @@ def make_app():
 if __name__ == "__main__":
     app = make_app()
     app.listen(8888)
-    logging.info("Сервер запущен. Откройте http://localhost:8888 в вашем браузере.")
+    logging.info("Сервер запущен. Откройте http://localhost:8888 in your browser.")
     tornado.ioloop.IOLoop.current().start()
