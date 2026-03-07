@@ -1,16 +1,14 @@
 let userLocationMarker = null; // Маркер для местоположения пользователя
 let mapInstance = null; // Сохраняем экземпляр карты
 let editableLayers = null; // Группа слоев для редактирования Leaflet.draw
+let baseLayers = {}; // Объект для хранения базовых слоев (светлый/темный)
 
 function loadFieldsAndRenderMap() {
-    // Очищаем editableLayers перед загрузкой новых данных
     if (editableLayers) {
         editableLayers.clearLayers();
     }
 
     $.getJSON('/api/fields', function(data) {
-        console.log("Данные полей получены:", data);
-
         if (data.features && data.features.length > 0) {
             L.geoJSON(data, {
                 style: function(feature) {
@@ -28,40 +26,88 @@ function loadFieldsAndRenderMap() {
 
                         const areaSqM = feature.properties.area_sq_m;
                         if (typeof areaSqM === 'number') {
-                            const areaHa = (areaSqM / 10000).toFixed(2); // Переводим в гектары и округляем
+                            const areaHa = (areaSqM / 10000).toFixed(2);
                             popupContent += `<br><b>Площадь:</b> ${areaHa} га`;
                         }
                         layer.bindPopup(popupContent);
                     }
-                    // Добавляем каждый загруженный слой в editableLayers
                     editableLayers.addLayer(layer);
                 }
-            }); // Не добавляем напрямую на карту, так как editableLayers уже на карте
+            });
 
             if (editableLayers.getBounds().isValid()) {
                 mapInstance.fitBounds(editableLayers.getBounds());
             }
-        } else {
-            console.log("Нет данных для отображения.");
         }
     }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error("Ошибка при загрузке данных полей: " + textStatus, errorThrown);
-        $('#upload-status').text("Ошибка загрузки данных карты.").css('color', 'red');
     });
 }
 
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+
+    $('#theme-toggle-btn').on('click', function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+    });
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+
+    // Обновляем кнопку
+    const btn = $('#theme-toggle-btn');
+    if (theme === 'dark') {
+        btn.find('.icon').text('☀️');
+        btn.find('.text').text('Светлая тема');
+    } else {
+        btn.find('.icon').text('🌙');
+        btn.find('.text').text('Темная тема');
+    }
+
+    // Обновляем карту, если она инициализирована
+    if (mapInstance) {
+        if (theme === 'dark') {
+            mapInstance.removeLayer(baseLayers.light);
+            baseLayers.dark.addTo(mapInstance);
+        } else {
+            mapInstance.removeLayer(baseLayers.dark);
+            baseLayers.light.addTo(mapInstance);
+        }
+    }
+}
+
 $(document).ready(function() {
+    initTheme();
+
     if ($('#map').length) {
         mapInstance = L.map('map').setView([54.5, 38.0], 5);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        baseLayers.light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(mapInstance);
+        });
+
+        baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+
+        // Применяем начальный слой в зависимости от темы
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        if (currentTheme === 'dark') {
+            baseLayers.dark.addTo(mapInstance);
+        } else {
+            baseLayers.light.addTo(mapInstance);
+        }
 
         mapInstance.locate({setView: true, maxZoom: 16});
 
         mapInstance.on('locationfound', function(e) {
-            console.log("Местоположение пользователя найдено:", e.latlng);
             if (userLocationMarker) {
                 mapInstance.removeLayer(userLocationMarker);
             }
@@ -70,19 +116,14 @@ $(document).ready(function() {
             L.circle(e.latlng, e.accuracy).addTo(mapInstance);
         });
 
-        mapInstance.on('locationerror', function(e) {
-            console.error("Ошибка определения местоположения:", e.message);
-        });
-
-        // --- НАЧАЛО ИСПРАВЛЕНИЯ: Leaflet.draw для удаления ---
         editableLayers = new L.FeatureGroup();
         mapInstance.addLayer(editableLayers);
 
         const drawControl = new L.Control.Draw({
             edit: {
                 featureGroup: editableLayers,
-                remove: true, // Включаем инструмент удаления
-                edit: true    // Включаем инструмент редактирования
+                remove: true,
+                edit: true
             },
             draw: {
                 polygon: {
@@ -105,13 +146,11 @@ $(document).ready(function() {
         });
         mapInstance.addControl(drawControl);
 
-        // Обработка создания нового полигона
         mapInstance.on(L.Draw.Event.CREATED, function (e) {
             const layer = e.layer;
             const geometry = layer.toGeoJSON().geometry;
-
             const name = prompt("Введите название поля:", "Новое поле");
-            if (name === null) return; // Отмена
+            if (name === null) return;
 
             $.ajax({
                 url: '/api/field/add',
@@ -122,49 +161,31 @@ $(document).ready(function() {
                     name: name
                 }),
                 success: function(response) {
-                    console.log("Поле успешно добавлено:", response);
-                    // Добавляем слой в группу редактируемых
                     editableLayers.addLayer(layer);
-                    // Перезагружаем карту, чтобы получить полные данные (включая ID и площадь из БД)
                     loadFieldsAndRenderMap();
                 },
                 error: function(jqXHR) {
-                    const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при добавлении.';
-                    alert("Ошибка: " + errorMsg);
+                    alert("Ошибка: " + (jqXHR.responseJSON?.error || 'Ошибка при добавлении.'));
                 }
             });
         });
 
-        // Обработка редактирования существующих полигонов
         mapInstance.on(L.Draw.Event.EDITED, function (e) {
             const layers = e.layers;
             layers.eachLayer(function (layer) {
-                // Пытаемся получить db_id из свойств GeoJSON
-                const fieldId = layer.feature ? layer.feature.properties.db_id : null;
-                if (!fieldId) {
-                    console.warn("Попытка редактировать слой без db_id.");
-                    return;
-                }
-
-                const geometry = layer.toGeoJSON().geometry;
-                console.log("Обновление геометрии для поля ID:", fieldId);
+                const fieldId = layer.feature?.properties.db_id;
+                if (!fieldId) return;
 
                 $.ajax({
                     url: `/api/field/update_geometry/${fieldId}`,
                     type: 'PUT',
                     contentType: 'application/json',
-                    data: JSON.stringify({
-                        geometry: geometry
-                    }),
-                    success: function(response) {
-                        console.log(`Геометрия поля ${fieldId} успешно обновлена.`);
-                        // Перезагружаем карту, чтобы получить актуальные данные (например, обновленную площадь)
+                    data: JSON.stringify({ geometry: layer.toGeoJSON().geometry }),
+                    success: function() {
                         loadFieldsAndRenderMap();
                     },
                     error: function(jqXHR) {
-                        const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка при сохранении изменений.';
-                        console.error(`Ошибка при обновлении поля ${fieldId}:`, errorMsg);
-                        alert(`Ошибка при обновлении поля ${fieldId}: ${errorMsg}`);
+                        alert("Ошибка: " + (jqXHR.responseJSON?.error || 'Ошибка при сохранении.'));
                     }
                 });
             });
@@ -173,65 +194,43 @@ $(document).ready(function() {
         mapInstance.on(L.Draw.Event.DELETED, function (e) {
             const layers = e.layers;
             layers.eachLayer(function (layer) {
-                const fieldId = layer.feature.properties.db_id;
+                const fieldId = layer.feature?.properties.db_id;
                 if (fieldId) {
-                    console.log("Попытка удалить поле с ID:", fieldId);
                     $.ajax({
                         url: `/api/field/delete/${fieldId}`,
                         type: 'DELETE',
-                        success: function(response) {
-                            console.log("Поле успешно удалено:", response);
-                            // Перезагружаем карту, чтобы обновить отображение
+                        success: function() {
                             loadFieldsAndRenderMap();
-                            // Если есть таблица, ее тоже нужно обновить
                             if ($.fn.DataTable.isDataTable('#fields-table')) {
                                 $('#fields-table').DataTable().ajax.reload();
                             }
-                        },
-                        error: function(jqXHR, textStatus, errorThrown) {
-                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка при удалении.';
-                            console.error("Ошибка при удалении поля:", errorMsg, jqXHR);
-                            alert("Ошибка при удалении поля: " + errorMsg);
-                            // Если ошибка, возможно, стоит перезагрузить карту, чтобы вернуть удаленный слой
-                            loadFieldsAndRenderMap();
                         }
                     });
-                } else {
-                    console.warn("Удален слой без db_id. Возможно, это не поле из БД.");
                 }
             });
         });
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ: Leaflet.draw для удаления ---
 
         loadFieldsAndRenderMap();
     }
 
-
-    // Управление видимостью кнопки загрузки
-    $('#shapefile-input').on('change', function() {
-        const uploadButton = $('#upload-button');
-        const uploadStatus = $('#upload-status');
-        
-        if (this.files && this.files.length > 0) {
-            uploadButton.show();
-        } else {
-            uploadButton.hide();
-        }
-        // Очищаем статус при выборе нового файла
-        uploadStatus.text('');
+    // Сайдбар и форма загрузки
+    $('#sidebar-toggle').on('click', function() {
+        $('body').toggleClass('sidebar-open');
+        $('#sidebar').toggleClass('open');
+        if (mapInstance) mapInstance.invalidateSize();
     });
 
+    $('#shapefile-input').on('change', function() {
+        if (this.files?.length > 0) $('#upload-button').show();
+        else $('#upload-button').hide();
+        $('#upload-status').text('');
+    });
 
-    // Обработчик формы загрузки (всегда активен, так как форма в сайдбаре)
     $('#upload-form').on('submit', function(e) {
         e.preventDefault();
-
-        const form = $(this);
-        const formData = new FormData(form[0]);
-        const uploadStatus = $('#upload-status');
-
-        uploadStatus.text('Загрузка...').css('color', 'blue');
-        console.log("Начало отправки файла...");
+        const formData = new FormData(this);
+        const status = $('#upload-status');
+        status.text('Загрузка...').css('color', 'blue');
 
         $.ajax({
             url: '/upload',
@@ -239,33 +238,14 @@ $(document).ready(function() {
             data: formData,
             processData: false,
             contentType: false,
-            beforeSend: function() {
-                console.log("AJAX запрос на /upload отправляется.");
-            },
             success: function(response) {
-                uploadStatus.text(response.message || 'Файл успешно загружен!').css('color', 'green');
-                console.log("Загрузка успешна:", response);
-                // Если мы на странице карты, перезагружаем поля
-                if (mapInstance) {
-                    loadFieldsAndRenderMap();
-                }
-                location.reload();
+                status.text(response.message || 'Успех!').css('color', 'green');
+                if (mapInstance) loadFieldsAndRenderMap();
+                setTimeout(() => location.reload(), 1000);
             },
-            error: function(jqXHR, textStatus, errorThrown) {
-                const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка.';
-                uploadStatus.text('Ошибка загрузки: ' + errorMsg).css('color', 'red');
-                console.error("Ошибка загрузки:", textStatus, errorThrown, jqXHR.responseJSON);
-                console.error("Полный объект ошибки AJAX:", jqXHR);
+            error: function(jqXHR) {
+                status.text('Ошибка: ' + (jqXHR.responseJSON?.error || 'Неизвестная ошибка.')).css('color', 'red');
             }
         });
-    });
-
-    // Обработчик кнопки переключения сайдбара
-    $('#sidebar-toggle').on('click', function() {
-        $('body').toggleClass('sidebar-open');
-        $('#sidebar').toggleClass('open');
-        if (mapInstance) {
-            mapInstance.invalidateSize();
-        }
     });
 });

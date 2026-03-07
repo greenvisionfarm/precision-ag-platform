@@ -21,13 +21,14 @@
 *   **Геопространственная обработка:** [GeoPandas](https://geopandas.org/) (для чтения shape-файлов, перепроецирования, расчета площади)
 
 ### Frontend
-*   **Языки:** HTML, CSS, JavaScript
+*   **Языки:** HTML, CSS (используются CSS Variables), JavaScript
 *   **Библиотеки:**
     *   [jQuery](https://jquery.com/)
     *   [Leaflet.js](https://leafletjs.com/)
     *   [Leaflet.draw](https://github.com/Leaflet/Leaflet.draw)
     *   [DataTables](https://datatables.net/)
 *   **Диалоговые окна:** Нативные `alert()`, `confirm()`. Для переименования в таблице используется **инлайн-редактирование** (input вместо prompt).
+*   **Темная тема:** Реализована через CSS-переменные и атрибут `data-theme` на уровне `html`. Переключение стиля карты (OSM Light / CartoDB Dark Matter) происходит автоматически. Выбор сохраняется в `localStorage`.
 
 ## Функциональность
 
