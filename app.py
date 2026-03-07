@@ -130,6 +130,75 @@ class FieldDeleteHandler(tornado.web.RequestHandler):
             if not database.is_closed():
                 database.close()
 
+class FieldDeleteHandler(tornado.web.RequestHandler):
+    def delete(self, field_id):
+        logging.info(f"Получен запрос на удаление поля с ID: {field_id}")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            field_to_delete = Field.get_or_none(Field.id == field_id)
+            if field_to_delete:
+                field_to_delete.delete_instance()
+                logging.info(f"Поле с ID {field_id} успешно удалено.")
+                self.set_status(200)
+                self.write({"message": f"Поле с ID {field_id} успешно удалено."})
+            else:
+                logging.warning(f"Поле с ID {field_id} не найдено для удаления.")
+                self.set_status(404)
+                self.write({"error": f"Поле с ID {field_id} не найдено."})
+
+        except Exception as e:
+            logging.error(f"Ошибка при удалении поля с ID {field_id}:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
+class FieldRenameHandler(tornado.web.RequestHandler):
+    def put(self, field_id):
+        logging.info(f"Получен запрос на переименование поля с ID: {field_id}")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            field_to_rename = Field.get_or_none(Field.id == field_id)
+            if not field_to_rename:
+                logging.warning(f"Поле с ID {field_id} не найдено для переименования.")
+                self.set_status(404)
+                self.write({"error": f"Поле с ID {field_id} не найдено."})
+                return
+
+            try:
+                request_data = json.loads(self.request.body)
+                new_name = request_data.get('new_name')
+            except json.JSONDecodeError:
+                logging.error("Неверный формат JSON в запросе на переименование.")
+                self.set_status(400)
+                self.write({"error": "Неверный формат JSON."})
+                return
+            
+            if not new_name:
+                logging.warning("Новое имя поля не предоставлено.")
+                self.set_status(400)
+                self.write({"error": "Новое имя поля не может быть пустым."})
+                return
+
+            field_to_rename.name = new_name
+            field_to_rename.save()
+            logging.info(f"Поле с ID {field_id} успешно переименовано в '{new_name}'.")
+            self.set_status(200)
+            self.write({"message": f"Поле с ID {field_id} успешно переименовано."})
+
+        except Exception as e:
+            logging.error(f"Ошибка при переименовании поля с ID {field_id}:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
 class UploadHandler(tornado.web.RequestHandler):
     def post(self):
         logging.info("Получен запрос на загрузку файла.")
@@ -226,6 +295,7 @@ def make_app():
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler), # Новый маршрут для удаления
+        (r"/api/field/rename/([0-9]+)", FieldRenameHandler), # Новый маршрут для переименования
         (r"/upload", UploadHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)

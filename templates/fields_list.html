@@ -33,7 +33,7 @@
                     <th>Название</th>
                     <th>Площадь</th>
                     <th>Владелец</th>
-                    <th>Свойства (JSON)</th>
+                    <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -46,22 +46,81 @@
 {% block scripts %}
     <script>
         $(document).ready(function() {
-            $('#fields-table').DataTable({
+            console.log("Initializing DataTables for fields_list.html..."); // Добавляем для отладки
+            const table = $('#fields-table').DataTable({
                 "processing": true,
-                "serverSide": false, // Используем клиентскую обработку, так как данные загружаются сразу
+                "serverSide": false,
                 "ajax": {
                     "url": "/api/fields_data",
-                    "dataSrc": "data" // DataTables ожидает массив данных по ключу "data"
+                    "dataSrc": function (json) {
+                        console.log("DataTables received data:", json); // Отладочный вывод
+                        return json.data;
+                    },
+                    "error": function (xhr, error, thrown) { // Добавляем обработчик ошибок AJAX
+                        console.error("DataTables AJAX error:", error, thrown, xhr);
+                        $.customAlert("Ошибка загрузки данных таблицы: " + thrown, "Ошибка");
+                    }
                 },
                 "columns": [
                     { "data": "id" },
                     { "data": "name" },
                     { "data": "area" },
                     { "data": "owner" },
-                    { "data": "properties" }
+                    {
+                        "data": null, // Для столбца действий данные не привязаны напрямую
+                        "defaultContent": '<button class="btn-rename">Переименовать</button> <button class="btn-delete">Удалить</button>',
+                        "orderable": false // Столбец действий не сортируется
+                    }
                 ],
                 "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" // Русский язык
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"
+                }
+            });
+
+            // Обработчик кликов для кнопок "Переименовать"
+            $('#fields-table tbody').on('click', '.btn-rename', function () {
+                const data = table.row($(this).parents('tr')).data();
+                const fieldId = data.id;
+                const currentName = data.name;
+
+                const newName = prompt(`Введите новое имя для поля ID ${fieldId} (текущее: ${currentName}):`);
+                if (newName && newName.trim() !== '') {
+                    $.ajax({
+                        url: `/api/field/rename/${fieldId}`,
+                        type: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ new_name: newName.trim() }),
+                        success: function(response) {
+                            alert(response.message);
+                            table.ajax.reload(); // Перезагружаем таблицу
+                        },
+                        error: function(jqXHR, textStatus, errorThrown) {
+                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка при переименовании.';
+                            alert("Ошибка: " + errorMsg);
+                        }
+                    });
+                }
+            });
+
+            // Обработчик кликов для кнопок "Удалить"
+            $('#fields-table tbody').on('click', '.btn-delete', function () {
+                const data = table.row($(this).parents('tr')).data();
+                const fieldId = data.id;
+                const fieldName = data.name;
+
+                if (confirm(`Вы уверены, что хотите удалить поле "${fieldName}" (ID: ${fieldId})?`)) {
+                    $.ajax({
+                        url: `/api/field/delete/${fieldId}`,
+                        type: 'DELETE',
+                        success: function(response) {
+                            alert(response.message);
+                            table.ajax.reload(); // Перезагружаем таблицу
+                        },
+                        error: function(jqXHR, textStatus, errorThrown) {
+                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка при удалении.';
+                            alert("Ошибка: " + errorMsg);
+                        }
+                    });
                 }
             });
         });
