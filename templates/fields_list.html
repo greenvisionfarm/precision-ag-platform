@@ -4,9 +4,9 @@
 
 {% block head_extra %}
     <style>
-        /* Стили, специфичные для этой страницы, если нужны */
+        /* Стили, специфичные для этой страницы */
         .main-content {
-            padding: 20px; /* Добавляем отступы для содержимого таблицы */
+            padding: 20px;
         }
         h1 {
             color: #333;
@@ -19,7 +19,6 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        /* Стили для формы загрузки на этой странице */
         #upload-section {
             background-color: #f8f9fa;
             padding: 15px;
@@ -32,9 +31,6 @@
             align-items: center;
             gap: 15px;
         }
-        #upload-form input[type="file"] {
-            margin-bottom: 0;
-        }
         #upload-button {
             padding: 8px 16px;
             background-color: #007bff;
@@ -46,6 +42,33 @@
         #upload-button:hover {
             background-color: #0056b3;
         }
+        /* Стили для таблицы */
+        .owner-select {
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 100%;
+        }
+        .btn-save-owner {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .btn-save-owner:hover {
+            background-color: #218838;
+        }
+        .btn-rename, .btn-delete {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .btn-rename { background-color: #ffc107; }
+        .btn-delete { background-color: #dc3545; color: white; }
     </style>
 {% end %}
 
@@ -73,7 +96,7 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Данные будут загружены сюда через DataTables -->
+                <!-- Данные будут загружены сюда -->
             </tbody>
         </table>
     </div>
@@ -82,83 +105,131 @@
 {% block scripts %}
     <script>
         $(document).ready(function() {
-            console.log("Initializing DataTables for fields_list.html..."); // Добавляем для отладки
-            const table = $('#fields-table').DataTable({
-                "processing": true,
-                "serverSide": false,
-                "ajax": {
-                    "url": "/api/fields_data",
-                    "dataSrc": function (json) {
-                        console.log("DataTables received data:", json); // Отладочный вывод
-                        return json.data;
-                    },
-                    "error": function (xhr, error, thrown) { // Добавляем обработчик ошибок AJAX
-                        console.error("DataTables AJAX error:", error, thrown, xhr);
-                        $.customAlert("Ошибка загрузки данных таблицы: " + thrown, "Ошибка");
-                    }
-                },
-                "columns": [
-                    { "data": "id" },
-                    { "data": "name" },
-                    { "data": "area" },
-                    { "data": "owner" },
-                    {
-                        "data": null, // Для столбца действий данные не привязаны напрямую
-                        "defaultContent": '<button class="btn-rename">Переименовать</button> <button class="btn-delete">Удалить</button>',
-                        "orderable": false // Столбец действий не сортируется
-                    }
-                ],
-                "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"
-                }
+            let owners = [];
+
+            // 1. Сначала загружаем список владельцев
+            $.getJSON('/api/owners', function(response) {
+                owners = response.data;
+                initializeTable();
             });
 
-            // Обработчик кликов для кнопок "Переименовать"
-            $('#fields-table tbody').on('click', '.btn-rename', function () {
-                const data = table.row($(this).parents('tr')).data();
-                const fieldId = data.id;
-                const currentName = data.name;
+            function initializeTable() {
+                const table = $('#fields-table').DataTable({
+                    "ajax": "/api/fields_data",
+                    "columns": [
+                        { "data": "id" },
+                        { "data": "name" },
+                        { "data": "area" },
+                        { 
+                            "data": "owner_id",
+                            "render": function(data, type, row) {
+                                // Сохраняем оригинальное значение в data-атрибуте
+                                let select = `<select class="owner-select" data-id="${row.id}" data-original-value="${data || ''}">`;
+                                select += `<option value="">Не назначен</option>`;
+                                owners.forEach(owner => {
+                                    const selected = (owner.id == data) ? 'selected' : '';
+                                    select += `<option value="${owner.id}" ${selected}>${owner.name}</option>`;
+                                });
+                                select += `</select>`;
+                                return select;
+                            }
+                        },
+                        {
+                            "data": null,
+                            "render": function(data, type, row) {
+                                return `
+                                    <button class="btn-save-owner" data-id="${row.id}" style="display: none;">Сохранить</button>
+                                    <button class="btn-rename">Имя</button>
+                                    <button class="btn-delete">Удалить</button>
+                                `;
+                            },
+                            "orderable": false
+                        }
+                    ],
+                    "language": {
+                        "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"
+                    }
+                });
 
-                const newName = prompt(`Введите новое имя для поля ID ${fieldId} (текущее: ${currentName}):`);
-                if (newName && newName.trim() !== '') {
+                // Обработчик изменения выбора владельца
+                $('#fields-table tbody').on('change', '.owner-select', function() {
+                    const select = $(this);
+                    const currentValue = select.val();
+                    const originalValue = select.attr('data-original-value');
+                    const row = select.closest('tr');
+                    const saveBtn = row.find('.btn-save-owner');
+
+                    // Показываем кнопку только если значение изменилось
+                    if (currentValue != originalValue) {
+                        saveBtn.show();
+                    } else {
+                        saveBtn.hide();
+                    }
+                });
+
+                // Обработчик сохранения владельца
+                $('#fields-table tbody').on('click', '.btn-save-owner', function () {
+                    const saveBtn = $(this);
+                    const fieldId = saveBtn.data('id');
+                    const row = saveBtn.closest('tr');
+                    const select = row.find('.owner-select');
+                    const ownerId = select.val();
+
                     $.ajax({
-                        url: `/api/field/rename/${fieldId}`,
+                        url: `/api/field/assign_owner/${fieldId}`,
                         type: 'PUT',
                         contentType: 'application/json',
-                        data: JSON.stringify({ new_name: newName.trim() }),
+                        data: JSON.stringify({ owner_id: ownerId }),
                         success: function(response) {
-                            alert(response.message);
-                            table.ajax.reload(); // Перезагружаем таблицу
+                            // Обновляем оригинальное значение и скрываем кнопку
+                            select.attr('data-original-value', ownerId || '');
+                            saveBtn.hide();
+                            console.log(response.message);
+                            // Можно не перезагружать всю таблицу, так как мы уже обновили стейт в DOM
                         },
-                        error: function(jqXHR, textStatus, errorThrown) {
-                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка при переименовании.';
+                        error: function(jqXHR) {
+                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Ошибка.';
                             alert("Ошибка: " + errorMsg);
                         }
                     });
-                }
-            });
+                });
 
-            // Обработчик кликов для кнопок "Удалить"
-            $('#fields-table tbody').on('click', '.btn-delete', function () {
-                const data = table.row($(this).parents('tr')).data();
-                const fieldId = data.id;
-                const fieldName = data.name;
+                // Обработчик переименования
+                $('#fields-table tbody').on('click', '.btn-rename', function () {
+                    const data = table.row($(this).parents('tr')).data();
+                    const fieldId = data.id;
+                    const currentName = data.name;
 
-                if (confirm(`Вы уверены, что хотите удалить поле "${fieldName}" (ID: ${fieldId})?`)) {
-                    $.ajax({
-                        url: `/api/field/delete/${fieldId}`,
-                        type: 'DELETE',
-                        success: function(response) {
-                            alert(response.message);
-                            table.ajax.reload(); // Перезагружаем таблицу
-                        },
-                        error: function(jqXHR, textStatus, errorThrown) {
-                            const errorMsg = jqXHR.responseJSON && jqXHR.responseJSON.error ? jqXHR.responseJSON.error : 'Неизвестная ошибка при удалении.';
-                            alert("Ошибка: " + errorMsg);
-                        }
-                    });
-                }
-            });
+                    const newName = prompt(`Введите новое имя для поля ID ${fieldId}:`, currentName);
+                    if (newName && newName.trim() !== '') {
+                        $.ajax({
+                            url: `/api/field/rename/${fieldId}`,
+                            type: 'PUT',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ new_name: newName.trim() }),
+                            success: function(response) {
+                                alert(response.message);
+                                table.ajax.reload(null, false);
+                            }
+                        });
+                    }
+                });
+
+                // Обработчик удаления
+                $('#fields-table tbody').on('click', '.btn-delete', function () {
+                    const data = table.row($(this).parents('tr')).data();
+                    if (confirm(`Удалить поле "${data.name}"?`)) {
+                        $.ajax({
+                            url: `/api/field/delete/${data.id}`,
+                            type: 'DELETE',
+                            success: function(response) {
+                                alert(response.message);
+                                table.ajax.reload(null, false);
+                            }
+                        });
+                    }
+                });
+            }
         });
     </script>
 {% end %}

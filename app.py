@@ -96,6 +96,7 @@ class FieldsDataApiHandler(tornado.web.RequestHandler):
                     "name": field.name if field.name else "N/A",
                     "area": f"{properties.get('area_sq_m', 0) / 10000:.2f} га" if isinstance(properties.get('area_sq_m'), (int, float)) else "N/A",
                     "owner": field.owner.name if field.owner else "N/A",
+                    "owner_id": field.owner.id if field.owner else None,
                     "properties": json.dumps(properties)
                 }
                 data.append(row_data)
@@ -174,6 +175,44 @@ class FieldRenameHandler(tornado.web.RequestHandler):
 
         except Exception as e:
             logging.error(f"Ошибка при переименовании поля с ID {field_id}:", exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed():
+                database.close()
+
+class FieldAssignOwnerHandler(tornado.web.RequestHandler):
+    def put(self, field_id):
+        logging.info(f"Получен запрос на назначение владельца для поля с ID: {field_id}")
+        try:
+            if database.is_closed():
+                database.connect()
+            
+            field = Field.get_or_none(Field.id == field_id)
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено."})
+                return
+
+            request_data = json.loads(self.request.body)
+            owner_id = request_data.get('owner_id')
+            
+            if owner_id == "" or owner_id is None:
+                field.owner = None
+            else:
+                owner = Owner.get_or_none(Owner.id == owner_id)
+                if not owner:
+                    self.set_status(400)
+                    self.write({"error": "Владелец не найден."})
+                    return
+                field.owner = owner
+            
+            field.save()
+            logging.info(f"Владелец для поля {field_id} обновлен (owner_id: {owner_id}).")
+            self.write({"message": "Владелец успешно обновлен."})
+                
+        except Exception as e:
+            logging.error(f"Ошибка при назначении владельца:", exc_info=True)
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
@@ -329,6 +368,7 @@ def make_app():
         (r"/api/owner/add", AddOwnerApiHandler),
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
+        (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),
         (r"/upload", UploadHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)

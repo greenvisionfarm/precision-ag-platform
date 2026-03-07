@@ -227,3 +227,59 @@ async def test_rename_field_success(http_server_client, sample_field_data):
     assert response.code == 200
     updated_field = Field.get(Field.id == field.id)
     assert updated_field.name == new_name
+
+async def test_assign_owner_success(http_server_client, sample_field_data):
+    """Тест успешного назначения владельца полю."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+    owner = Owner.create(name="New Owner")
+    
+    request_body = json.dumps({"owner_id": owner.id})
+    request = HTTPRequest(
+        f"{base_url}/api/field/assign_owner/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    response = await client.fetch(request)
+    assert response.code == 200
+    
+    updated_field = Field.get(Field.id == field.id)
+    assert updated_field.owner.id == owner.id
+
+async def test_unassign_owner(http_server_client, sample_field_data):
+    """Тест сброса владельца поля (установка в None)."""
+    client, base_url = http_server_client
+    owner = Owner.create(name="Old Owner")
+    field = Field.create(**sample_field_data, owner=owner)
+    
+    request_body = json.dumps({"owner_id": ""}) # Пустая строка или null
+    request = HTTPRequest(
+        f"{base_url}/api/field/assign_owner/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    response = await client.fetch(request)
+    assert response.code == 200
+    
+    updated_field = Field.get(Field.id == field.id)
+    assert updated_field.owner is None
+
+async def test_assign_owner_invalid_id(http_server_client, sample_field_data):
+    """Тест ошибки при назначении несуществующего владельца."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+    
+    request_body = json.dumps({"owner_id": 9999})
+    request = HTTPRequest(
+        f"{base_url}/api/field/assign_owner/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 400
+    assert "Владелец не найден" in json.loads(e.value.response.body)["error"]
