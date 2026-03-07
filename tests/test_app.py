@@ -173,12 +173,8 @@ async def test_upload_success(http_server_client, create_shapefile_zip):
     request = HTTPRequest(f"{base_url}/upload", method='POST', headers=headers, body=body)
     response = await client.fetch(request)
 
-    print(f"test_upload_success: response.code = {response.code}")
-    print(f"test_upload_success: response.body = {response.body}")
-
     assert response.code == 200
     response_json = json.loads(response.body)
-    print(f"test_upload_success: response_json = {response_json}")
     assert "успешно загружены" in response_json["message"]
     assert Field.select().count() == 2
 
@@ -205,3 +201,81 @@ async def test_upload_invalid_zip(http_server_client):
     assert e.value.code == 500
     response_data = json.loads(e.value.response.body)
     assert "File is not a zip file" in response_data["error"]
+
+async def test_rename_field_success(http_server_client, sample_field_data):
+    """Тест успешного переименования поля."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+    
+    new_name = "Renamed Field"
+    request_body = json.dumps({"new_name": new_name})
+    request = HTTPRequest(
+        f"{base_url}/api/field/rename/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+    response = await client.fetch(request)
+
+    assert response.code == 200
+    response_json = json.loads(response.body)
+    assert response_json["message"] == f"Поле с ID {field.id} успешно переименовано."
+
+    # Проверяем, что имя поля действительно изменилось в БД
+    updated_field = Field.get(Field.id == field.id)
+    assert updated_field.name == new_name
+
+async def test_rename_field_not_found(http_server_client):
+    """Тест переименования несуществующего поля."""
+    client, base_url = http_server_client
+    new_name = "NonExistent Field"
+    request_body = json.dumps({"new_name": new_name})
+    request = HTTPRequest(
+        f"{base_url}/api/field/rename/999",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 404
+    response_data = json.loads(e.value.response.body)
+    assert "не найдено" in response_data["error"]
+
+async def test_rename_field_invalid_json(http_server_client, sample_field_data):
+    """Тест переименования поля с неверным JSON."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+
+    request = HTTPRequest(
+        f"{base_url}/api/field/rename/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body="this is not json"
+    )
+
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 400
+    response_data = json.loads(e.value.response.body)
+    assert "Неверный формат JSON" in response_data["error"]
+
+async def test_rename_field_missing_name(http_server_client, sample_field_data):
+    """Тест переименования поля без указания нового имени."""
+    client, base_url = http_server_client
+    field = Field.create(**sample_field_data)
+
+    request_body = json.dumps({"some_other_key": "value"}) # Отсутствует 'new_name'
+    request = HTTPRequest(
+        f"{base_url}/api/field/rename/{field.id}",
+        method='PUT',
+        headers={'Content-Type': 'application/json'},
+        body=request_body
+    )
+
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(request)
+    assert e.value.code == 400
+    response_data = json.loads(e.value.response.body)
+    assert "Новое имя поля не может быть пустым" in response_data["error"]
