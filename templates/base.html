@@ -17,6 +17,12 @@
     <!-- Пользовательские стили -->
     <link rel="stylesheet" href="/static/css/style.css">
 
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     {% block head_extra %}{% end %}
 </head>
 <body>
@@ -57,6 +63,17 @@
 
 <!-- Наш общий скрипт для сайдбара и загрузки -->
 <script src="/static/js/main.js"></script>
+
+<script>
+    // Регистрация Service Worker для PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/sw.js')
+                .then(reg => console.log('Service Worker зарегистрирован!', reg))
+                .catch(err => console.log('Ошибка регистрации SW:', err));
+        });
+    }
+</script>
 
 {% block scripts %}{% end %}
 
