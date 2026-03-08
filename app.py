@@ -18,433 +18,212 @@ from db import initialize_db, database, Field, Owner
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Инициализация базы данных при старте приложения
-initialize_db()
-logging.info("База данных инициализирована.")
+def calculate_accurate_area(poly):
+    """
+    Расчет точной площади в квадратных метрах.
+    Используется EPSG:3035 (ETRS89-extended / LAEA Europe).
+    """
+    temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
+    temp_gdf_projected = temp_gdf.to_crs(epsg=3035)
+    return temp_gdf_projected.geometry.area.iloc[0]
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        # Отдаем наше SPA приложение
         self.render("static/index.html")
 
 class FieldsApiHandler(tornado.web.RequestHandler):
     def get(self):
-        logging.info("Запрос данных полей через API (GeoJSON).")
         self.set_header("Content-Type", "application/json")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            if database.is_closed(): database.connect()
             fields_from_db = Field.select()
-
             features = []
             for field in fields_from_db:
                 geom = wkt_loads(field.geometry_wkt)
                 properties = json.loads(field.properties_json) if field.properties_json else {}
-                properties['db_id'] = field.id # Добавляем ID из БД в свойства для фронтенда
-                if field.name:
-                    properties['name'] = field.name
-
-                features.append({
-                    "type": "Feature",
-                    "geometry": mapping(geom),
-                    "properties": properties
-                })
-
-            geojson_data = {
-                "type": "FeatureCollection",
-                "features": features
-            }
-            logging.info(f"Отправлено {len(features)} полей в формате GeoJSON.")
-            self.write(json.dumps(geojson_data))
-
+                properties['db_id'] = field.id
+                if field.name: properties['name'] = field.name
+                features.append({"type": "Feature", "geometry": mapping(geom), "properties": properties})
+            self.write(json.dumps({"type": "FeatureCollection", "features": features}))
         except Exception as e:
-            logging.error("Ошибка при получении данных полей из БД (GeoJSON):", exc_info=True)
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldsDataApiHandler(tornado.web.RequestHandler):
     def get(self):
-        logging.info("Запрос данных полей через API (для таблицы).")
         self.set_header("Content-Type", "application/json")
         try:
-            if database.is_closed():
-                database.connect()
-            
-            fields_from_db = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER)
-
+            if database.is_closed(): database.connect()
+            # Используем .objects(), чтобы Peewee корректно собрал связанные модели
+            query = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).objects()
             data = []
-            for field in fields_from_db:
+            for field in query:
                 properties = json.loads(field.properties_json) if field.properties_json else {}
-                
-                row_data = {
+                area_ha = properties.get('area_sq_m', 0) / 10000
+                data.append({
                     "id": field.id,
-                    "name": field.name if field.name else "N/A",
-                    "area": f"{properties.get('area_sq_m', 0) / 10000:.2f} га" if isinstance(properties.get('area_sq_m'), (int, float)) else "N/A",
-                    "owner": field.owner.name if field.owner else "N/A",
-                    "owner_id": field.owner.id if field.owner else None,
+                    "name": field.name or "N/A",
+                    "area": f"{area_ha:.2f} га",
+                    "owner": field.owner.name if field.owner_id else "N/A",
+                    "owner_id": field.owner_id,
                     "land_status": field.land_status or "Не указан",
                     "parcel_number": field.parcel_number or "N/A",
                     "properties": json.dumps(properties)
-                }
-                data.append(row_data)
-
+                })
             self.write(json.dumps({"data": data}))
-
         except Exception as e:
-            logging.error("Ошибка при получении данных полей из БД (для таблицы):", exc_info=True)
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldDeleteHandler(tornado.web.RequestHandler):
     def delete(self, field_id):
-        logging.info(f"Получен запрос на удаление поля с ID: {field_id}")
         try:
-            if database.is_closed():
-                database.connect()
-            
-            field_to_delete = Field.get_or_none(Field.id == field_id)
-            if field_to_delete:
-                field_to_delete.delete_instance()
-                logging.info(f"Поле с ID {field_id} успешно удалено.")
-                self.set_status(200)
-                self.write({"message": f"Поле с ID {field_id} успешно удалено."})
-            else:
-                self.set_status(404)
-                self.write({"error": f"Поле с ID {field_id} не найдено."})
-
-        except Exception as e:
-            logging.error(f"Ошибка при удалении поля с ID {field_id}:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            if database.is_closed(): database.connect()
+            field = Field.get_or_none(Field.id == field_id)
+            if field:
+                field.delete_instance()
+                self.write({"message": "Удалено."})
+            else: self.set_status(404)
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldRenameHandler(tornado.web.RequestHandler):
     def put(self, field_id):
-        logging.info(f"Получен запрос на переименование поля с ID: {field_id}")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            if database.is_closed(): database.connect()
             field = Field.get_or_none(Field.id == field_id)
             if not field:
                 self.set_status(404)
-                self.write({"error": f"Поле с ID {field_id} не найдено."})
                 return
-
-            try:
-                request_data = json.loads(self.request.body)
-                new_name = request_data.get('new_name')
-            except json.JSONDecodeError:
-                self.set_status(400)
-                self.write({"error": "Неверный формат JSON."})
-                return
-            
-            if not new_name:
-                self.set_status(400)
-                self.write({"error": "Новое имя поля не может быть пустым."})
-                return
-
+            new_name = json.loads(self.request.body).get('new_name')
             field.name = new_name
             field.save()
-            self.write({"message": f"Поле с ID {field_id} успешно переименовано."})
-
-        except Exception as e:
-            logging.error(f"Ошибка при переименовании поля с ID {field_id}:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldAssignOwnerHandler(tornado.web.RequestHandler):
     def put(self, field_id):
-        logging.info(f"Получен запрос на назначение владельца для поля с ID: {field_id}")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            if database.is_closed(): database.connect()
             field = Field.get_or_none(Field.id == field_id)
             if not field:
                 self.set_status(404)
-                self.write({"error": "Поле не найдено."})
                 return
-
-            request_data = json.loads(self.request.body)
-            owner_id = request_data.get('owner_id')
-            
-            if owner_id == "" or owner_id is None:
-                field.owner = None
+            owner_id = json.loads(self.request.body).get('owner_id')
+            if owner_id:
+                field.owner = Owner.get_or_none(Owner.id == owner_id)
             else:
-                owner = Owner.get_or_none(Owner.id == owner_id)
-                if not owner:
-                    self.set_status(400)
-                    self.write({"error": "Владелец не найден."})
-                    return
-                field.owner = owner
-            
+                field.owner = None
             field.save()
-            self.write({"message": "Владелец успешно обновлен."})
-                
-        except Exception as e:
-            logging.error(f"Ошибка при назначении владельца:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldUpdateDetailsHandler(tornado.web.RequestHandler):
     def put(self, field_id):
-        logging.info(f"Запрос на обновление деталей поля ID: {field_id}")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            if database.is_closed(): database.connect()
             field = Field.get_or_none(Field.id == field_id)
             if not field:
                 self.set_status(404)
-                self.write({"error": "Поле не найдено."})
                 return
-
-            request_data = json.loads(self.request.body)
-            field.land_status = request_data.get('land_status', field.land_status)
-            field.parcel_number = request_data.get('parcel_number', field.parcel_number)
+            data = json.loads(self.request.body)
+            field.land_status = data.get('land_status', field.land_status)
+            field.parcel_number = data.get('parcel_number', field.parcel_number)
             field.save()
-            
-            self.write({"message": "Детали поля успешно обновлены."})
-
-        except Exception as e:
-            logging.error(f"Ошибка при обновлении деталей поля {field_id}:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldAddHandler(tornado.web.RequestHandler):
     def post(self):
-        logging.info("Получен запрос на добавление нового поля вручную.")
         try:
-            request_data = json.loads(self.request.body)
-            geometry = request_data.get('geometry')
-            name = request_data.get('name', 'Новое поле')
-
-            if not geometry:
+            data = json.loads(self.request.body)
+            if 'geometry' not in data:
                 self.set_status(400)
-                self.write({"error": "Геометрия обязательна."})
+                self.write({"error": "Missing geometry"})
                 return
-
-            poly = shape(geometry)
-            geom_wkt = poly.wkt
-
-            temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
-            temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
-            area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
-
-            properties = {
-                "area_sq_m": area_sq_m,
-                "source": "manual_draw"
-            }
-
-            if database.is_closed():
-                database.connect()
-            
-            new_field = Field.create(
-                name=name,
-                geometry_wkt=geom_wkt,
-                properties_json=json.dumps(properties)
-            )
-
-            self.write({
-                "message": "Поле успешно добавлено.",
-                "id": new_field.id
-            })
-
-        except Exception as e:
-            logging.error("Ошибка при ручном добавлении поля:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            poly = shape(data['geometry'])
+            area = calculate_accurate_area(poly)
+            if database.is_closed(): database.connect()
+            new_f = Field.create(name=data.get('name', 'Поле'), geometry_wkt=poly.wkt, properties_json=json.dumps({"area_sq_m": area}))
+            self.write({"id": new_f.id})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class FieldUpdateGeometryHandler(tornado.web.RequestHandler):
     def put(self, field_id):
-        logging.info(f"Получен запрос на обновление геометрии поля с ID: {field_id}")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            data = json.loads(self.request.body)
+            if 'geometry' not in data:
+                self.set_status(400)
+                return
+            poly = shape(data['geometry'])
+            area = calculate_accurate_area(poly)
+            if database.is_closed(): database.connect()
             field = Field.get_or_none(Field.id == field_id)
             if not field:
                 self.set_status(404)
-                self.write({"error": "Поле не найдено."})
                 return
-
-            request_data = json.loads(self.request.body)
-            geometry = request_data.get('geometry')
-
-            if not geometry:
-                self.set_status(400)
-                self.write({"error": "Геометрия обязательна."})
-                return
-
-            poly = shape(geometry)
-            geom_wkt = poly.wkt
-
-            temp_gdf = gpd.GeoDataFrame([{'geometry': poly}], crs="EPSG:4326")
-            temp_gdf_projected = temp_gdf.to_crs(epsg=3857)
-            area_sq_m = temp_gdf_projected.geometry.area.iloc[0]
-
-            properties = json.loads(field.properties_json) if field.properties_json else {}
-            properties['area_sq_m'] = area_sq_m
-            
-            field.geometry_wkt = geom_wkt
-            field.properties_json = json.dumps(properties)
+            field.geometry_wkt = poly.wkt
+            props = json.loads(field.properties_json or '{}')
+            props['area_sq_m'] = area
+            field.properties_json = json.dumps(props)
             field.save()
-
-            self.write({"message": "Геометрия поля успешно обновлена."})
-
-        except Exception as e:
-            logging.error(f"Ошибка при обновлении геометрии поля {field_id}:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class OwnersDataApiHandler(tornado.web.RequestHandler):
     def get(self):
-        logging.info("Запрос данных владельцев через API.")
         self.set_header("Content-Type", "application/json")
         try:
-            if database.is_closed():
-                database.connect()
-            
+            if database.is_closed(): database.connect()
             owners = Owner.select()
-            data = [{"id": o.id, "name": o.name} for o in owners]
-            
-            self.write(json.dumps({"data": data}))
-        except Exception as e:
-            logging.error("Ошибка при получении владельцев:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            self.write(json.dumps({"data": [{"id": o.id, "name": o.name} for o in owners]}))
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class AddOwnerApiHandler(tornado.web.RequestHandler):
     def post(self):
-        logging.info("Запрос на добавление нового владельца.")
         try:
-            if database.is_closed():
-                database.connect()
-            
-            request_data = json.loads(self.request.body)
-            owner_name = request_data.get('name')
-            
-            if not owner_name:
-                self.set_status(400)
-                self.write({"error": "Имя владельца обязательно."})
-                return
-            
-            owner, created = Owner.get_or_create(name=owner_name)
-            if created:
-                self.write({"message": f"Владелец '{owner_name}' успешно добавлен."})
-            else:
-                self.set_status(400)
-                self.write({"error": f"Владелец '{owner_name}' уже существует."})
-                
-        except Exception as e:
-            logging.error("Ошибка при добавлении владельца:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+            if database.is_closed(): database.connect()
+            name = json.loads(self.request.body).get('name')
+            Owner.get_or_create(name=name)
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
+            if not database.is_closed(): database.close()
 
 class UploadHandler(tornado.web.RequestHandler):
     def post(self):
-        logging.info("Получен запрос на загрузку файла.")
         try:
             uploaded_file = self.request.files['shapefile_zip'][0]
-            original_filename = uploaded_file['filename']
-            file_body = uploaded_file['body']
-
             with tempfile.TemporaryDirectory() as tmpdir:
-                zip_path = os.path.join(tmpdir, original_filename)
-                with open(zip_path, 'wb') as f:
-                    f.write(file_body)
-
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(tmpdir)
-
-                shp_file = None
-                for root, _, files in os.walk(tmpdir):
-                    for f in files:
-                        if f.endswith('.shp'):
-                            shp_file = os.path.join(root, f)
-                            break
-                    if shp_file:
-                        break
-
-                if not shp_file:
-                    raise ValueError("В ZIP-архиве не найден .shp файл.")
-
-                gdf = gpd.read_file(shp_file)
-                gdf_wgs84 = gdf.to_crs(epsg=4326)
-                gdf_projected_for_area = gdf_wgs84.to_crs(epsg=3857)
-                gdf_wgs84['area_sq_m'] = gdf_projected_for_area.geometry.area
-
-            if database.is_closed():
-                database.connect()
-            
+                zip_path = os.path.join(tmpdir, "up.zip")
+                with open(zip_path, 'wb') as f: f.write(uploaded_file['body'])
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref: zip_ref.extractall(tmpdir)
+                shp_file = next((os.path.join(r, f) for r, _, fs in os.walk(tmpdir) for f in fs if f.endswith('.shp')), None)
+                if not shp_file: raise ValueError("No SHP")
+                gdf = gpd.read_file(shp_file).to_crs(epsg=4326)
+                gdf_proj = gdf.to_crs(epsg=3035)
+                gdf['area_sq_m'] = gdf_proj.geometry.area
+            if database.is_closed(): database.connect()
             with database.atomic():
-                for _, row in gdf_wgs84.iterrows():
-                    geom_wkt = row.geometry.wkt
-                    
-                    properties = row.drop('geometry').to_dict()
-                    cleaned_properties = {}
-                    for key, value in properties.items():
-                        if isinstance(value, float) and math.isnan(value):
-                            cleaned_properties[key] = None
-                        else:
-                            cleaned_properties[key] = value
-                    properties_json = json.dumps(cleaned_properties)
-
-                    field_name = properties.get('Field_Name') or \
-                                 properties.get('name') or \
-                                 properties.get('NAME') or \
-                                 properties.get('ID')
-                    if isinstance(field_name, (int, float)):
-                        field_name = str(field_name)
-                    
-                    Field.create(
-                        name=field_name,
-                        geometry_wkt=geom_wkt,
-                        properties_json=properties_json
-                    )
-            
-            self.set_status(200)
-            self.write({"message": "Файлы успешно загружены и данные сохранены в БД."})
-
-        except Exception as e:
-            logging.error("Ошибка при обработке загрузки файла:", exc_info=True)
-            self.set_status(500)
-            self.write({"error": str(e)})
+                for _, row in gdf.iterrows():
+                    props = row.drop('geometry').to_dict()
+                    cleaned = {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in props.items()}
+                    field_name = cleaned.get('Field_Name') or cleaned.get('name') or \
+                                 cleaned.get('NAME') or cleaned.get('Name') or \
+                                 cleaned.get('id') or cleaned.get('ID') or "Поле"
+                    Field.create(name=str(field_name), geometry_wkt=row.geometry.wkt, properties_json=json.dumps(cleaned))
+            self.write({"message": "OK"})
         finally:
-            if not database.is_closed():
-                database.close()
-
+            if not database.is_closed(): database.close()
 
 def make_app():
     settings = {
@@ -453,7 +232,7 @@ def make_app():
         "debug": True,
     }
     return tornado.web.Application([
-        (r"/", MainHandler), # Теперь просто отдает index.html
+        (r"/", MainHandler),
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
         (r"/api/owners", OwnersDataApiHandler),
@@ -472,7 +251,12 @@ def make_app():
     ], **settings)
 
 if __name__ == "__main__":
-    app = make_app()
-    app.listen(8888)
-    logging.info("Сервер запущен. Откройте http://localhost:8888 в вашем браузере.")
-    tornado.ioloop.IOLoop.current().start()
+    try:
+        initialize_db()
+        app = make_app()
+        app.listen(8888)
+        logging.info("Сервер запущен: http://localhost:8888")
+        tornado.ioloop.IOLoop.current().start()
+    except KeyboardInterrupt:
+        logging.info("Остановка сервера...")
+        tornado.ioloop.IOLoop.current().stop()

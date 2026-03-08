@@ -6,22 +6,24 @@
 *   **Основная цель:** Полный цикл от полета дрона (DJI Mavic 3M) до карты предписаний для трактора.
 
 ## Архитектура
-*   **Frontend:** SPA (Single Page Application), PWA, Leaflet.js.
+*   **Frontend:** SPA (Single Page Application), PWA, Leaflet.js. Клиентский роутинг через hash (#map, #fields, #owners).
 *   **Backend:** Headless REST API на Tornado (Python).
 *   **Данные:** SQLite (вектор), в будущем GeoTIFF (растр).
 
 ## Ключевой функционал
-1.  **Земельный банк:** Границы полей, кадастровый учет (Словакия), статус аренды.
-2.  **Обработка данных дронов (Roadmap):**
+1.  **Земельный учет:** Границы полей, кадастровый учет, статус аренды/собственности, кадастровые номера.
+2.  **Точность:** Расчет площадей в гектарах выполняется в равновеликой проекции **EPSG:3035 (LAEA Europe)**.
+3.  **Обработка данных дронов (Roadmap):**
     *   Загрузка мультиспектральных ортофотопланов (GeoTIFF).
     *   Расчет вегетационных индексов (NDVI, NDRE).
     *   Зонирование поля по продуктивности.
     *   Экспорт карт для дифференцированного внесения (VRA).
 
 ## Стек технологий
-*   **Python:** Tornado, Peewee, GeoPandas, Shapely. *Планируется: Rasterio, NumPy.*
+*   **Python:** Tornado, Peewee, GeoPandas, Shapely.
 *   **JS:** jQuery, Leaflet, DataTables.
 *   **UI:** CSS Variables, Dark Mode, Mobile First.
+*   **PWA:** Manifest и Service Worker (версия v3+) для установки и офлайн-кэша.
 
 ---
 *Последнее обновление: 8 марта 2026 г.*

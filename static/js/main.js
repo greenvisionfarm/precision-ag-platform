@@ -338,16 +338,27 @@ $(document).ready(function() {
 
     $('#upload-form').on('submit', function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
-        $('#upload-status').text('Загрузка...');
+        const form = this;
+        const formData = new FormData(form);
+        $('#upload-status').text('Загрузка...').css('color', 'var(--primary-color)');
+        
         $.ajax({
             url: '/upload', type: 'POST', data: formData, processData: false, contentType: false,
             success: () => { 
-                $('#upload-status').text('Успех!'); 
+                $('#upload-status').text('Успех!').css('color', 'var(--success-color)'); 
                 loadMapData(); 
-                if (fieldsTable) fieldsTable.ajax.reload();
+                if (fieldsTable) fieldsTable.ajax.reload(null, false);
+                
+                // Очистка формы
+                form.reset();
+                $('#upload-button').hide();
+                
+                // Убираем сообщение через 3 секунды
+                setTimeout(() => $('#upload-status').text(''), 3000);
             },
-            error: () => $('#upload-status').text('Ошибка загрузки')
+            error: () => {
+                $('#upload-status').text('Ошибка загрузки').css('color', 'var(--danger-color)');
+            }
         });
     });
 });
