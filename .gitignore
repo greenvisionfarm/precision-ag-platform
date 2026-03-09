@@ -49,3 +49,5 @@ venv/
 *.qix.xml
 *.zip # Ignore uploaded zips if they are stored in the project dir
 tmp/
+node_modules/
+package-lock.json

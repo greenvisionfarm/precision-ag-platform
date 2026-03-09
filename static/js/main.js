@@ -225,9 +225,44 @@ function initOwnersTable() {
     if (ownersTable) { ownersTable.ajax.reload(); return; }
     ownersTable = $('#owners-table').DataTable({
         ajax: "/api/owners",
-        columns: [ { data: "id" }, { data: "name" } ],
+        columns: [ 
+            { data: "id" }, 
+            { data: "name" },
+            { data: null, render: (data, type, row) => `
+                <button class="btn btn-danger btn-sm btn-delete-owner" data-id="${row.id}" title="Удалить владельца">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `}
+        ],
         language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" }
     });
+
+    $('#owners-table tbody').on('click', '.btn-delete-owner', function() {
+        const id = $(this).data('id');
+        Swal.fire({
+            title: 'Удалить владельца?',
+            text: "Это также сбросит владельца у всех привязанных к нему полей.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Да, удалить!',
+            cancelButtonText: 'Отмена'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/api/owner/delete/${id}`,
+                    type: 'DELETE',
+                    success: () => {
+                        ownersTable.ajax.reload();
+                        // Важно: перегружаем таблицу полей, т.к. там сбросились владельцы
+                        if (fieldsTable) fieldsTable.ajax.reload();
+                        Swal.fire('Удалено!', 'Владелец удален.', 'success');
+                    }
+                });
+            }
+        });
+    });
+
     $('#add-owner-form').off('submit').on('submit', function(e) {
         e.preventDefault();
         $.ajax({ url: '/api/owner/add', type: 'POST', contentType: 'application/json', data: JSON.stringify({ name: $('#owner-name').val() }), success: () => { $('#owner-name').val(''); ownersTable.ajax.reload(); } });

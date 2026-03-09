@@ -33,5 +33,11 @@
 1. `python -m venv venv`
 2. `source venv/bin/activate`
 3. `pip install -r requirements.txt`
-4. `python app.py`
-5. Откройте [http://localhost:8888](http://localhost:8888).
+4. `npm install` (для JS-тестов)
+5. `python app.py`
+6. Откройте [http://localhost:8888](http://localhost:8888).
+
+## Тестирование
+
+- **Backend:** `pytest tests/test_app.py`
+- **Frontend (JS Unit):** `npm test`

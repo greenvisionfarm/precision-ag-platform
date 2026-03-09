@@ -189,7 +189,6 @@ class OwnersDataApiHandler(tornado.web.RequestHandler):
             self.write(json.dumps({"data": [{"id": o.id, "name": o.name} for o in owners]}))
         finally:
             if not database.is_closed(): database.close()
-
 class AddOwnerApiHandler(tornado.web.RequestHandler):
     def post(self):
         try:
@@ -197,6 +196,23 @@ class AddOwnerApiHandler(tornado.web.RequestHandler):
             name = json.loads(self.request.body).get('name')
             Owner.get_or_create(name=name)
             self.write({"message": "OK"})
+        finally:
+            if not database.is_closed(): database.close()
+
+class OwnerDeleteHandler(tornado.web.RequestHandler):
+    def delete(self, owner_id):
+        try:
+            if database.is_closed(): database.connect()
+            owner = Owner.get_or_none(Owner.id == owner_id)
+            if owner:
+                # При удалении владельца, Peewee автоматически обнулит owner_id у полей (т.к. null=True)
+                owner.delete_instance()
+                self.write({"message": "Удалено."})
+            else:
+                self.set_status(404)
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
         finally:
             if not database.is_closed(): database.close()
 
@@ -268,6 +284,7 @@ def make_app():
         (r"/api/fields_data", FieldsDataApiHandler),
         (r"/api/owners", OwnersDataApiHandler),
         (r"/api/owner/add", AddOwnerApiHandler),
+        (r"/api/owner/delete/([0-9]+)", OwnerDeleteHandler),
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),
