@@ -223,7 +223,38 @@ h1, h2, h3 {
 .btn-primary { background-color: var(--primary-color); color: white; }
 .btn-success { background-color: var(--success-color); color: white; }
 .btn-danger { background-color: var(--danger-color); color: white; }
-.btn-sm { padding: 5px 12px; font-size: 0.9rem; }
+.btn-outline-primary { 
+    background-color: transparent; 
+    color: var(--primary-color); 
+    border: 1px solid var(--primary-color); 
+}
+.btn-outline-primary:hover { 
+    background-color: var(--primary-color); 
+    color: white; 
+}
+
+.btn-sm { padding: 5px 10px; font-size: 0.9rem; min-width: 32px; min-height: 32px; }
+
+/* Кнопки в таблицах */
+.btn-group {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.btn-group .btn {
+    padding: 6px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-group .btn i {
+    font-size: 14px;
+    margin: 0;
+}
 
 /* Таблицы (DataTables) */
 table.dataTable {
@@ -293,11 +324,68 @@ table.dataTable.display tbody tr:hover td {
     gap: 10px;
 }
 
-/* Мобильная адаптация */
+/* Сетки и карточки статистики */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.stat-card {
+    background-color: var(--card-bg);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.chart-box {
+    background-color: var(--card-bg);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    max-height: 300px;
+}
+
+.chart-box h3 {
+    margin-bottom: var(--spacing-md);
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+/* Мобильная адаптация статистики */
 @media (max-width: 768px) {
-    :root {
-        --sidebar-width: 100%;
+    .charts-container {
+        grid-template-columns: 1fr;
     }
+    
+    .chart-box {
+        min-height: 250px;
+    }
+}
 
     .main-content {
         padding: 0;

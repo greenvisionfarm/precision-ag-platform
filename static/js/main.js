@@ -181,9 +181,9 @@ function initFieldsTable() {
                 { data: "parcel_number", render: (data, type, row) => `<span class="editable-parcel" data-id="${row.id}">${data || 'N/A'}</span>` },
                 { data: null, render: (data, type, row) => `
                     <div class="btn-group">
-                        <button onclick="downloadKmzWithSettings(${row.id})" class="btn btn-outline-primary btn-sm" title="DJI KMZ Settings"><i class="fas fa-cog"></i></button>
-                        <button class="btn-save-details btn-success btn-sm" data-id="${row.id}" style="display:none;">Сохранить</button>
-                        <button class="btn-delete btn-danger btn-sm" data-id="${row.id}"><i class="fas fa-trash"></i></button>
+                        <button onclick="downloadKmzWithSettings(${row.id})" class="btn btn-outline-primary btn-sm" title="Настройки DJI KMZ"><i class="fas fa-cog"></i></button>
+                        <button class="btn-save-details btn-success btn-sm" data-id="${row.id}" style="display:none;" title="Сохранить"><i class="fas fa-save"></i></button>
+                        <button class="btn-delete btn-danger btn-sm" data-id="${row.id}" title="Удалить"><i class="fas fa-trash"></i></button>
                     </div>
                 `}
             ],
