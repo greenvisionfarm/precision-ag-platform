@@ -57,9 +57,10 @@ async def test_api_field_lifecycle(http_server_client):
     await client.fetch(f"{base_url}/api/field/rename/{fid}", method='PUT', body=json.dumps({"new_name": "R"}))
     await client.fetch(f"{base_url}/api/field/update_details/{fid}", method='PUT', body=json.dumps({"land_status": "A", "parcel_number": "1"}))
     res = await client.fetch(f"{base_url}/api/fields_data")
-    data = json.loads(res.body)["data"][0]
-    assert data["name"] == "R"
-    assert data["land_status"] == "A"
+    data = json.loads(res.body)["data"]
+    field = next(x for x in data if x["id"] == fid)
+    assert field["name"] == "R"
+    assert field["land_status"] == "A"
 
 async def test_owner_assignment(http_server_client):
     client, base_url = http_server_client
@@ -74,6 +75,24 @@ async def test_owner_assignment(http_server_client):
     data = json.loads(res.body)["data"]
     field = next(x for x in data if x["id"] == fid)
     assert field["owner"] == "Jan"
+
+async def test_kmz_export(http_server_client):
+    client, base_url = http_server_client
+    # 1. Создаем поле
+    p = {"name": "Test Field", "geometry": {"type": "Polygon", "coordinates": [[[18.7,48.2], [18.8,48.2], [18.8,48.3], [18.7,48.3], [18.7,48.2]]]}}
+    res_f = await client.fetch(f"{base_url}/api/field/add", method='POST', body=json.dumps(p))
+    fid = json.loads(res_f.body)["id"]
+    
+    # 2. Пробуем скачать KMZ с параметрами
+    url = f"{base_url}/api/field/export/kmz/{fid}?height=110&overlap_h=85&overlap_w=75"
+    res = await client.fetch(url)
+    
+    assert res.code == 200
+    assert res.headers["Content-Type"] == "application/vnd.google-earth.kmz"
+    assert "attachment" in res.headers["Content-Disposition"]
+    assert f"Field_{fid}_110m.kmz" in res.headers["Content-Disposition"]
+    # Проверяем, что это ZIP (первые байты PK)
+    assert res.body.startswith(b'PK')
 
 async def test_static_routes(http_server_client):
     client, base_url = http_server_client

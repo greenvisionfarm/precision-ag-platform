@@ -13,6 +13,7 @@ from shapely.wkt import loads as wkt_loads
 from peewee import JOIN
 
 from db import initialize_db, database, Field, Owner
+from dji_kmz import create_kmz
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,
@@ -225,6 +226,36 @@ class UploadHandler(tornado.web.RequestHandler):
         finally:
             if not database.is_closed(): database.close()
 
+class FieldExportKmzHandler(tornado.web.RequestHandler):
+    def get(self, field_id):
+        try:
+            if database.is_closed(): database.connect()
+            field = Field.get_or_none(Field.id == field_id)
+            if not field:
+                self.set_status(404)
+                return
+            
+            # Извлечение параметров из URL (с дефолтными значениями)
+            height = int(self.get_argument("height", 100))
+            overlap_h = int(self.get_argument("overlap_h", 80))
+            overlap_w = int(self.get_argument("overlap_w", 70))
+            
+            # Ограничение по закону Словакии (120м)
+            if height > 120: height = 120
+            
+            kmz_data = create_kmz(field.id, field.name or "Field", field.geometry_wkt, 
+                                 height=height, overlap_h=overlap_h, overlap_w=overlap_w)
+            
+            filename = f"Field_{field.id}_{height}m.kmz"
+            self.set_header('Content-Type', 'application/vnd.google-earth.kmz')
+            self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.write(kmz_data)
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed(): database.close()
+
 def make_app():
     settings = {
         "template_path": os.path.dirname(__file__),
@@ -243,6 +274,7 @@ def make_app():
         (r"/api/field/update_details/([0-9]+)", FieldUpdateDetailsHandler),
         (r"/api/field/add", FieldAddHandler),
         (r"/api/field/update_geometry/([0-9]+)", FieldUpdateGeometryHandler),
+        (r"/api/field/export/kmz/([0-9]+)", FieldExportKmzHandler),
         (r"/upload", UploadHandler),
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
         (r"/(manifest\.json)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

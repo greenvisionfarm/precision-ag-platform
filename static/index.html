@@ -17,16 +17,15 @@
 </head>
 <body>
 
-    <!-- Кнопка мобильного меню -->
     <button id="sidebar-toggle">☰</button>
 
-    <!-- Сайдбар -->
     <div id="sidebar">
         <h2>Field Mapper</h2>
         <nav>
             <a href="#map" class="nav-link active">🗺️ Карта</a>
             <a href="#fields" class="nav-link">📋 Список полей</a>
             <a href="#owners" class="nav-link">👥 Владельцы</a>
+            <a href="#stats" class="nav-link">📊 Статистика</a>
         </nav>
 
         <div id="upload-section-sidebar">
@@ -49,9 +48,7 @@
         </div>
     </div>
 
-    <!-- Основной контент (Views) -->
     <div class="main-content">
-        
         <!-- View: Карта -->
         <div id="view-map" class="view-section">
             <div id="map"></div>
@@ -104,19 +101,45 @@
             </div>
         </div>
 
+        <!-- View: Статистика -->
+        <div id="view-stats" class="view-section" style="display: none;">
+            <h1>Аналитика земельного банка</h1>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Всего полей</span>
+                    <span id="stat-total-fields" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Общая площадь</span>
+                    <span id="stat-total-area" class="stat-value">0 га</span>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-box">
+                    <h3>Статус земли (га)</h3>
+                    <canvas id="chart-land-status"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Распределение по владельцам (га)</h3>
+                    <canvas id="chart-owners"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- JS Libraries -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" crossorigin=""></script>
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- Application Logic -->
     <script src="/static/js/main.js"></script>
     
     <script>
-        // PWA Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW Error:', err));
