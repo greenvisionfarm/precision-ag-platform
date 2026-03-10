@@ -10,6 +10,8 @@ let window;
 let $;
 
 beforeAll(() => {
+    const apiCode = fs.readFileSync(path.resolve(__dirname, 'modules/api.js'), 'utf8');
+    const mapCode = fs.readFileSync(path.resolve(__dirname, 'modules/map_manager.js'), 'utf8');
     const mainCode = fs.readFileSync(path.resolve(__dirname, 'main.js'), 'utf8');
     
     dom = new JSDOM(`
@@ -116,6 +118,14 @@ beforeAll(() => {
     $.fn.DataTable = jest.fn().mockReturnValue(dtMock);
     window.fieldsTable = dtMock; // Чтобы setupTableEvents видел его
 
+    const apiScript = window.document.createElement("script");
+    apiScript.textContent = apiCode;
+    window.document.head.appendChild(apiScript);
+
+    const mapScript = window.document.createElement("script");
+    mapScript.textContent = mapCode;
+    window.document.head.appendChild(mapScript);
+
     const script = window.document.createElement("script");
     script.textContent = mainCode;
     window.document.head.appendChild(script);
@@ -125,6 +135,8 @@ beforeAll(() => {
     global.downloadKmzWithSettings = window.downloadKmzWithSettings;
     global.window = window;
     global.$ = $;
+    global.API = window.API;
+    global.MapManager = window.MapManager;
 });
 
 describe('Field Mapper Frontend Logic', () => {

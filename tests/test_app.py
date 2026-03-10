@@ -12,7 +12,8 @@ from unittest.mock import patch
 
 import db
 import app 
-from app import make_app, calculate_accurate_area
+from app import make_app
+from src.services.gis_service import calculate_accurate_area
 from db import Field, Owner, initialize_db
 
 from tornado.httpclient import AsyncHTTPClient, HTTPError

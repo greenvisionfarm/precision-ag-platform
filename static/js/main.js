@@ -1,25 +1,20 @@
 // Глобальные переменные
-let mapInstance = null;
-let editableLayers = null;
-let baseLayers = {};
 let ownersList = [];
 let fieldsTable = null;
 let ownersTable = null;
 let charts = {}; 
-let detailMapInstance = null;
 
 // --- 1. ROUTING & UI ---
 
 function handleRoute() {
     const hash = window.location.hash || '#map';
-
     $('.view-section').hide();
     $('.nav-link').removeClass('active');
 
     if (hash === '#map') {
         $('#view-map').show();
         $('.nav-link[href="#map"]').addClass('active');
-        if (mapInstance) mapInstance.invalidateSize();
+        MapManager.instance?.invalidateSize();
     } else if (hash === '#fields') {
         $('#view-fields').show();
         $('.nav-link[href="#fields"]').addClass('active');
@@ -28,7 +23,8 @@ function handleRoute() {
         const fieldId = hash.split('/')[1];
         $('#view-field-detail').show();
         showFieldDetail(fieldId);
-    } else if (hash === '#owners') {        $('#view-owners').show();
+    } else if (hash === '#owners') {
+        $('#view-owners').show();
         $('.nav-link[href="#owners"]').addClass('active');
         initOwnersTable();
     } else if (hash === '#stats') {
@@ -39,196 +35,98 @@ function handleRoute() {
 }
 
 function showFieldDetail(id) {
-    $.getJSON(`/api/field/${id}`, function(field) {
+    API.getField(id).then(field => {
         $('#field-detail-name').text(field.name);
         $('#field-detail-area').text(field.area);
         $('#field-detail-owner').text(field.owner);
         $('#field-detail-status').text(field.land_status);
         $('#field-detail-parcel').text(field.parcel_number);
 
-        // Кнопки действий
         $('#detail-export-kmz').off('click').on('click', () => downloadKmzWithSettings(id));
         $('#detail-delete-field').off('click').on('click', () => {
-            if (confirm('Удалить поле?')) {
-                $.ajax({ url: `/api/field/delete/${id}`, type: 'DELETE', success: () => window.location.hash = '#fields' });
-            }
+            Swal.fire({ title: 'Удалить поле?', icon: 'warning', showCancelButton: true }).then(r => {
+                if (r.isConfirmed) API.deleteField(id).then(() => window.location.hash = '#fields');
+            });
         });
 
-        // Мини-карта
-        if (detailMapInstance) {
-            detailMapInstance.remove();
-            detailMapInstance = null;
-        }
-        
-        detailMapInstance = L.map('field-detail-map', { zoomControl: false, attributionControl: false });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(detailMapInstance);
-        
-        const geojsonLayer = L.geoJSON(field.geometry, {
-            style: { color: '#007BFF', weight: 3, fillOpacity: 0.2 }
-        }).addTo(detailMapInstance);
-        
-        detailMapInstance.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
-        
-        // Маленький хак для корректной отрисовки после показа секции
-        setTimeout(() => detailMapInstance.invalidateSize(), 100);
+        MapManager.initDetailMap('field-detail-map', field.geometry);
     }).fail(() => {
-        Swal.fire('Ошибка', 'Не удалось загрузить данные поля', 'error');
+        Swal.fire('Ошибка', 'Данные не найдены', 'error');
         window.location.hash = '#fields';
     });
 }
 
-// --- 2. MAP LOGIC ---
-
-function initMap() {
-    if ($('#map').length === 0 || mapInstance) return;
-    mapInstance = L.map('map').setView([48.66, 19.69], 8);
-    baseLayers.light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
-    baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 20 });
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    (currentTheme === 'dark' ? baseLayers.dark : baseLayers.light).addTo(mapInstance);
-    editableLayers = new L.FeatureGroup();
-    mapInstance.addLayer(editableLayers);
-    const drawControl = new L.Control.Draw({
-        edit: { featureGroup: editableLayers },
-        draw: { polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#007BFF' } }, polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false }
-    });
-    mapInstance.addControl(drawControl);
-    mapInstance.on(L.Draw.Event.CREATED, onFieldCreated);
-    mapInstance.on(L.Draw.Event.EDITED, onFieldEdited);
-    mapInstance.on(L.Draw.Event.DELETED, onFieldDeleted);
-    mapInstance.locate({setView: true, maxZoom: 16});
-    mapInstance.on('locationfound', e => { L.marker(e.latlng).addTo(mapInstance).bindPopup("Вы здесь!"); });
-    loadMapData();
-}
+// --- 2. MAP CALLBACKS ---
 
 function loadMapData() {
-    if (editableLayers) editableLayers.clearLayers();
-    $.getJSON('/api/fields', function(data) {
-        if (data.features) {
-            L.geoJSON(data, {
-                style: { color: "#007BFF", weight: 2, fillOpacity: 0.3 },
-                onEachFeature: (feature, layer) => {
-                    const props = feature.properties || {};
-                    const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + ' га' : 'N/A';
-                    layer.bindPopup(`
-                        <b>${props.name || 'Поле'}</b><br>
-                        Площадь: ${area}<br>
-                        <hr>
-                        <button onclick="downloadKmzWithSettings(${props.db_id})" class="btn btn-primary btn-sm" style="width:100%">
-                            <i class="fas fa-file-download"></i> Скачать KMZ (DJI)
-                        </button>
-                    `);
-                    editableLayers.addLayer(layer);
-                }
-            });
-            if (editableLayers.getBounds().isValid()) mapInstance.fitBounds(editableLayers.getBounds());
-        }
-    });
+    API.getFields().then(data => MapManager.renderFields(data, downloadKmzWithSettings));
 }
 
 function onFieldCreated(e) {
-    const layer = e.layer;
-    const name = prompt("Название поля:", "Новое поле");
-    if (!name) return;
-    $.ajax({
-        url: '/api/field/add', type: 'POST', contentType: 'application/json',
-        data: JSON.stringify({ geometry: layer.toGeoJSON().geometry, name: name }),
-        success: () => { loadMapData(); if (fieldsTable) fieldsTable.ajax.reload(); }
+    Swal.fire({ title: 'Название поля', input: 'text', inputValue: 'Новое поле', showCancelButton: true }).then(res => {
+        if (res.isConfirmed && res.value) {
+            API.addField(e.layer.toGeoJSON().geometry, res.value).then(() => {
+                loadMapData();
+                fieldsTable?.ajax.reload();
+            });
+        }
     });
 }
 
 function onFieldEdited(e) {
     e.layers.eachLayer(layer => {
         const id = layer.feature?.properties?.db_id;
-        if (id) {
-            $.ajax({
-                url: `/api/field/update_geometry/${id}`, type: 'PUT', contentType: 'application/json',
-                data: JSON.stringify({ geometry: layer.toGeoJSON().geometry }),
-                success: () => { loadMapData(); if (fieldsTable) fieldsTable.ajax.reload(); }
-            });
-        }
+        if (id) API.updateField(id, 'update_geometry', { geometry: layer.toGeoJSON().geometry }).then(() => {
+            loadMapData();
+            fieldsTable?.ajax.reload();
+        });
     });
 }
 
 function onFieldDeleted(e) {
     e.layers.eachLayer(layer => {
         const id = layer.feature?.properties?.db_id;
-        if (id) {
-            $.ajax({
-                url: `/api/field/delete/${id}`, type: 'DELETE',
-                success: () => { loadMapData(); if (fieldsTable) fieldsTable.ajax.reload(); }
-            });
-        }
+        if (id) API.deleteField(id).then(() => { loadMapData(); fieldsTable?.ajax.reload(); });
     });
 }
 
-// --- 3. TABLES LOGIC ---
+// --- 3. TABLES & DIALOGS ---
 
 function downloadKmzWithSettings(fieldId) {
     Swal.fire({
-        title: 'Параметры полета (DJI)',
-        html: `
-            <div style="text-align: left;">
-                <label>Высота полета (м):</label>
-                <input type="number" id="swal-height" class="swal2-input" value="100" min="20" max="120">
-                <label>Фронтальное перекрытие (%):</label>
-                <input type="number" id="swal-overlap-h" class="swal2-input" value="80" min="20" max="95">
-                <label>Боковое перекрытие (%):</label>
-                <input type="number" id="swal-overlap-w" class="swal2-input" value="70" min="20" max="95">
-            </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-file-download"></i> Скачать',
-        cancelButtonText: 'Отмена',
-        preConfirm: () => {
-            return {
-                height: document.getElementById('swal-height').value,
-                overlap_h: document.getElementById('swal-overlap-h').value,
-                overlap_w: document.getElementById('swal-overlap-w').value
-            }
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const p = result.value;
-            const url = `/api/field/export/kmz/${fieldId}?height=${p.height}&overlap_h=${p.overlap_h}&overlap_w=${p.overlap_w}`;
-            window.location.href = url;
+        title: 'DJI KMZ',
+        html: `<div style="text-align: left;"><label>Высота (м):</label><input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="120"><label>Фронт (%):</label><input type="number" id="swal-oh" class="swal2-input" value="80"><label>Бок (%):</label><input type="number" id="swal-ow" class="swal2-input" value="70"></div>`,
+        preConfirm: () => ({ height: $('#swal-h').val(), oh: $('#swal-oh').val(), ow: $('#swal-ow').val() })
+    }).then(res => {
+        if (res.isConfirmed) {
+            const p = res.value;
+            window.location.href = `/api/field/export/kmz/${fieldId}?height=${p.height}&overlap_h=${p.oh}&overlap_w=${p.ow}`;
         }
     });
 }
 
-function loadOwners() {
-    return $.getJSON('/api/owners', function(response) { ownersList = response.data; });
-}
-
 function initFieldsTable() {
-    loadOwners().then(() => {
+    API.getOwners().then(res => {
+        ownersList = res.data;
         if (fieldsTable) { fieldsTable.ajax.reload(); return; }
         fieldsTable = $('#fields-table').DataTable({
             ajax: "/api/fields_data",
             columns: [
                 { data: "id" },
-                { data: "name", render: (data, type, row) => `<span class="editable-name" data-id="${row.id}">${data}</span>` },
+                { data: "name", render: (d, t, r) => `<span class="editable-name" data-id="${r.id}">${d}</span>` },
                 { data: "area" },
-                { data: "owner_id", render: (data, type, row) => {
+                { data: "owner_id", render: (d, t, r) => {
                     let opts = '<option value="">Не назначен</option>';
-                    ownersList.forEach(o => { opts += `<option value="${o.id}" ${o.id == data ? 'selected' : ''}>${o.name}</option>`; });
-                    return `<select class="owner-select" data-id="${row.id}">${opts}</select>`;
+                    ownersList.forEach(o => { opts += `<option value="${o.id}" ${o.id == d ? 'selected' : ''}>${o.name}</option>`; });
+                    return `<select class="owner-select" data-id="${r.id}">${opts}</select>`;
                 }},
-                { data: "land_status", render: (data, type, row) => {
-                    const statuses = ["Собственность", "Аренда", "Субаренда"];
+                { data: "land_status", render: (d, t, r) => {
                     let opts = '<option value="">Не указан</option>';
-                    statuses.forEach(s => { opts += `<option value="${s}" ${s === data ? 'selected' : ''}>${s}</option>`; });
-                    return `<select class="status-select" data-id="${row.id}">${opts}</select>`;
+                    ["Собственность", "Аренда", "Субаренда"].forEach(s => { opts += `<option value="${s}" ${s === d ? 'selected' : ''}>${s}</option>`; });
+                    return `<select class="status-select" data-id="${r.id}">${opts}</select>`;
                 }},
-                { data: "parcel_number", render: (data, type, row) => `<span class="editable-parcel" data-id="${row.id}">${data || 'N/A'}</span>` },
-                { data: null, render: (data, type, row) => `
-                    <div class="btn-group">
-                        <button onclick="downloadKmzWithSettings(${row.id})" class="btn btn-outline-primary btn-sm" title="Настройки DJI KMZ"><i class="fas fa-cog"></i></button>
-                        <button class="btn-save-details btn-success btn-sm" data-id="${row.id}" style="display:none;" title="Сохранить"><i class="fas fa-save"></i></button>
-                        <button class="btn-delete btn-danger btn-sm" data-id="${row.id}" title="Удалить"><i class="fas fa-trash"></i></button>
-                    </div>
-                `}
+                { data: "parcel_number", render: (d, t, r) => `<span class="editable-parcel" data-id="${r.id}">${d || 'N/A'}</span>` },
+                { data: null, render: (d, t, r) => `<div class="btn-group"><button onclick="downloadKmzWithSettings(${r.id})" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog"></i></button><button class="btn-save-details btn-success btn-sm" data-id="${r.id}" style="display:none;"><i class="fas fa-save"></i></button><button class="btn-delete btn-danger btn-sm" data-id="${r.id}"><i class="fas fa-trash"></i></button></div>` }
             ],
             language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" }
         });
@@ -237,42 +135,32 @@ function initFieldsTable() {
 }
 
 function setupTableEvents() {
-    const tbody = $('#fields-table tbody');
-
-    // Клик по строке (td), исключая интерактивные элементы
-    tbody.on('click', 'td', function(e) {
-        const target = $(e.target);
-        if (target.closest('.btn-group, select, input, .editable-name, .editable-parcel').length) return;
-        
-        const rowData = fieldsTable.row($(this).closest('tr')).data();
-        if (rowData && rowData.id) {
-            window.location.hash = `#field/${rowData.id}`;
-        }
+    const tb = $('#fields-table tbody');
+    tb.on('click', 'td', function(e) {
+        if ($(e.target).closest('.btn-group, select, input, .editable-name, .editable-parcel').length) return;
+        const r = fieldsTable.row($(this).closest('tr')).data();
+        if (r?.id) window.location.hash = `#field/${r.id}`;
     });
-
-    tbody.on('change', '.owner-select, .status-select', function() { $(this).closest('tr').find('.btn-save-details').show(); });
-    tbody.on('click', '.btn-save-details', function() {
-        const btn = $(this); const id = btn.data('id'); const row = btn.closest('tr');
-        const payload = { owner_id: row.find('.owner-select').val(), land_status: row.find('.status-select').val(), parcel_number: row.find('.editable-parcel').text() };
-        $.ajax({ url: `/api/field/assign_owner/${id}`, type: 'PUT', contentType: 'application/json', data: JSON.stringify({ owner_id: payload.owner_id }) });
-        $.ajax({
-            url: `/api/field/update_details/${id}`, type: 'PUT', contentType: 'application/json', data: JSON.stringify({ land_status: payload.land_status, parcel_number: payload.parcel_number }),
-            success: () => { btn.hide(); }
-        });
+    tb.on('change', '.owner-select, .status-select', function() { $(this).closest('tr').find('.btn-save-details').show(); });
+    tb.on('click', '.btn-save-details', function() {
+        const b = $(this); const id = b.data('id'); const r = b.closest('tr');
+        API.updateField(id, 'assign_owner', { owner_id: r.find('.owner-select').val() });
+        API.updateField(id, 'update_details', { land_status: r.find('.status-select').val(), parcel_number: r.find('.editable-parcel').text() }).then(() => b.hide());
     });
-    tbody.on('click', '.editable-name', function() {
-        const span = $(this); if (span.find('input').length) return;
-        const input = $('<input>').val(span.text()); span.html(input);
-        input.focus().on('blur keypress', function(e) {
+    tb.on('click', '.editable-name', function() {
+        const s = $(this); if (s.find('input').length) return;
+        const i = $('<input>').val(s.text()); s.html(i);
+        i.focus().on('blur keypress', function(e) {
             if (e.type === 'keypress' && e.which !== 13) return;
-            const newName = $(this).val();
-            $.ajax({ url: `/api/field/rename/${span.data('id')}`, type: 'PUT', contentType: 'application/json', data: JSON.stringify({ new_name: newName }), success: () => { span.text(newName); fieldsTable.ajax.reload(null, false); } });
+            const n = $(this).val();
+            API.updateField(s.data('id'), 'rename', { new_name: n }).then(() => { s.text(n); fieldsTable.ajax.reload(null, false); });
         });
     });
-    tbody.on('click', '.btn-delete', function() {
-        if (confirm('Удалить поле?')) {
-            $.ajax({ url: `/api/field/delete/${$(this).data('id')}`, type: 'DELETE', success: () => { fieldsTable.ajax.reload(null, false); loadMapData(); } });
-        }
+    tb.on('click', '.btn-delete', function() {
+        const id = $(this).data('id');
+        Swal.fire({ title: 'Удалить?', icon: 'warning', showCancelButton: true }).then(r => {
+            if (r.isConfirmed) API.deleteField(id).then(() => { fieldsTable.ajax.reload(null, false); loadMapData(); });
+        });
     });
 }
 
@@ -280,152 +168,79 @@ function initOwnersTable() {
     if (ownersTable) { ownersTable.ajax.reload(); return; }
     ownersTable = $('#owners-table').DataTable({
         ajax: "/api/owners",
-        columns: [ 
-            { data: "id" }, 
-            { data: "name" },
-            { data: null, render: (data, type, row) => `
-                <button class="btn btn-danger btn-sm btn-delete-owner" data-id="${row.id}" title="Удалить владельца">
-                    <i class="fas fa-trash"></i>
-                </button>
-            `}
-        ],
+        columns: [ { data: "id" }, { data: "name" }, { data: null, render: (d, t, r) => `<button class="btn btn-danger btn-sm btn-delete-owner" data-id="${r.id}"><i class="fas fa-trash"></i></button>` } ],
         language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" }
     });
-
     $('#owners-table tbody').on('click', '.btn-delete-owner', function() {
         const id = $(this).data('id');
-        Swal.fire({
-            title: 'Удалить владельца?',
-            text: "Это также сбросит владельца у всех привязанных к нему полей.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Да, удалить!',
-            cancelButtonText: 'Отмена'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: `/api/owner/delete/${id}`,
-                    type: 'DELETE',
-                    success: () => {
-                        ownersTable.ajax.reload();
-                        // Важно: перегружаем таблицу полей, т.к. там сбросились владельцы
-                        if (fieldsTable) fieldsTable.ajax.reload();
-                        Swal.fire('Удалено!', 'Владелец удален.', 'success');
-                    }
-                });
-            }
+        Swal.fire({ title: 'Удалить?', icon: 'warning', showCancelButton: true }).then(r => {
+            if (r.isConfirmed) API.deleteOwner(id).then(() => { ownersTable.ajax.reload(); fieldsTable?.ajax.reload(); });
         });
     });
-
-    $('#add-owner-form').off('submit').on('submit', function(e) {
+    $('#add-owner-form').on('submit', function(e) {
         e.preventDefault();
-        $.ajax({ url: '/api/owner/add', type: 'POST', contentType: 'application/json', data: JSON.stringify({ name: $('#owner-name').val() }), success: () => { $('#owner-name').val(''); ownersTable.ajax.reload(); } });
+        API.addOwner($('#owner-name').val()).then(() => { $('#owner-name').val(''); ownersTable.ajax.reload(); });
     });
 }
 
-// --- 4. STATISTICS LOGIC ---
+// --- 4. STATISTICS & THEME ---
 
 function initStatsView() {
-    $.getJSON('/api/fields_data', function(response) {
-        const data = response.data;
-        
-        // 1. Общие цифры
-        let totalArea = 0;
-        const statusMap = {}; // Для диаграммы статусов
-        const ownerMap = {};  // Для диаграммы владельцев
-
-        data.forEach(field => {
-            const props = JSON.parse(field.properties || '{}');
-            const area = (props.area_sq_m || 0) / 10000;
-            totalArea += area;
-
-            // Группировка по статусу
-            const status = field.land_status || "Не указан";
-            statusMap[status] = (statusMap[status] || 0) + area;
-
-            // Группировка по владельцу
-            const owner = field.owner || "Не назначен";
-            ownerMap[owner] = (ownerMap[owner] || 0) + area;
+    API.getFieldsData().then(res => {
+        const data = res.data;
+        let total = 0; const sMap = {}; const oMap = {};
+        data.forEach(f => {
+            const a = (JSON.parse(f.properties || '{}').area_sq_m || 0) / 10000;
+            total += a;
+            sMap[f.land_status || "N/A"] = (sMap[f.land_status || "N/A"] || 0) + a;
+            oMap[f.owner || "N/A"] = (oMap[f.owner || "N/A"] || 0) + a;
         });
-
         $('#stat-total-fields').text(data.length);
-        $('#stat-total-area').text(totalArea.toFixed(2) + ' га');
-
-        renderPieChart('chart-land-status', statusMap, 'Земля по статусу');
-        renderPieChart('chart-owners', ownerMap, 'Земля по владельцам');
+        $('#stat-total-area').text(total.toFixed(2) + ' га');
+        renderPieChart('chart-land-status', sMap);
+        renderPieChart('chart-owners', oMap);
     });
 }
 
-function renderPieChart(canvasId, dataMap, title) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    
-    // Удаляем старый график, если есть
-    if (charts[canvasId]) charts[canvasId].destroy();
-
-    const labels = Object.keys(dataMap);
-    const values = Object.values(dataMap);
-
-    charts[canvasId] = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: values,
-                backgroundColor: [
-                    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6610f2', '#fd7e14', '#20c997', '#17a2b8'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() } },
-                tooltip: { callbacks: { label: (item) => `${item.label}: ${item.raw.toFixed(2)} га` } }
-            }
-        }
+function renderPieChart(id, map) {
+    const ctx = document.getElementById(id).getContext('2d');
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(ctx, {
+        type: 'pie', data: { labels: Object.keys(map), datasets: [{ data: Object.values(map), backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6610f2'] }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() } } } }
     });
 }
-
-// --- 5. THEME & INIT ---
 
 function initTheme() {
     const saved = localStorage.getItem('theme') || 'light';
     $('html').attr('data-theme', saved);
     $('#theme-toggle-btn').on('click', () => {
-        const current = $('html').attr('data-theme');
-        const next = current === 'dark' ? 'light' : 'dark';
+        const curr = $('html').attr('data-theme');
+        const next = curr === 'dark' ? 'light' : 'dark';
         $('html').attr('data-theme', next);
         localStorage.setItem('theme', next);
-        if (mapInstance) {
-            mapInstance.removeLayer(current === 'dark' ? baseLayers.dark : baseLayers.light);
-            (next === 'dark' ? baseLayers.dark : baseLayers.light).addTo(mapInstance);
-        }
-        // Перерисовываем графики, чтобы обновить цвета легенд
+        MapManager.updateTheme(next === 'dark');
         if (window.location.hash === '#stats') initStatsView();
     });
 }
 
-$(document).ready(function() {
+$(document).ready(() => {
     initTheme();
-    initMap();
+    MapManager.initMainMap('map', onFieldCreated, onFieldEdited, onFieldDeleted);
+    loadMapData();
     $(window).on('hashchange', handleRoute);
     handleRoute();
     $('#sidebar-toggle').on('click', () => {
         $('body').toggleClass('sidebar-open');
         $('#sidebar').toggleClass('open');
-        setTimeout(() => mapInstance?.invalidateSize(), 300);
+        setTimeout(() => MapManager.instance?.invalidateSize(), 300);
     });
     $('#shapefile-input').on('change', function() { $('#upload-button').toggle(this.files.length > 0); });
     $('#upload-form').on('submit', function(e) {
         e.preventDefault();
-        const form = this; const formData = new FormData(form);
         $('#upload-status').text('Загрузка...');
-        $.ajax({
-            url: '/upload', type: 'POST', data: formData, processData: false, contentType: false,
-            success: () => { $('#upload-status').text('Успех!'); loadMapData(); if (fieldsTable) fieldsTable.ajax.reload(); form.reset(); $('#upload-button').hide(); setTimeout(() => $('#upload-status').text(''), 3000); },
+        $.ajax({ url: '/upload', type: 'POST', data: new FormData(this), processData: false, contentType: false,
+            success: () => { $('#upload-status').text('Успех!'); loadMapData(); fieldsTable?.ajax.reload(); this.reset(); $('#upload-button').hide(); setTimeout(() => $('#upload-status').text(''), 3000); },
             error: () => $('#upload-status').text('Ошибка')
         });
     });

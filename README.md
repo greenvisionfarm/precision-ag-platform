@@ -25,9 +25,16 @@
 
 ## Архитектура
 
-- **Frontend:** SPA (Single Page Application) на базе HTML5, CSS3, Leaflet.js.
-- **Backend:** Python (Tornado), GeoPandas, Rasterio (планируется).
-- **PWA:** Работает на планшетах и смартфонах в поле без интернета (кэширование интерфейса).
+Проект следует принципам модульности для облегчения тестирования и расширения:
+
+- **Backend:** Python (Tornado).
+    - `src/handlers/`: REST API контроллеры.
+    - `src/services/`: Гео-вычисления и логика экспорта.
+    - `db.py`: Модели данных SQLite (Peewee).
+- **Frontend:** SPA (HTML5, CSS3, Leaflet.js).
+    - `static/js/modules/`: Модули API и управления картой.
+    - `static/js/main.js`: Роутинг и инициализация.
+- **PWA:** Поддержка офлайн-работы через Service Worker.
 
 ## Установка и запуск
 
