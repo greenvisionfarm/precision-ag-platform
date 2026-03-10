@@ -51,6 +51,7 @@ beforeAll(() => {
     // Мокаем Leaflet
     const layerMock = { 
         addTo: jest.fn().mockReturnThis(), 
+        bindPopup: jest.fn().mockReturnThis(),
         getBounds: jest.fn().mockReturnValue({ isValid: () => true, pad: () => [[0,0],[1,1]] }) 
     };
     layerMock.getBounds.mockReturnValue({
@@ -71,10 +72,20 @@ beforeAll(() => {
             fitBounds: jest.fn()
         }),
         tileLayer: jest.fn().mockReturnValue({ addTo: jest.fn() }),
-        FeatureGroup: jest.fn().mockImplementation(() => ({ addTo: jest.fn(), clearLayers: jest.fn(), getBounds: () => ({isValid: () => false}) })),
+        FeatureGroup: jest.fn().mockImplementation(() => ({ 
+            addTo: jest.fn(), 
+            clearLayers: jest.fn(), 
+            addLayer: jest.fn(),
+            getBounds: () => ({isValid: () => false}) 
+        })),
         Control: { Draw: jest.fn() },
         Draw: { Event: { CREATED: 'c', EDITED: 'e', DELETED: 'd' } },
-        geoJSON: jest.fn().mockReturnValue(layerMock)
+        geoJSON: jest.fn().mockImplementation((data, options) => {
+            if (options && options.onEachFeature && data.features) {
+                data.features.forEach(f => options.onEachFeature(f, layerMock));
+            }
+            return layerMock;
+        })
     };
     
     window.Chart = jest.fn();
@@ -166,6 +177,19 @@ describe('Field Mapper Frontend Logic', () => {
         
         tr.find('td').click();
         expect(window.location.hash).toBe('#field/1');
+    });
+
+    test('MapManager: should render fields from geojson', () => {
+        const testGeoJSON = {
+            type: "FeatureCollection",
+            features: [{ type: "Feature", properties: { db_id: 1, name: "MapTest" }, geometry: { type: "Point", coordinates: [0,0] } }]
+        };
+        
+        MapManager.initMainMap('map');
+        MapManager.renderFields(testGeoJSON, jest.fn());
+        
+        expect(window.L.geoJSON).toHaveBeenCalled();
+        expect(MapManager.editableLayers.addLayer).toHaveBeenCalled();
     });
 
     test('Theme: should toggle theme attributes', () => {

@@ -102,6 +102,43 @@ async def test_api_field_get(http_server_client):
     assert "area" in data
     assert data["geometry"]["type"] == "Polygon"
 
+async def test_api_field_updates_all_actions(http_server_client):
+    client, base_url = http_server_client
+    # Создаем поле
+    p = {"name": "Update Test", "geometry": {"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,1],[0,0]]]}}
+    res = await client.fetch(f"{base_url}/api/field/add", method='POST', body=json.dumps(p))
+    fid = json.loads(res.body)["id"]
+
+    # 1. Rename
+    await client.fetch(f"{base_url}/api/field/rename/{fid}", method='PUT', body=json.dumps({"new_name": "NewName"}))
+    
+    # 2. Update Details
+    await client.fetch(f"{base_url}/api/field/update_details/{fid}", method='PUT', body=json.dumps({"land_status": "Owned", "parcel_number": "P-1"}))
+    
+    # 3. Update Geometry
+    new_geom = {"type": "Polygon", "coordinates": [[[0,0],[2,0],[2,2],[0,2],[0,0]]]}
+    await client.fetch(f"{base_url}/api/field/update_geometry/{fid}", method='PUT', body=json.dumps({"geometry": new_geom}))
+
+    # Проверяем результат
+    res = await client.fetch(f"{base_url}/api/field/{fid}")
+    data = json.loads(res.body)
+    assert data["name"] == "NewName"
+    assert data["land_status"] == "Owned"
+    assert data["parcel_number"] == "P-1"
+    assert data["geometry"]["coordinates"][0][1] == [2, 0]
+
+async def test_api_not_found_handling(http_server_client):
+    client, base_url = http_server_client
+    # Запрос несуществующего поля
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(f"{base_url}/api/field/9999")
+    assert e.value.code == 404
+
+    # Удаление несуществующего владельца
+    with pytest.raises(HTTPError) as e:
+        await client.fetch(f"{base_url}/api/owner/delete/9999", method='DELETE')
+    assert e.value.code == 404
+
 async def test_kmz_export(http_server_client):
     client, base_url = http_server_client
     # 1. Создаем поле

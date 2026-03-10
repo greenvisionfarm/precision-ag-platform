@@ -23,3 +23,5 @@ const API = {
         data: JSON.stringify(data)
     })
 };
+
+window.API = API;

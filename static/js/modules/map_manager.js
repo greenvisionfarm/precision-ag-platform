@@ -73,3 +73,5 @@ const MapManager = {
         setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
     }
 };
+
+window.MapManager = MapManager;

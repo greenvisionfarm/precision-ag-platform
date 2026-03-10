@@ -27,6 +27,7 @@ def generate_template_kml(field_name, wkt_str, height=100, overlap_h=80, overlap
     xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
   <Document>
+    <name>{field_name}</name>
     <wpml:createTime>{current_time}</wpml:createTime>
     <wpml:updateTime>{current_time}</wpml:updateTime>
     <wpml:missionConfig>
@@ -71,9 +72,16 @@ def create_kmz(field_id, field_name, wkt_str, height=100, overlap_h=80, overlap_
     """Создает KMZ архив в памяти с учетом параметров миссии."""
     template_kml = generate_template_kml(field_name, wkt_str, height, overlap_h, overlap_w)
     
+    # waypoint.kml может быть пустым для mapping2d шаблонов, но он должен быть в архиве
+    waypoint_kml = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
+  <Document></Document>
+</kml>"""
+
     kmz_io = io.BytesIO()
     with zipfile.ZipFile(kmz_io, 'w', zipfile.ZIP_DEFLATED) as kmz:
         kmz.writestr('wpmz/template.kml', template_kml)
+        kmz.writestr('wpmz/waypoint.kml', waypoint_kml)
     
     kmz_io.seek(0)
     return kmz_io.getvalue()
