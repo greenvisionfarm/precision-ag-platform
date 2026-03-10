@@ -2,18 +2,18 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ ОКРУЖЕНИЕ ТЕСТОВ
+os.environ['FIELD_MAPPER_ENV'] = 'test'
+
 import pytest
 import json
 import socket
 from unittest.mock import patch
 
-# ПРИНУДИТЕЛЬНО ПЕРЕКЛЮЧАЕМ БАЗУ ДО ИМПОРТА APP
 import db
-db.database = db.get_database(':memory:')
-
-import app # Теперь app.database будет ссылаться на ту же memory базу
+import app 
 from app import make_app, calculate_accurate_area
-from db import Field, Owner
+from db import Field, Owner, initialize_db
 
 from tornado.httpclient import AsyncHTTPClient, HTTPError
 from shapely.geometry import shape
@@ -25,11 +25,19 @@ def find_unused_port():
 
 @pytest.fixture(scope='function')
 def test_db():
+    # Удаляем старый файл тестовой базы, если он остался
+    if os.path.exists(db.TEST_DB_FILE):
+        os.remove(db.TEST_DB_FILE)
+    
+    # Инициализируем чистую базу
+    initialize_db()
     db.database.connect(reuse_if_open=True)
-    db.database.create_tables([Owner, Field])
     yield db.database
-    db.database.drop_tables([Owner, Field])
     db.database.close()
+    
+    # Удаляем после теста (по желанию)
+    if os.path.exists(db.TEST_DB_FILE):
+        os.remove(db.TEST_DB_FILE)
 
 @pytest.fixture
 async def http_server_client(test_db):
@@ -75,6 +83,23 @@ async def test_owner_assignment(http_server_client):
     data = json.loads(res.body)["data"]
     field = next(x for x in data if x["id"] == fid)
     assert field["owner"] == "Jan"
+
+async def test_api_field_get(http_server_client):
+    client, base_url = http_server_client
+    # 1. Создаем поле
+    p = {"name": "Detail Test", "geometry": {"type": "Polygon", "coordinates": [[[19,48], [19.01,48], [19.01,48.01], [19,48.01], [19,48]]]}}
+    res_f = await client.fetch(f"{base_url}/api/field/add", method='POST', body=json.dumps(p))
+    fid = json.loads(res_f.body)["id"]
+    
+    # 2. Получаем детали
+    res = await client.fetch(f"{base_url}/api/field/{fid}")
+    data = json.loads(res.body)
+    
+    assert data["id"] == fid
+    assert data["name"] == "Detail Test"
+    assert "geometry" in data
+    assert "area" in data
+    assert data["geometry"]["type"] == "Polygon"
 
 async def test_kmz_export(http_server_client):
     client, base_url = http_server_client

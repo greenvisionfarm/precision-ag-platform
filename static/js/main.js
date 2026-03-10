@@ -5,13 +5,14 @@ let baseLayers = {};
 let ownersList = [];
 let fieldsTable = null;
 let ownersTable = null;
-let charts = {}; // Для хранения экземпляров графиков (чтобы удалять перед перерисовкой)
+let charts = {}; 
+let detailMapInstance = null;
 
 // --- 1. ROUTING & UI ---
 
 function handleRoute() {
     const hash = window.location.hash || '#map';
-    
+
     $('.view-section').hide();
     $('.nav-link').removeClass('active');
 
@@ -23,8 +24,11 @@ function handleRoute() {
         $('#view-fields').show();
         $('.nav-link[href="#fields"]').addClass('active');
         initFieldsTable();
-    } else if (hash === '#owners') {
-        $('#view-owners').show();
+    } else if (hash.startsWith('#field/')) {
+        const fieldId = hash.split('/')[1];
+        $('#view-field-detail').show();
+        showFieldDetail(fieldId);
+    } else if (hash === '#owners') {        $('#view-owners').show();
         $('.nav-link[href="#owners"]').addClass('active');
         initOwnersTable();
     } else if (hash === '#stats') {
@@ -32,6 +36,45 @@ function handleRoute() {
         $('.nav-link[href="#stats"]').addClass('active');
         initStatsView();
     }
+}
+
+function showFieldDetail(id) {
+    $.getJSON(`/api/field/${id}`, function(field) {
+        $('#field-detail-name').text(field.name);
+        $('#field-detail-area').text(field.area);
+        $('#field-detail-owner').text(field.owner);
+        $('#field-detail-status').text(field.land_status);
+        $('#field-detail-parcel').text(field.parcel_number);
+
+        // Кнопки действий
+        $('#detail-export-kmz').off('click').on('click', () => downloadKmzWithSettings(id));
+        $('#detail-delete-field').off('click').on('click', () => {
+            if (confirm('Удалить поле?')) {
+                $.ajax({ url: `/api/field/delete/${id}`, type: 'DELETE', success: () => window.location.hash = '#fields' });
+            }
+        });
+
+        // Мини-карта
+        if (detailMapInstance) {
+            detailMapInstance.remove();
+            detailMapInstance = null;
+        }
+        
+        detailMapInstance = L.map('field-detail-map', { zoomControl: false, attributionControl: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(detailMapInstance);
+        
+        const geojsonLayer = L.geoJSON(field.geometry, {
+            style: { color: '#007BFF', weight: 3, fillOpacity: 0.2 }
+        }).addTo(detailMapInstance);
+        
+        detailMapInstance.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
+        
+        // Маленький хак для корректной отрисовки после показа секции
+        setTimeout(() => detailMapInstance.invalidateSize(), 100);
+    }).fail(() => {
+        Swal.fire('Ошибка', 'Не удалось загрузить данные поля', 'error');
+        window.location.hash = '#fields';
+    });
 }
 
 // --- 2. MAP LOGIC ---
@@ -195,6 +238,18 @@ function initFieldsTable() {
 
 function setupTableEvents() {
     const tbody = $('#fields-table tbody');
+
+    // Клик по строке (td), исключая интерактивные элементы
+    tbody.on('click', 'td', function(e) {
+        const target = $(e.target);
+        if (target.closest('.btn-group, select, input, .editable-name, .editable-parcel').length) return;
+        
+        const rowData = fieldsTable.row($(this).closest('tr')).data();
+        if (rowData && rowData.id) {
+            window.location.hash = `#field/${rowData.id}`;
+        }
+    });
+
     tbody.on('change', '.owner-select, .status-select', function() { $(this).closest('tr').find('.btn-save-details').show(); });
     tbody.on('click', '.btn-save-details', function() {
         const btn = $(this); const id = btn.data('id'); const row = btn.closest('tr');

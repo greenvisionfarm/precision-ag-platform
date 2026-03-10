@@ -272,6 +272,39 @@ class FieldExportKmzHandler(tornado.web.RequestHandler):
         finally:
             if not database.is_closed(): database.close()
 
+class FieldGetHandler(tornado.web.RequestHandler):
+    def get(self, field_id):
+        self.set_header("Content-Type", "application/json")
+        try:
+            if database.is_closed(): database.connect()
+            field = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).where(Field.id == field_id).objects().first()
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Field not found"})
+                return
+            
+            geom = wkt_loads(field.geometry_wkt)
+            properties = json.loads(field.properties_json) if field.properties_json else {}
+            area_ha = properties.get('area_sq_m', 0) / 10000
+            
+            data = {
+                "id": field.id,
+                "name": field.name or "N/A",
+                "area": f"{area_ha:.2f} га",
+                "owner": field.owner.name if field.owner_id else "N/A",
+                "owner_id": field.owner_id,
+                "land_status": field.land_status or "Не указан",
+                "parcel_number": field.parcel_number or "N/A",
+                "geometry": mapping(geom),
+                "properties": properties
+            }
+            self.write(json.dumps(data))
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed(): database.close()
+
 def make_app():
     settings = {
         "template_path": os.path.dirname(__file__),
@@ -285,6 +318,7 @@ def make_app():
         (r"/api/owners", OwnersDataApiHandler),
         (r"/api/owner/add", AddOwnerApiHandler),
         (r"/api/owner/delete/([0-9]+)", OwnerDeleteHandler),
+        (r"/api/field/([0-9]+)", FieldGetHandler),
         (r"/api/field/delete/([0-9]+)", FieldDeleteHandler),
         (r"/api/field/rename/([0-9]+)", FieldRenameHandler),
         (r"/api/field/assign_owner/([0-9]+)", FieldAssignOwnerHandler),

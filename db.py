@@ -3,10 +3,14 @@ import os
 
 # Определяем путь к файлу базы данных SQLite
 DEFAULT_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fields.db')
+TEST_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_fields.db')
 
-def get_database(db_path=None):
-    """Возвращает экземпляр SqliteDatabase."""
-    return SqliteDatabase(db_path if db_path else DEFAULT_DB_FILE)
+def get_database():
+    """Возвращает экземпляр SqliteDatabase в зависимости от окружения."""
+    env = os.getenv('FIELD_MAPPER_ENV', 'development')
+    if env == 'test':
+        return SqliteDatabase(TEST_DB_FILE)
+    return SqliteDatabase(DEFAULT_DB_FILE)
 
 database = get_database()
 
@@ -37,11 +41,11 @@ class Field(BaseModel):
     class Meta:
         table_name = 'fields'
 
-def initialize_db(db_path=None):
+def initialize_db():
     """Инициализирует базу данных и создает таблицы."""
     global database
-    database = get_database(db_path)
-    database.connect()
+    database = get_database()
+    database.connect(reuse_if_open=True)
     database.create_tables([Owner, Field])
     database.close()
 
