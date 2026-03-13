@@ -71,14 +71,31 @@ const MapManager = {
         }
     },
 
-    initDetailMap: (containerId, geometry) => {
+    initDetailMap: (containerId, geometry, zones = []) => {
         if (MapManager.detailInstance) { MapManager.detailInstance.remove(); }
         
         MapManager.detailInstance = L.map(containerId, { zoomControl: false, attributionControl: false });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(MapManager.detailInstance);
         
-        const layer = L.geoJSON(geometry, { style: { color: '#007BFF', weight: 3, fillOpacity: 0.2 } }).addTo(MapManager.detailInstance);
-        MapManager.detailInstance.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        // Сначала рисуем зоны (если есть), чтобы они были под границей
+        if (zones && zones.length > 0) {
+            zones.forEach(zone => {
+                L.geoJSON(zone.geometry, {
+                    style: {
+                        color: zone.color,
+                        weight: 1,
+                        fillOpacity: 0.6
+                    }
+                }).addTo(MapManager.detailInstance);
+            });
+        }
+
+        // Затем рисуем контур поля
+        const mainLayer = L.geoJSON(geometry, { 
+            style: { color: '#007BFF', weight: 3, fillOpacity: zones.length > 0 ? 0 : 0.2 } 
+        }).addTo(MapManager.detailInstance);
+        
+        MapManager.detailInstance.fitBounds(mainLayer.getBounds(), { padding: [20, 20] });
         
         setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
     }

@@ -31,13 +31,23 @@
 
         <div id="upload-section-sidebar">
             <hr>
-            <h3>Загрузка</h3>
+            <h3>Загрузка Границ</h3>
             <form id="upload-form">
                 <div class="form-group">
                     <input type="file" id="shapefile-input" name="shapefile_zip" accept=".zip" required>
                 </div>
                 <button type="submit" id="upload-button" style="display: none;">Загрузить ZIP</button>
                 <div id="upload-status"></div>
+            </form>
+
+            <hr>
+            <h3>Загрузка NDVI (GeoTIFF)</h3>
+            <form id="raster-upload-form">
+                <div class="form-group">
+                    <input type="file" id="raster-input" name="raster_file" accept=".tif,.tiff" required>
+                </div>
+                <button type="submit" id="raster-upload-button" style="display: none;">Загрузить TIF</button>
+                <div id="raster-upload-status"></div>
             </form>
         </div>
         

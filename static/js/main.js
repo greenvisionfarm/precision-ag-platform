@@ -49,7 +49,7 @@ function showFieldDetail(id) {
             });
         });
 
-        MapManager.initDetailMap('field-detail-map', field.geometry);
+        MapManager.initDetailMap('field-detail-map', field.geometry, field.zones);
     }).fail(() => {
         Swal.fire('Ошибка', 'Данные не найдены', 'error');
         window.location.hash = '#fields';
@@ -91,8 +91,8 @@ function openFieldModal(id) {
             showConfirmButton: false,
             showCloseButton: true,
             didOpen: () => {
-                // Инициализируем карту в модальном окне
-                MapManager.initDetailMap('modal-field-map', field.geometry);
+                // Инициализируем карту в модальном окне с зонами
+                MapManager.initDetailMap('modal-field-map', field.geometry, field.zones);
                 
                 $('#modal-export-kmz').on('click', () => {
                     Swal.close();
@@ -296,6 +296,24 @@ $(document).ready(() => {
         $.ajax({ url: '/upload', type: 'POST', data: new FormData(this), processData: false, contentType: false,
             success: () => { $('#upload-status').text('Успех!'); loadMapData(); fieldsTable?.ajax.reload(); this.reset(); $('#upload-button').hide(); setTimeout(() => $('#upload-status').text(''), 3000); },
             error: () => $('#upload-status').text('Ошибка')
+        });
+    });
+
+    $('#raster-input').on('change', function() { $('#raster-upload-button').toggle(this.files.length > 0); });
+    $('#raster-upload-form').on('submit', function(e) {
+        e.preventDefault();
+        $('#raster-upload-status').text('Загрузка (может занять время)...');
+        $.ajax({ url: '/upload', type: 'POST', data: new FormData(this), processData: false, contentType: false,
+            success: (res) => { 
+                const msg = res.crs ? `Успех! (Но CRS: ${res.crs})` : 'Успешно загружено!';
+                $('#raster-upload-status').text(msg); 
+                this.reset(); $('#raster-upload-button').hide(); 
+                setTimeout(() => $('#raster-upload-status').text(''), 5000); 
+            },
+            error: (xhr) => {
+                const err = xhr.responseJSON?.error || 'Ошибка загрузки';
+                $('#raster-upload-status').text(err);
+            }
         });
     });
 });

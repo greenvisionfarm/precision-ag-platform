@@ -57,7 +57,7 @@ if __name__ == "__main__":
     try:
         initialize_db()
         app = make_app()
-        app.listen(8888)
+        app.listen(8888, max_body_size=1024 * 1024 * 1024) # 1GB limit here
         logging.info("Сервер запущен: http://localhost:8888")
         tornado.ioloop.IOLoop.current().start()
     except KeyboardInterrupt:

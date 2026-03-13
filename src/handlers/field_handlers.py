@@ -62,6 +62,7 @@ class FieldsDataApiHandler(FieldApiBaseHandler):
 class FieldGetHandler(FieldApiBaseHandler):
     def get(self, field_id):
         try:
+            from db import FieldZone
             if database.is_closed(): database.connect()
             field = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).where(Field.id == field_id).objects().first()
             if not field:
@@ -69,6 +70,16 @@ class FieldGetHandler(FieldApiBaseHandler):
                 self.write({"error": "Field not found"})
                 return
             
+            # Собираем зоны
+            zones = []
+            for z in FieldZone.select().where(FieldZone.field == field):
+                zones.append({
+                    "name": z.name,
+                    "geometry": mapping(wkt_loads(z.geometry_wkt)),
+                    "avg_ndvi": z.avg_ndvi,
+                    "color": z.color
+                })
+
             geom = wkt_loads(field.geometry_wkt)
             properties = json.loads(field.properties_json) if field.properties_json else {}
             area_ha = properties.get('area_sq_m', 0) / 10000
@@ -82,7 +93,8 @@ class FieldGetHandler(FieldApiBaseHandler):
                 "land_status": field.land_status or "Не указан",
                 "parcel_number": field.parcel_number or "N/A",
                 "geometry": mapping(geom),
-                "properties": properties
+                "properties": properties,
+                "zones": zones
             }
             self.write(json.dumps(data))
         except Exception as e:

@@ -41,12 +41,23 @@ class Field(BaseModel):
     class Meta:
         table_name = 'fields'
 
+class FieldZone(BaseModel):
+    field = ForeignKeyField(Field, backref='zones', on_delete='CASCADE')
+    name = CharField() # Например: "Низкая продуктивность"
+    geometry_wkt = TextField()
+    avg_ndvi = FloatField(null=True)
+    area_ha = FloatField(null=True)
+    color = CharField(null=True) # Hex код для карты
+
+    class Meta:
+        table_name = 'field_zones'
+
 def initialize_db():
     """Инициализирует базу данных и создает таблицы."""
     global database
     database = get_database()
     database.connect(reuse_if_open=True)
-    database.create_tables([Owner, Field])
+    database.create_tables([Owner, Field, FieldZone])
     database.close()
 
 if __name__ == '__main__':
