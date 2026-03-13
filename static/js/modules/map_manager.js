@@ -37,7 +37,7 @@ const MapManager = {
         else { MapManager.instance.removeLayer(dark); light.addTo(MapManager.instance); }
     },
 
-    renderFields: (geojsonData, onDownloadKmz) => {
+    renderFields: (geojsonData, onDownloadKmz, onFieldClick) => {
         if (!MapManager.editableLayers) return;
         MapManager.editableLayers.clearLayers();
         if (!geojsonData.features) return;
@@ -46,8 +46,18 @@ const MapManager = {
             style: { color: "#007BFF", weight: 2, fillOpacity: 0.3 },
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
-                const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + ' га' : 'N/A';
-                layer.bindPopup(`<b>${props.name || 'Поле'}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz" data-id="${props.db_id}" style="width:100%"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
+                
+                // Вместо попапа вешаем клик, если передан обработчик
+                if (onFieldClick) {
+                    layer.on('click', (e) => {
+                        L.DomEvent.stopPropagation(e);
+                        onFieldClick(props.db_id);
+                    });
+                } else {
+                    const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + ' га' : 'N/A';
+                    layer.bindPopup(`<b>${props.name || 'Поле'}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz" data-id="${props.db_id}" style="width:100%"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
+                }
+                
                 MapManager.editableLayers.addLayer(layer);
             }
         });

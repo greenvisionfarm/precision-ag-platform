@@ -56,10 +56,64 @@ function showFieldDetail(id) {
     });
 }
 
+function openFieldModal(id) {
+    // Показываем прелоадер
+    Swal.fire({
+        title: 'Загрузка...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    API.getField(id).then(field => {
+        const area = field.area;
+        const owner = field.owner || 'Не назначен';
+        const status = field.land_status || 'Не указан';
+        const parcel = field.parcel_number || 'N/A';
+
+        Swal.fire({
+            title: field.name,
+            html: `
+                <div class="modal-detail-grid">
+                    <div id="modal-field-map" style="height: 300px; border-radius: 8px; margin-bottom: 15px;"></div>
+                    <table class="info-table" style="width: 100%; text-align: left;">
+                        <tr><th>Площадь:</th><td>${area}</td></tr>
+                        <tr><th>Владелец:</th><td>${owner}</td></tr>
+                        <tr><th>Статус:</th><td>${status}</td></tr>
+                        <tr><th>Кадастровый №:</th><td>${parcel}</td></tr>
+                    </table>
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                        <button id="modal-export-kmz" class="btn btn-primary btn-sm"><i class="fas fa-file-download"></i> Экспорт KMZ</button>
+                        <button id="modal-go-to-detail" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt"></i> На страницу поля</button>
+                    </div>
+                </div>
+            `,
+            width: '600px',
+            showConfirmButton: false,
+            showCloseButton: true,
+            didOpen: () => {
+                // Инициализируем карту в модальном окне
+                MapManager.initDetailMap('modal-field-map', field.geometry);
+                
+                $('#modal-export-kmz').on('click', () => {
+                    Swal.close();
+                    downloadKmzWithSettings(id);
+                });
+                
+                $('#modal-go-to-detail').on('click', () => {
+                    Swal.close();
+                    window.location.hash = `#field/${id}`;
+                });
+            }
+        });
+    }).fail(() => {
+        Swal.fire('Ошибка', 'Не удалось загрузить данные поля', 'error');
+    });
+}
+
 // --- 2. MAP CALLBACKS ---
 
 function loadMapData() {
-    API.getFields().then(data => MapManager.renderFields(data, downloadKmzWithSettings));
+    API.getFields().then(data => MapManager.renderFields(data, downloadKmzWithSettings, openFieldModal));
 }
 
 function onFieldCreated(e) {
