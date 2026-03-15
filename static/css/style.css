@@ -111,12 +111,12 @@ h1, h2, h3 {
     padding: var(--spacing-sm);
     border-radius: var(--radius);
     transition: background 0.2s;
-}
 
-.nav-link.active {
-    font-weight: bold;
-    color: white !important;
-    background-color: var(--primary-color);
+    & .nav-link.active {
+        font-weight: bold;
+        color: white !important;
+        background-color: var(--primary-color);
+    }
 }
 
 /* Десктопная версия: сдвиг контента при открытом сайдбаре */
@@ -143,26 +143,23 @@ h1, h2, h3 {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-}
 
-#sidebar.open {
-    left: 0;
-    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
-}
-
-#sidebar h2 { margin-bottom: var(--spacing-xl); }
-
-#sidebar nav {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    flex: 1;
-}
-
-#sidebar a {
-    color: var(--sidebar-link);
-    text-decoration: none;
-    font-weight: 500;
+    & .open {
+        left: 0;
+        box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+    }
+    & h2 { margin-bottom: var(--spacing-xl); }
+    & nav {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex: 1;
+    }
+    & a {
+        color: var(--sidebar-link);
+        text-decoration: none;
+        font-weight: 500;
+    }
 }
 
 /* Кнопка переключения сайдбара */
@@ -213,6 +210,7 @@ h1, h2, h3 {
     cursor: pointer;
     font-weight: 500;
     border: none;
+    text-decoration: none;
     transition: background-color 0.2s, transform 0.1s;
     display: inline-flex;
     align-items: center;
@@ -257,6 +255,18 @@ h1, h2, h3 {
 }
 
 /* Таблицы (DataTables) */
+#add-owner-form {
+    & .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+
+        & #owner-name {
+            width: 30%;
+        }
+    }
+}
+
 table.dataTable {
     width: 100% !important;
     color: var(--text-color) !important;
