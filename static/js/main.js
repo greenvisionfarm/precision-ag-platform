@@ -353,18 +353,61 @@ $(document).ready(() => {
     $('#raster-input').on('change', function() { $('#raster-upload-button').toggle(this.files.length > 0); });
     $('#raster-upload-form').on('submit', function(e) {
         e.preventDefault();
-        $('#raster-upload-status').text('Загрузка (может занять время)...');
-        $.ajax({ url: '/upload', type: 'POST', data: new FormData(this), processData: false, contentType: false,
-            success: (res) => { 
-                const msg = res.crs ? `Успех! (Но CRS: ${res.crs})` : 'Успешно загружено!';
-                $('#raster-upload-status').text(msg); 
-                this.reset(); $('#raster-upload-button').hide(); 
-                setTimeout(() => $('#raster-upload-status').text(''), 5000); 
+        const statusDiv = $('#raster-upload-status');
+        const btn = $('#raster-upload-button');
+
+        statusDiv.html('<i class="fas fa-spinner fa-spin"></i> Загрузка файла...').show();
+        btn.prop('disabled', true);
+
+        $.ajax({
+            url: '/upload',
+            type: 'POST',
+            data: new FormData(this),
+            processData: false,
+            contentType: false,
+            success: (res) => {
+                if (res.task_id) {
+                    statusDiv.html(`<i class="fas fa-cog fa-spin"></i> Файл на сервере. Анализ NDVI...`);
+                    pollTaskStatus(res.task_id, res.field_id);
+                } else {
+                    statusDiv.html('<span class="text-success">Готово!</span>');
+                    btn.prop('disabled', false);
+                    this.reset();
+                    if (res.field_id) window.location.hash = `#field/${res.field_id}`;
+                }
             },
             error: (xhr) => {
                 const err = xhr.responseJSON?.error || 'Ошибка загрузки';
-                $('#raster-upload-status').text(err);
+                statusDiv.html(`<span class="text-danger">${err}</span>`);
+                btn.prop('disabled', false);
             }
         });
     });
+
+    function pollTaskStatus(taskId, fieldId) {
+        const statusDiv = $('#raster-upload-status');
+        const interval = setInterval(() => {
+            $.getJSON(`/api/task/${taskId}`, function(res) {
+                if (res.status === 'completed') {
+                    clearInterval(interval);
+                    statusDiv.html('<span class="text-success"><i class="fas fa-check"></i> Анализ завершен!</span>');
+                    setTimeout(() => {
+                        statusDiv.hide();
+                        $('#raster-upload-button').prop('disabled', false).hide();
+                        $('#raster-upload-form')[0].reset();
+                        if (window.location.hash === `#field/${fieldId}`) {
+                            showFieldDetail(fieldId);
+                        } else {
+                            window.location.hash = `#field/${fieldId}`;
+                        }
+                        loadMapData(); // Обновить геометрию на главной карте
+                    }, 2000);
+                } else if (res.status === 'error') {
+                    clearInterval(interval);
+                    statusDiv.html(`<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.message}</span>`);
+                    $('#raster-upload-button').prop('disabled', false);
+                }
+            });
+        }, 3000);
+    }
 });

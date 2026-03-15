@@ -1,0 +1,12 @@
+venv/
+node_modules/
+__pycache__/
+*.pyc
+*.db
+*.kmz
+*.tif
+.git/
+.idea/
+.pytest_cache/
+test_files/
+/home/vladibuyanov/.gemini/tmp/

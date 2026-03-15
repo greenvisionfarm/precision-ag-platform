@@ -9,7 +9,7 @@ from src.handlers.field_handlers import (
     FieldActionHandler, FieldUpdateHandler, FieldExportKmzHandler
 )
 from src.handlers.owner_handlers import OwnersDataApiHandler, OwnerActionHandler
-from src.handlers.upload_handlers import UploadHandler
+from src.handlers.upload_handlers import UploadHandler, TaskStatusHandler
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,
@@ -45,6 +45,7 @@ def make_app():
         
         # Upload
         (r"/upload", UploadHandler),
+        (r"/api/task/(.*)", TaskStatusHandler),
         
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

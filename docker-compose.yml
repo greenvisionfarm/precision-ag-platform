@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    container_name: field-mapper-app
+    restart: always
+    environment:
+      - FIELD_MAPPER_ENV=production
+      - FIELD_MAPPER_DB=/app/data/fields.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static:ro
+    expose:
+      - "8888"
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    container_name: field-mapper-worker
+    restart: always
+    command: ["huey_consumer.py", "src.tasks.huey"]
+    environment:
+      - FIELD_MAPPER_ENV=production
+      - FIELD_MAPPER_DB=/app/data/fields.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: field-mapper-redis
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    container_name: field-mapper-proxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/app/static:ro
+    depends_on:
+      - app

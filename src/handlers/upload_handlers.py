@@ -4,17 +4,47 @@ import tempfile
 import zipfile
 import os
 import math
+import uuid
 import geopandas as gpd
 import rasterio
 from db import database, Field
+from src.tasks import huey, process_geotiff_task
+
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+class TaskStatusHandler(tornado.web.RequestHandler):
+    def get(self, task_id):
+        result = huey.result(task_id)
+        if result is None:
+            # Если результата еще нет, проверяем, есть ли задача в очереди
+            is_pending = huey.pending().count() > 0 # Упрощенно
+            self.write({
+                "task_id": task_id,
+                "status": "pending",
+                "message": "Задача обрабатывается"
+            })
+        elif result is False:
+            self.write({
+                "task_id": task_id,
+                "status": "error",
+                "message": "Ошибка при обработке"
+            })
+        else:
+            self.write({
+                "task_id": task_id,
+                "status": "completed",
+                "message": "Обработка завершена успешно"
+            })
 
 class UploadHandler(tornado.web.RequestHandler):
     def post(self):
-        # 1. Обработка Shapefile (старая логика)
+        # 1. Обработка Shapefile
         if 'shapefile_zip' in self.request.files:
             return self.handle_shapefile()
         
-        # 2. Обработка GeoTIFF (новая логика)
+        # 2. Обработка GeoTIFF (новая асинхронная логика)
         elif 'raster_file' in self.request.files:
             return self.handle_geotiff()
         
@@ -53,20 +83,21 @@ class UploadHandler(tornado.web.RequestHandler):
 
     def handle_geotiff(self):
         try:
-            from src.services.raster_service import process_ndvi_zones
             from shapely import wkt
             from shapely.geometry import box
             
             uploaded_file = self.request.files['raster_file'][0]
-            filename = uploaded_file['filename']
             
-            # Сохраняем во временный файл для обработки
-            with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
-                tmp.write(uploaded_file['body'])
-                tmp_path = tmp.name
+            # Сохраняем файл в папку uploads с уникальным именем
+            file_ext = os.path.splitext(uploaded_file['filename'])[1]
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            
+            with open(file_path, 'wb') as f:
+                f.write(uploaded_file['body'])
 
             try:
-                with rasterio.open(tmp_path) as src:
+                with rasterio.open(file_path) as src:
                     # Определяем границы растра
                     bounds = src.bounds
                     raster_box = box(bounds.left, bounds.bottom, bounds.right, bounds.top)
@@ -82,39 +113,22 @@ class UploadHandler(tornado.web.RequestHandler):
                         break
                 
                 if not target_field:
+                    if os.path.exists(file_path): os.remove(file_path)
                     raise ValueError("Не найдено поле, соответствующее координатам этого растра")
 
-                # Запускаем зонирование
-                zones_data = process_ndvi_zones(tmp_path, target_field.geometry_wkt)
+                # Запускаем фоновую задачу
+                task = process_geotiff_task(file_path, target_field.id)
                 
-                if not zones_data:
-                    raise ValueError("Не удалось выделить зоны (возможно, растр не пересекается с контуром поля)")
-
-                # Сохраняем зоны в БД
-                from db import FieldZone
-                with database.atomic():
-                    # Удаляем старые зоны этого поля перед обновлением
-                    FieldZone.delete().where(FieldZone.field == target_field).execute()
-                    
-                    for z in zones_data:
-                        FieldZone.create(
-                            field=target_field,
-                            name=z['name'],
-                            geometry_wkt=z['geometry_wkt'],
-                            avg_ndvi=z['avg_ndvi'],
-                            color=z['color']
-                        )
-
                 self.write({
-                    "message": f"Растр привязан к полю '{target_field.name}'. Выделено зон: {len(zones_data)}",
-                    "field_id": target_field.id,
-                    "zones_count": len(zones_data)
+                    "message": f"Файл принят. Обработка NDVI для поля '{target_field.name}' запущена в фоне.",
+                    "task_id": task.id,
+                    "field_id": target_field.id
                 })
 
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path) # Удаляем тяжелый оригинал после обработки
-                    
+            except Exception as e:
+                if os.path.exists(file_path): os.remove(file_path)
+                raise e
+
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})

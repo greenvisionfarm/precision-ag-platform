@@ -2,7 +2,7 @@ from peewee import *
 import os
 
 # Определяем путь к файлу базы данных SQLite
-DEFAULT_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fields.db')
+DEFAULT_DB_FILE = os.getenv('FIELD_MAPPER_DB', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fields.db'))
 TEST_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_fields.db')
 
 def get_database():
