@@ -153,8 +153,7 @@ async def test_kmz_export(http_server_client):
     assert res.code == 200
     assert res.headers["Content-Type"] == "application/vnd.google-earth.kmz"
     assert "attachment" in res.headers["Content-Disposition"]
-    assert f"Field_{fid}_110m.kmz" in res.headers["Content-Disposition"]
-    # Проверяем, что это ZIP (первые байты PK)
+    assert "Test_Field_110m.kmz" in res.headers["Content-Disposition"]    # Проверяем, что это ZIP (первые байты PK)
     assert res.body.startswith(b'PK')
 
 async def test_static_routes(http_server_client):

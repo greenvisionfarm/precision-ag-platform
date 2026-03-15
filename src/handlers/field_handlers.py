@@ -183,12 +183,17 @@ class FieldExportKmzHandler(FieldApiBaseHandler):
             height = int(self.get_argument("height", 100))
             overlap_h = int(self.get_argument("overlap_h", 80))
             overlap_w = int(self.get_argument("overlap_w", 70))
+            direction = int(self.get_argument("direction", 0))
             if height > 120: height = 120
             
             kmz_data = create_kmz(field.id, field.name or "Field", field.geometry_wkt, 
-                                 height=height, overlap_h=overlap_h, overlap_w=overlap_w)
+                                 height=height, overlap_h=overlap_h, overlap_w=overlap_w,
+                                 direction=direction)
             
-            filename = f"Field_{field.id}_{height}m.kmz"
+            # Очистка имени для файла (заменяем пробелы на подчеркивания, убираем спецсимволы)
+            safe_name = "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in (field.name or "Field")]).strip().replace(' ', '_')
+            filename = f"{safe_name}_{height}m.kmz"
+            
             self.set_header('Content-Type', 'application/vnd.google-earth.kmz')
             self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.write(kmz_data)

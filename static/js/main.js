@@ -148,13 +148,44 @@ function onFieldDeleted(e) {
 
 function downloadKmzWithSettings(fieldId) {
     Swal.fire({
-        title: 'DJI KMZ',
-        html: `<div style="text-align: left;"><label>Высота (м):</label><input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="120"><label>Фронт (%):</label><input type="number" id="swal-oh" class="swal2-input" value="80"><label>Бок (%):</label><input type="number" id="swal-ow" class="swal2-input" value="70"></div>`,
-        preConfirm: () => ({ height: $('#swal-h').val(), oh: $('#swal-oh').val(), ow: $('#swal-ow').val() })
+        title: 'Настройки DJI KMZ',
+        html: `
+            <div style="text-align: left;">
+                <div class="form-group mb-2">
+                    <label>Высота полета (м):</label>
+                    <input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="150" style="margin: 5px 0;">
+                    <small class="text-muted">Высота над точкой взлета. Для NDVI оптимально 100-120м.</small>
+                </div>
+                <div class="form-group mb-2">
+                    <label>Фронтальное перекрытие (%):</label>
+                    <input type="number" id="swal-oh" class="swal2-input" value="80" min="40" max="90" style="margin: 5px 0;">
+                    <small class="text-muted">Наложение снимков по ходу движения. Нужно 75-80%.</small>
+                </div>
+                <div class="form-group mb-2">
+                    <label>Боковое перекрытие (%):</label>
+                    <input type="number" id="swal-ow" class="swal2-input" value="70" min="40" max="90" style="margin: 5px 0;">
+                    <small class="text-muted">Наложение между проходами (галсами). Обычно 70-75%.</small>
+                </div>
+                <div class="form-group mb-2">
+                    <label>Угол курса (град):</label>
+                    <input type="number" id="swal-dir" class="swal2-input" value="0" min="0" max="360" style="margin: 5px 0;">
+                    <small class="text-muted">Направление полета. 0 - север, 90 - восток.</small>
+                </div>
+            </div>`,
+        focusConfirm: false,
+        preConfirm: () => {
+            return {
+                height: document.getElementById('swal-h').value,
+                oh: document.getElementById('swal-oh').value,
+                ow: document.getElementById('swal-ow').value,
+                dir: document.getElementById('swal-dir').value
+            }
+        }
     }).then(res => {
         if (res.isConfirmed) {
             const p = res.value;
-            window.location.href = `/api/field/export/kmz/${fieldId}?height=${p.height}&overlap_h=${p.oh}&overlap_w=${p.ow}`;
+            const url = '/api/field/export/kmz/' + fieldId + '?height=' + p.height + '&overlap_h=' + p.oh + '&overlap_w=' + p.ow + '&direction=' + p.dir;
+            window.location.href = url;
         }
     });
 }
@@ -182,7 +213,27 @@ function initFieldsTable() {
                 { data: "parcel_number", render: (d, t, r) => `<span class="editable-parcel" data-id="${r.id}">${d || 'N/A'}</span>` },
                 { data: null, render: (d, t, r) => `<div class="btn-group"><button onclick="downloadKmzWithSettings(${r.id})" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog"></i></button><button class="btn-save-details btn-success btn-sm" data-id="${r.id}" style="display:none;"><i class="fas fa-save"></i></button><button class="btn-delete btn-danger btn-sm" data-id="${r.id}"><i class="fas fa-trash"></i></button></div>` }
             ],
-            language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" }
+            language: {
+                "processing": "Подождите...",
+                "search": "Поиск:",
+                "lengthMenu": "Показать _MENU_ записей",
+                "info": "Записи с _START_ до _END_ из _TOTAL_ записей",
+                "infoEmpty": "Записи с 0 до 0 из 0 записей",
+                "infoFiltered": "(отфильтровано из _MAX_ записей)",
+                "loadingRecords": "Загрузка записей...",
+                "zeroRecords": "Записи отсутствуют.",
+                "emptyTable": "В таблице отсутствуют данные",
+                "paginate": {
+                    "first": "Первая",
+                    "previous": "Предыдущая",
+                    "next": "Следующая",
+                    "last": "Последняя"
+                },
+                "aria": {
+                    "sortAscending": ": активировать для сортировки столбца по возрастанию",
+                    "sortDescending": ": активировать для сортировки столбца по убыванию"
+                }
+            }
         });
         setupTableEvents();
     });

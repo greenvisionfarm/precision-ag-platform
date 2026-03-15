@@ -24,7 +24,7 @@ def test_kmz_generation_logic():
     with zipfile.ZipFile(io.BytesIO(kmz_data)) as z:
         files = z.namelist()
         assert "wpmz/template.kml" in files
-        assert "wpmz/waypoint.kml" in files
+        assert "wpmz/waylines.wpml" in files
         
         # Проверяем содержимое template.kml на наличие параметров
         with z.open("wpmz/template.kml") as f:
