@@ -8,5 +8,4 @@ __pycache__/
 .git/
 .idea/
 .pytest_cache/
-test_files/
 /home/vladibuyanov/.gemini/tmp/
