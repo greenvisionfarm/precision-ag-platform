@@ -1,0 +1,34 @@
+# Зависимости и сборка
+node_modules/
+dist/
+package-lock.json
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# IDE и система
+.git/
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.lock
+
+# Данные и ГИС (бинарные файлы)
+*.db
+*.sqlite
+*.sqlite3
+test_files/
+*.kmz
+*.kml
+*.tif
+*.tiff
+*.zip
+*.shp
+*.dbf

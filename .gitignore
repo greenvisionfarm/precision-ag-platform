@@ -51,3 +51,4 @@ venv/
 tmp/
 node_modules/
 package-lock.json
+/test_files/
