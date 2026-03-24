@@ -6,7 +6,8 @@ from db import initialize_db
 
 from src.handlers.field_handlers import (
     FieldsApiHandler, FieldsDataApiHandler, FieldGetHandler, 
-    FieldActionHandler, FieldUpdateHandler, FieldExportKmzHandler
+    FieldActionHandler, FieldUpdateHandler, FieldExportKmzHandler,
+    BulkKMZExportHandler
 )
 from src.handlers.owner_handlers import OwnersDataApiHandler, OwnerActionHandler
 from src.handlers.upload_handlers import UploadHandler, TaskStatusHandler
@@ -34,6 +35,7 @@ def make_app():
         (r"/api/field/([0-9]+)", FieldGetHandler),
         (r"/api/field/add", FieldActionHandler),
         (r"/api/field/delete/([0-9]+)", FieldActionHandler),
+        (r"/api/field/export/kmz/all", BulkKMZExportHandler),
         (r"/api/field/export/kmz/([0-9]+)", FieldExportKmzHandler),
         # Объединенный эндпоинт для апдейтов: rename, assign_owner, update_details, update_geometry
         (r"/api/field/(?P<action>rename|assign_owner|update_details|update_geometry)/(?P<field_id>[0-9]+)", FieldUpdateHandler),

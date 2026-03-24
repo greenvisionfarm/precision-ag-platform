@@ -27,6 +27,7 @@
             <a href="#fields" class="nav-link">📋 Список полей</a>
             <a href="#owners" class="nav-link">👥 Владельцы</a>
             <a href="#stats" class="nav-link">📊 Статистика</a>
+            <a href="#" class="nav-link">Загрузки</a>
         </nav>
 
         <div id="upload-section-sidebar">
@@ -67,7 +68,12 @@
 
         <!-- View: Список полей -->
         <div id="view-fields" class="view-section" style="display: none;">
-            <h1>Список Полей</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>Список Полей</h1>
+                <a href="/api/field/export/kmz/all" class="btn btn-primary" title="Скачать все поля в формате KMZ (ZIP архив)">
+                    <i class="fas fa-file-export"></i> Экспортировать всё (.ZIP)
+                </a>
+            </div>
             <div id="fields-table-container">
                 <table id="fields-table" class="display" style="width:100%">
                     <thead>
@@ -124,7 +130,7 @@
                         <label for="owner-name">ФИО / Название:</label>
                         <input type="text" id="owner-name" name="name" required placeholder="Введите имя">
                     </div>
-                    <button type="submit" id="add-owner-btn">Добавить</button>
+                    <button type="submit" id="add-owner-btn" class="btn btn-primary">Добавить</button>
                 </form>
             </div>
             <div id="owners-table-container">

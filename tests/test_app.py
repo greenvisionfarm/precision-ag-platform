@@ -7,48 +7,11 @@ os.environ['FIELD_MAPPER_ENV'] = 'test'
 
 import pytest
 import json
-import socket
 from unittest.mock import patch
 
-import db
-import app 
-from app import make_app
 from src.services.gis_service import calculate_accurate_area
-from db import Field, Owner, initialize_db
-
-from tornado.httpclient import AsyncHTTPClient, HTTPError
+from tornado.httpclient import HTTPError
 from shapely.geometry import shape
-
-def find_unused_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        return s.getsockname()[1]
-
-@pytest.fixture(scope='function')
-def test_db():
-    # Удаляем старый файл тестовой базы, если он остался
-    if os.path.exists(db.TEST_DB_FILE):
-        os.remove(db.TEST_DB_FILE)
-    
-    # Инициализируем чистую базу
-    initialize_db()
-    db.database.connect(reuse_if_open=True)
-    yield db.database
-    db.database.close()
-    
-    # Удаляем после теста (по желанию)
-    if os.path.exists(db.TEST_DB_FILE):
-        os.remove(db.TEST_DB_FILE)
-
-@pytest.fixture
-async def http_server_client(test_db):
-    application = make_app()
-    port = find_unused_port()
-    server = application.listen(port)
-    client = AsyncHTTPClient()
-    yield client, f"http://localhost:{port}"
-    client.close()
-    server.stop()
 
 # --- ТЕСТЫ ---
 

@@ -2,6 +2,9 @@ import tornado.web
 import json
 import logging
 import math
+import io
+import zipfile
+from datetime import datetime
 from shapely.geometry import mapping, shape
 from shapely.wkt import loads as wkt_loads
 from peewee import JOIN
@@ -9,6 +12,11 @@ from peewee import JOIN
 from db import database, Field, Owner
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
+
+def slugify(text):
+    """Очистка строки для использования в имени файла."""
+    if not text: return "Field"
+    return "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in text]).strip().replace(' ', '_')
 
 class FieldApiBaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
@@ -105,7 +113,6 @@ class FieldGetHandler(FieldApiBaseHandler):
 
 class FieldActionHandler(FieldApiBaseHandler):
     """Объединенный обработчик для действий с полем (PUT/DELETE/POST)"""
-    
     def delete(self, field_id):
         try:
             if database.is_closed(): database.connect()
@@ -138,7 +145,6 @@ class FieldActionHandler(FieldApiBaseHandler):
 
 class FieldUpdateHandler(FieldApiBaseHandler):
     """Обработчик обновлений (PUT)"""
-    
     def put(self, action, field_id):
         try:
             if database.is_closed(): database.connect()
@@ -146,9 +152,7 @@ class FieldUpdateHandler(FieldApiBaseHandler):
             if not field:
                 self.set_status(404)
                 return
-            
             data = json.loads(self.request.body)
-            
             if action == 'rename':
                 field.name = data.get('new_name')
             elif action == 'assign_owner':
@@ -165,7 +169,6 @@ class FieldUpdateHandler(FieldApiBaseHandler):
                     props = json.loads(field.properties_json or '{}')
                     props['area_sq_m'] = area
                     field.properties_json = json.dumps(props)
-            
             field.save()
             self.write({"message": "OK"})
         finally:
@@ -179,25 +182,52 @@ class FieldExportKmzHandler(FieldApiBaseHandler):
             if not field:
                 self.set_status(404)
                 return
-            
             height = int(self.get_argument("height", 100))
             overlap_h = int(self.get_argument("overlap_h", 80))
             overlap_w = int(self.get_argument("overlap_w", 70))
             direction = int(self.get_argument("direction", 0))
-            if height > 120: height = 120
-            
             kmz_data = create_kmz(field.id, field.name or "Field", field.geometry_wkt, 
                                  height=height, overlap_h=overlap_h, overlap_w=overlap_w,
                                  direction=direction)
-            
-            # Очистка имени для файла (заменяем пробелы на подчеркивания, убираем спецсимволы)
-            safe_name = "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in (field.name or "Field")]).strip().replace(' ', '_')
-            filename = f"{safe_name}_{height}m.kmz"
-            
+            filename = f"{slugify(field.name)}_{height}m.kmz"
             self.set_header('Content-Type', 'application/vnd.google-earth.kmz')
             self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.write(kmz_data)
         except Exception as e:
+            logging.error(f"KMZ Export error: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+        finally:
+            if not database.is_closed(): database.close()
+
+class BulkKMZExportHandler(FieldApiBaseHandler):
+    def get(self):
+        try:
+            if database.is_closed(): database.connect()
+            fields = Field.select()
+            if not fields.exists():
+                self.set_status(404)
+                self.write(json.dumps({"error": "Нет полей для экспорта"}))
+                return
+            height = int(self.get_argument("height", 100))
+            overlap_h = int(self.get_argument("overlap_h", 80))
+            overlap_w = int(self.get_argument("overlap_w", 70))
+            direction = int(self.get_argument("direction", 0))
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for field in fields:
+                    kmz_data = create_kmz(field.id, field.name or "Field", field.geometry_wkt,
+                                         height=height, overlap_h=overlap_h, overlap_w=overlap_w,
+                                         direction=direction)
+                    filename = f"{slugify(field.name)}_{height}m.kmz"
+                    zf.writestr(filename, kmz_data)
+            zip_buffer.seek(0)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            self.set_header('Content-Type', 'application/zip')
+            self.set_header('Content-Disposition', f'attachment; filename=all_fields_kmz_{timestamp}.zip')
+            self.write(zip_buffer.read())
+        except Exception as e:
+            logging.error(f"Bulk KMZ Export error: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
         finally:
