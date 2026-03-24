@@ -2,13 +2,13 @@
 
 > Платформа точного земледелия с открытым исходным кодом
 
-[![Tests](https://img.shields.io/badge/tests-14%20passed%2C%201%20skipped-green)]()
+[![Tests](https://img.shields.io/badge/tests-22%20passed%2C%201%20skipped-green)]()
 [![Python](https://img.shields.io/badge/python-3.12-blue)]()
 [![Node](https://img.shields.io/badge/node-20-green)]()
 [![Docker](https://img.shields.io/badge/docker-ready-blue)]()
 [![License](https://img.shields.io/badge/license-Open%20Source-green)]()
 
-**Field Mapper** — веб-платформа для фермеров и агрономов, которая превращает данные с дронов (DJI Mavic 3M) в карты предписаний для сельскохозяйственной техники.
+**Field Mapper** — веб-платформа для фермеров и агрономов, которая превращает данные с дронов (DJI Mavic 3M, NDVI снимки) в карты предписаний для сельскохозяйственной техники.
 
 ![Field Mapper Interface](docs/assets/screenshot.png)
 
@@ -16,12 +16,12 @@
 
 ## 🚀 Возможности
 
-| 🌱 **Управление полями** | 🚁 **NDVI анализ** | 📤 **Экспорт** |
-|-------------------------|-------------------|---------------|
-| Границы на карте | Загрузка GeoTIFF | DJI KMZ (WPML 1.0.6) |
-| Владельцы и кадастр | Автоматическое зонирование | Shapefile (в разработке) |
-| Импорт/экспорт | 3 зоны продуктивности | VRA карты (в разработке) |
-| Статистика и отчёты | Визуализация на карте | Массовый экспорт ZIP |
+| 🌱 **Управление полями** | 🚁 **NDVI анализ** | 📤 **Экспорт** | 🚜 **Карты предписаний** |
+|-------------------------|-------------------|---------------|-------------------------|
+| Границы на карте | Загрузка GeoTIFF | **ISOXML** (John Deere, Claas) | Автоматический расчёт норм |
+| Владельцы и кадастр | Автоматическое зонирование | DJI KMZ (WPML 1.0.6) | 3 зоны продуктивности |
+| Импорт/экспорт KMZ | Крупные агрегированные зоны | Shapefile | Нормы: 150/250/350 кг/га |
+| Статистика и отчёты | Визуализация на карте | Массовый экспорт ZIP | Статистика по зонам |
 
 ---
 
@@ -55,6 +55,7 @@ python app.py
 |--------|----------|
 | [🚀 Быстрый старт](docs/getting-started/installation.md) | Установка и настройка |
 | [👤 Руководство пользователя](docs/user-guide/fields.md) | Управление полями, NDVI, экспорт |
+| [🚜 Карты предписаний](docs/user-guide/isoxml.md) | ISOXML экспорт, нормы внесения |
 | [👨‍💻 Для разработчиков](docs/developer-guide/architecture.md) | Архитектура, API, тестирование |
 | [📋 Changelog](docs/changelog/CHANGELOG.md) | История изменений |
 | [📅 Roadmap](TODO.md) | Планы развития |
@@ -82,7 +83,7 @@ python app.py
 ```
 
 **Стек:**
-- **Backend:** Python 3.12 (Tornado, Peewee, Huey, GDAL, Rasterio)
+- **Backend:** Python 3.12 (Tornado, Peewee, Huey, GDAL, Rasterio, Scikit-learn)
 - **Frontend:** jQuery, Leaflet, DataTables, Chart.js, ES6 Modules
 - **Infrastructure:** Docker, Redis, Nginx
 
@@ -104,7 +105,7 @@ docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest tests/
 docker-compose run --rm app npm test
 ```
 
-**Статус:** 14 passed, 1 skipped
+**Статус:** 22 passed, 1 skipped
 
 ---
 
@@ -124,8 +125,8 @@ docker-compose run --rm app npm test
 
 | Метрика | Значение |
 |---------|----------|
-| **Тесты** | 14 passed, 1 skipped |
-| **Покрытие** | ~60% (backend) |
+| **Тесты** | 22 passed, 1 skipped |
+| **Покрытие** | ~65% (backend) |
 | **Размер образа** | ~1.5 GB (с GIS) |
 | **Время сборки** | ~6 мин (с кэшем ~2 мин) |
 | **Ветка** | `feature/refactoring-2026` (готова к merge) |

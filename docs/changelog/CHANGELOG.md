@@ -9,22 +9,46 @@
 ## [Unreleased]
 
 ### Добавлено
-- Страница загрузок выделена в отдельный UI
-- Улучшенная кнопка меню (круглая, анимированная, адаптивная)
-- Закрытие меню кликом на контент
-- Тесты NDVI сервиса (test_ndvi_service.py)
-- Функции utils.js: showConfirm(), formatArea()
+- **ISOXML экспорт карт предписаний:**
+  - `src/services/isoxml_service.py` — генерация ISOXML TaskFile
+  - API endpoint `/api/field/export/isoxml/<field_id>`
+  - Автоматический расчёт норм внесения (150/250/350 кг/га по NDVI)
+  - Совместимость с John Deere, Claas, Case IH, New Holland
+
+- **Улучшенное зонирование полей:**
+  - Морфологическая обработка растров (медианный фильтр, binary_closing)
+  - Фильтрация мелких полигонов (< 0.5 га)
+  - Увеличено упрощение геометрий (0.0001) для гладкости
+  - Крупные агрегированные зоны вместо фрагментированных
+
+- **Новый UI страницы поля:**
+  - Кнопки экспорта ISOXML и KMZ в шапке
+  - Таблица статистики зон с нормами внесения
+  - Легенда зон под картой
+  - Цветовая индикация зон
+
+- **Тесты:**
+  - `tests/test_isoxml_export.py` — тесты ISOXML экспорта
+  - `tests/test_upload_integration.py` — интеграционные тесты TIFF
+  - 22 теста проходят, 1 пропущен
+
+- **Документация:**
+  - `docs/user-guide/isoxml.md` — руководство по ISOXML экспорту
+  - Обновлён README.md с новой функциональностью
 
 ### Изменено
-- Документация реорганизована (docs-as-code структура)
-- Улучшены JS тесты (main.test.js)
+- `src/services/raster_service.py` — улучшена генерация зон
+- `src/handlers/upload_handlers.py` — добавлен ISOXMLExportHandler
+- `static/js/modules/field-detail.js` — отображение статистики зон
+- `static/css/style.css` — стили для зон и кнопок экспорта
+- Обновлены метрики в README (22 теста, ~65% покрытие)
 
 ### Исправлено
-- Потеря стека вызовов (`raise e` → `raise`)
-- Защита `initialize_db()` от production
-- Перекрытие кнопки меню контента
-- Появление кнопки после закрытия меню
-- JS тесты маршрутизации и темы
+- `db.py` — добавлено поле `avg_ndvi` в модель FieldZone
+- `src/tasks.py` — выделена функция `_process_geotiff_impl()` для тестов
+- `src/handlers/upload_handlers.py` — абсолютный путь UPLOAD_DIR
+- `docker-compose.yml` — volume uploads для app и worker
+- Обработка TIFF файлов в Docker (0.0.0.0, FIELD_MAPPER_DB)
 
 ---
 
@@ -37,12 +61,12 @@
   - Type hints во всех Python модулях
   - Command pattern для обновлений полей
   - Кэширование KMZ (`lru_cache(maxsize=128)`)
-  
+
 - **Рефакторинг frontend:**
   - Разделение `main.js` на 9 ES6 модулей
   - Класс `FieldMapperApp` для инкапсуляции состояния
   - Обработка ошибок в API вызовах
-  
+
 - **Docker оптимизация:**
   - Многоэтапная сборка
   - Кэширование npm зависимостей
