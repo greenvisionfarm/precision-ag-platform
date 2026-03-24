@@ -1,11 +1,38 @@
+# Python
 venv/
-node_modules/
 __pycache__/
 *.pyc
-*.db
-*.kmz
-*.tif
+*.pyo
+*.pyd
+.Python
+*.so
 .git/
 .idea/
 .pytest_cache/
+.qwen/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# DB & uploads
+*.db
+*.kmz
+*.tif
+data/
+uploads/
+
+# IDE & temp
+.vscode/
+*.swp
+*.swo
+*~
 /home/vladibuyanov/.gemini/tmp/
+
+# Tests
+tests/
+*.test.js
+.coverage
+htmlcov/
