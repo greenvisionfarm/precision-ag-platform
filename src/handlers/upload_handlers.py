@@ -17,7 +17,9 @@ from db import Field, database
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 
-UPLOAD_DIR = "uploads"
+# Используем абсолютный путь для загрузок
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
