@@ -45,6 +45,12 @@ class FieldMapperApp {
 
     // Sidebar toggle
     $("#sidebar-toggle").on("click", this.toggleSidebar.bind(this));
+    
+    // Закрытие sidebar кликом на контент
+    $(".main-content").on("click", this.closeSidebar.bind(this));
+    
+    // Закрытие sidebar при выборе ссылки в меню
+    $("#sidebar .nav-link").on("click", this.closeSidebar.bind(this));
 
     // Инициализация загрузки файлов
     initShapefileUpload();
@@ -59,20 +65,33 @@ class FieldMapperApp {
    */
   onHashChange() {
     handleRoute();
+    // Закрываем sidebar при смене маршрута
+    this.closeSidebar();
   }
 
   /**
    * Переключает sidebar.
+   * @param {boolean} forceOpen - Принудительно открыть (true) или закрыть (false).
    */
-  toggleSidebar() {
-    $("body").toggleClass("sidebar-open");
-    $("#sidebar").toggleClass("open");
-    $("#sidebar-toggle").toggleClass("open");
+  toggleSidebar(forceOpen) {
+    const isOpen = $("body").hasClass("sidebar-open");
+    const shouldOpen = forceOpen !== undefined ? forceOpen : !isOpen;
+    
+    $("body").toggleClass("sidebar-open", shouldOpen);
+    $("#sidebar").toggleClass("open", shouldOpen);
+    $("#sidebar-toggle").toggleClass("open", shouldOpen);
     setTimeout(() => {
       if (window.MapManager.instance) {
         window.MapManager.instance.invalidateSize();
       }
     }, 300);
+  }
+
+  /**
+   * Закрывает sidebar.
+   */
+  closeSidebar() {
+    this.toggleSidebar(false);
   }
 
   /**

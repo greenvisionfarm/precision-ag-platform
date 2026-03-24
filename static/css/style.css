@@ -207,8 +207,6 @@ h1, h2, h3 {
 /* Скрываем кнопку когда меню открыто */
 body.sidebar-open #sidebar-toggle {
     opacity: 0;
-    pointer-events: none;
-    transform: scale(0.8);
 }
 
 /* Анимация иконки при открытом меню */
@@ -234,7 +232,6 @@ body.sidebar-open #sidebar-toggle {
     /* На мобильных скрываем кнопку когда меню открыто */
     body.sidebar-open #sidebar-toggle {
         opacity: 0;
-        pointer-events: none;
     }
     
     /* На мобильных нет отступа сверху так как кнопка внизу */
