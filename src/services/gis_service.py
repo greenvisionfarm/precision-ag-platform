@@ -1,5 +1,6 @@
 import geopandas as gpd
 
+
 def calculate_accurate_area(poly):
     """
     Расчет точной площади в квадратных метрах.

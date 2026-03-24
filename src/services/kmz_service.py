@@ -1,9 +1,10 @@
-import os
-import zipfile
 import io
 import time
+import zipfile
+
 from shapely import wkt
 from shapely.geometry import Polygon
+
 
 def wkt_to_coords(wkt_str):
     """Преобразует WKT в строку координат lon,lat,alt через пробел."""

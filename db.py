@@ -1,18 +1,23 @@
-from peewee import *
 import os
 
-# Определяем путь к файлу базы данных SQLite
-DEFAULT_DB_FILE = os.getenv('FIELD_MAPPER_DB', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fields.db'))
-TEST_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_fields.db')
+from peewee import (
+    CharField,
+    FloatField,
+    ForeignKeyField,
+    Model,
+    SqliteDatabase,
+    TextField,
+)
 
-def get_database():
-    """Возвращает экземпляр SqliteDatabase в зависимости от окружения."""
-    env = os.getenv('FIELD_MAPPER_ENV', 'development')
-    if env == 'test':
-        return SqliteDatabase(TEST_DB_FILE)
-    return SqliteDatabase(DEFAULT_DB_FILE)
+# Константы для путей к базе данных
+DB_FILE = 'fields.db'
+TEST_DB_FILE = 'test_fields.db'
 
-database = get_database()
+# Выбор базы данных в зависимости от окружения
+if os.environ.get('FIELD_MAPPER_ENV') == 'test':
+    database = SqliteDatabase(TEST_DB_FILE)
+else:
+    database = SqliteDatabase(DB_FILE)
 
 class BaseModel(Model):
     class Meta:
@@ -20,49 +25,27 @@ class BaseModel(Model):
 
 class Owner(BaseModel):
     name = CharField(unique=True)
-    # Можно добавить другие поля, например contact_info = CharField(null=True)
-
-    class Meta:
-        table_name = 'owners'
 
 class Field(BaseModel):
     name = CharField(null=True)
-    geometry_wkt = TextField()
-    properties_json = TextField(null=True)
-    # Связь с владельцем
-    owner = ForeignKeyField(Owner, backref='fields', null=True)
+    geometry_wkt = TextField()  # Храним как WKT (Well-Known Text)
+    properties_json = TextField(null=True)  # Доп. свойства (площадь и т.д.)
     
-    # Новые поля для земельного учета
-    land_status = CharField(null=True) # Собственность, Аренда, и т.д.
-    parcel_number = CharField(null=True)
-    lease_start = DateField(null=True)
-    lease_end = DateField(null=True)
-
-    class Meta:
-        table_name = 'fields'
+    owner = ForeignKeyField(Owner, backref='fields', null=True)
 
 class FieldZone(BaseModel):
-    field = ForeignKeyField(Field, backref='zones', on_delete='CASCADE')
-    name = CharField() # Например: "Низкая продуктивность"
+    field = ForeignKeyField(Field, backref='zones')
+    name = CharField()
     geometry_wkt = TextField()
-    avg_ndvi = FloatField(null=True)
-    area_ha = FloatField(null=True)
-    color = CharField(null=True) # Hex код для карты
-
-    class Meta:
-        table_name = 'field_zones'
+    min_value = FloatField()
+    max_value = FloatField()
+    color = CharField()
 
 def initialize_db():
-    """Инициализирует базу данных и создает таблицы."""
-    global database
-    database = get_database()
+    if not database.is_closed():
+        database.close()
     database.connect(reuse_if_open=True)
-    database.create_tables([Owner, Field, FieldZone])
+    # Удаляем и создаем заново, чтобы тесты были изолированы
+    database.drop_tables([Field, Owner, FieldZone])
+    database.create_tables([Field, Owner, FieldZone])
     database.close()
-
-if __name__ == '__main__':
-    # Если запустить db.py напрямую, он пересоздаст БД
-    if os.path.exists(DEFAULT_DB_FILE):
-        os.remove(DEFAULT_DB_FILE)
-    initialize_db()
-    print(f"База данных '{DEFAULT_DB_FILE}' пересоздана.")

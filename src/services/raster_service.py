@@ -1,12 +1,12 @@
+
+import numpy as np
 import rasterio
 import rasterio.mask
-from rasterio.enums import Resampling
-import numpy as np
-from sklearn.cluster import KMeans
-from shapely.geometry import shape, mapping
-from shapely.ops import unary_union
 from rasterio import features
-import json
+from shapely.geometry import shape
+from shapely.ops import unary_union
+from sklearn.cluster import KMeans
+
 
 def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
     """
@@ -29,8 +29,8 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         
         # Если после обрезки он все еще слишком большой, уменьшаем его
         if scale > 1:
-            new_height = int(out_image.shape[1] / scale)
-            new_width = int(out_image.shape[2] / scale)
+            int(out_image.shape[1] / scale)
+            int(out_image.shape[2] / scale)
             
             # Читаем данные заново с ресемплингом
             data = out_image[0]

@@ -1,13 +1,15 @@
-import tornado.web
 import json
-import tempfile
-import zipfile
-import os
 import math
+import os
+import tempfile
 import uuid
+import zipfile
+
 import geopandas as gpd
 import rasterio
-from db import database, Field
+import tornado.web
+
+from db import Field, database
 from src.tasks import huey, process_geotiff_task
 
 UPLOAD_DIR = "uploads"
@@ -19,7 +21,7 @@ class TaskStatusHandler(tornado.web.RequestHandler):
         result = huey.result(task_id)
         if result is None:
             # Если результата еще нет, проверяем, есть ли задача в очереди
-            is_pending = huey.pending().count() > 0 # Упрощенно
+            huey.pending().count() > 0 # Упрощенно
             self.write({
                 "task_id": task_id,
                 "status": "pending",

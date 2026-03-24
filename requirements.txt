@@ -29,3 +29,4 @@ tornado==6.5.4
 typing_extensions==4.15.0
 huey==2.5.2
 redis==5.0.1
+ruff==0.4.4

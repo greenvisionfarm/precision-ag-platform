@@ -1,9 +1,11 @@
-import pytest
+import io
+import zipfile
+
+from shapely.geometry import Polygon
+
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
-from shapely.geometry import Polygon
-import zipfile
-import io
+
 
 def test_calculate_area_unit():
     # Квадрат ~100x100 метров в Словакии

@@ -1,45 +1,58 @@
 # tests/conftest.py
 
-import pytest
 import os
-import sys
 import socket
-from tornado.httpclient import AsyncHTTPClient
+import sys
 
 # Добавляем путь к корню проекта, чтобы можно было импортировать модули приложения
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Это должно быть ПЕРЕД импортом локальных модулей (db, app)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ ОКРУЖЕНИЕ ТЕСТОВ
-os.environ['FIELD_MAPPER_ENV'] = 'test'
+import pytest
+from tornado.httpclient import AsyncHTTPClient
 
 import db
 from app import make_app
 from db import initialize_db
 
-# Указываем pytest-asyncio использовать режим "auto" для автоматического обнаружения асинхронных тестов
+# ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ ОКРУЖЕНИЕ ТЕСТОВ
+os.environ["FIELD_MAPPER_ENV"] = "test"
+
+
+# Указываем pytest-asyncio использовать режим "auto" для автоматического обнаружения
 def pytest_configure(config):
     config.option.asyncio_mode = "auto"
 
+
 def find_unused_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
-@pytest.fixture(scope='function')
+
+@pytest.fixture(scope="function")
 def test_db():
+    # Закрываем старое соединение, если оно осталось
+    if not db.database.is_closed():
+        db.database.close()
+
     # Удаляем старый файл тестовой базы, если он остался
     if os.path.exists(db.TEST_DB_FILE):
         os.remove(db.TEST_DB_FILE)
-    
+
     # Инициализируем чистую базу
     initialize_db()
     db.database.connect(reuse_if_open=True)
     yield db.database
     db.database.close()
-    
+
     # Удаляем после теста (по желанию)
     if os.path.exists(db.TEST_DB_FILE):
-        os.remove(db.TEST_DB_FILE)
+        try:
+            os.remove(db.TEST_DB_FILE)
+        except OSError:
+            pass
+
 
 @pytest.fixture
 async def http_server_client(test_db):

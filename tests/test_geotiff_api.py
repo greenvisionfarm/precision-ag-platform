@@ -1,13 +1,14 @@
-import pytest
 import io
 import json
 import os
+
 import numpy as np
+import pytest
 import rasterio
-from rasterio.transform import from_origin
 from tornado.testing import AsyncHTTPTestCase
+
 from app import make_app
-from db import initialize_db, database, Field, FieldZone
+from db import initialize_db
 
 # Устанавливаем окружение теста перед всеми импортами и инициализацией
 os.environ['FIELD_MAPPER_ENV'] = 'test'

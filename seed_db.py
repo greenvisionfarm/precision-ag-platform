@@ -1,5 +1,7 @@
-from db import initialize_db, database, Field, Owner
 import json
+
+from db import Field, Owner, database, initialize_db
+
 
 def seed():
     initialize_db()

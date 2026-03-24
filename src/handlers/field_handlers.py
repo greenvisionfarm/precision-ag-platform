@@ -1,17 +1,18 @@
-import tornado.web
+import io
 import json
 import logging
-import math
-import io
 import zipfile
 from datetime import datetime
+
+import tornado.web
+from peewee import JOIN
 from shapely.geometry import mapping, shape
 from shapely.wkt import loads as wkt_loads
-from peewee import JOIN
 
-from db import database, Field, Owner
+from db import Field, Owner, database
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
+
 
 def slugify(text):
     """Очистка строки для использования в имени файла."""
@@ -56,8 +57,8 @@ class FieldsDataApiHandler(FieldApiBaseHandler):
                     "area": f"{area_ha:.2f} га",
                     "owner": field.owner.name if field.owner_id else "N/A",
                     "owner_id": field.owner_id,
-                    "land_status": field.land_status or "Не указан",
-                    "parcel_number": field.parcel_number or "N/A",
+                    "land_status": properties.get('land_status', "Не указан"),
+                    "parcel_number": properties.get('parcel_number', "N/A"),
                     "properties": json.dumps(properties)
                 })
             self.write(json.dumps({"data": data}))
@@ -98,8 +99,8 @@ class FieldGetHandler(FieldApiBaseHandler):
                 "area": f"{area_ha:.2f} га",
                 "owner": field.owner.name if field.owner_id else "N/A",
                 "owner_id": field.owner_id,
-                "land_status": field.land_status or "Не указан",
-                "parcel_number": field.parcel_number or "N/A",
+                "land_status": properties.get('land_status', "Не указан"),
+                "parcel_number": properties.get('parcel_number', "N/A"),
                 "geometry": mapping(geom),
                 "properties": properties,
                 "zones": zones
@@ -159,8 +160,10 @@ class FieldUpdateHandler(FieldApiBaseHandler):
                 owner_id = data.get('owner_id')
                 field.owner = Owner.get_or_none(Owner.id == owner_id) if owner_id else None
             elif action == 'update_details':
-                field.land_status = data.get('land_status', field.land_status)
-                field.parcel_number = data.get('parcel_number', field.parcel_number)
+                props = json.loads(field.properties_json or '{}')
+                props['land_status'] = data.get('land_status', props.get('land_status'))
+                props['parcel_number'] = data.get('parcel_number', props.get('parcel_number'))
+                field.properties_json = json.dumps(props)
             elif action == 'update_geometry':
                 if 'geometry' in data:
                     poly = shape(data['geometry'])

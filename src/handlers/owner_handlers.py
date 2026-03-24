@@ -1,6 +1,9 @@
-import tornado.web
 import json
-from db import database, Owner
+
+import tornado.web
+
+from db import Owner, database
+
 
 class OwnerApiBaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):

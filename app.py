@@ -1,16 +1,21 @@
+import logging
+import os
+
 import tornado.ioloop
 import tornado.web
-import os
-import logging
-from db import initialize_db
 
+from db import initialize_db
 from src.handlers.field_handlers import (
-    FieldsApiHandler, FieldsDataApiHandler, FieldGetHandler, 
-    FieldActionHandler, FieldUpdateHandler, FieldExportKmzHandler,
-    BulkKMZExportHandler
+    BulkKMZExportHandler,
+    FieldActionHandler,
+    FieldExportKmzHandler,
+    FieldGetHandler,
+    FieldsApiHandler,
+    FieldsDataApiHandler,
+    FieldUpdateHandler,
 )
-from src.handlers.owner_handlers import OwnersDataApiHandler, OwnerActionHandler
-from src.handlers.upload_handlers import UploadHandler, TaskStatusHandler
+from src.handlers.owner_handlers import OwnerActionHandler, OwnersDataApiHandler
+from src.handlers.upload_handlers import TaskStatusHandler, UploadHandler
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,

@@ -1,8 +1,10 @@
-import pytest
+import io
 import json
 import zipfile
-import io
+
+import pytest
 from tornado.httpclient import HTTPError
+
 
 @pytest.mark.asyncio
 async def test_bulk_kmz_export(http_server_client):

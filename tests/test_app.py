@@ -1,17 +1,18 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ ОКРУЖЕНИЕ ТЕСТОВ
 os.environ['FIELD_MAPPER_ENV'] = 'test'
 
-import pytest
 import json
-from unittest.mock import patch
+
+import pytest
+from shapely.geometry import shape
+from tornado.httpclient import HTTPError
 
 from src.services.gis_service import calculate_accurate_area
-from tornado.httpclient import HTTPError
-from shapely.geometry import shape
 
 # --- ТЕСТЫ ---
 

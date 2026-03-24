@@ -1,10 +1,7 @@
-import os
-import json
 import logging
+import os
+
 from huey import RedisHuey
-from shapely import wkt
-from shapely.geometry import box
-import rasterio
 
 # Настройка Huey
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -13,7 +10,7 @@ huey = RedisHuey('field-mapper', url=redis_url)
 @huey.task()
 def process_geotiff_task(file_path, field_id):
     """Фоновая задача по обработке GeoTIFF и созданию зон."""
-    from db import database, Field, FieldZone
+    from db import Field, FieldZone, database
     from src.services.raster_service import process_ndvi_zones
     
     logging.info(f"Запуск обработки растра: {file_path} для поля ID {field_id}")
