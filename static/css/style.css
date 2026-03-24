@@ -519,3 +519,115 @@ table.dataTable.display tbody tr:hover td {
     background-color: var(--input-bg) !important;
     color: var(--text-color) !important;
 }
+
+/* Uploads Page Styles */
+.uploads-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.upload-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: var(--spacing-xl);
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.upload-card:hover {
+    transform: translateY(-3px);
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.upload-description {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.9rem;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.file-input-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+}
+
+.file-input-wrapper input[type="file"] {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.file-input-wrapper .file-input-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    background: var(--input-bg);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-muted);
+}
+
+.file-input-wrapper:hover .file-input-label {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: var(--hover-bg);
+}
+
+.file-input-wrapper input[type="file"]:focus + .file-input-label {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.upload-status {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    min-height: 40px;
+}
+
+.upload-status.text-success {
+    color: var(--success-color);
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.upload-status.text-danger {
+    color: var(--danger-color);
+    background: rgba(220, 53, 69, 0.1);
+}
+
+/* Dark mode adjustments for uploads */
+[data-theme="dark"] .upload-card {
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .file-input-wrapper .file-input-label {
+    background: var(--card-bg);
+}
+
+@media (max-width: 768px) {
+    .uploads-container {
+        grid-template-columns: 1fr;
+    }
+}

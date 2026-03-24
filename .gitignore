@@ -48,7 +48,11 @@ venv/
 *.mxs.xml
 *.qix.xml
 *.zip # Ignore uploaded zips if they are stored in the project dir
+
+# Project specific
 tmp/
 node_modules/
-package-lock.json
 /test_files/
+uploads/
+data/
+.ruff_cache/

@@ -1,13 +1,16 @@
 # Этап 1: Сборка зависимостей (Python + JS)
 FROM python:3.12-slim-bookworm AS builder
 
-# Установка системных зависимостей для сборки GIS-библиотек
+# Установка системных зависимостей для сборки GIS-библиотек и Node.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgdal-dev \
     libproj-dev \
     libgeos-dev \
     g++ \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # 1. Сборка Python окружения

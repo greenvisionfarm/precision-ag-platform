@@ -27,30 +27,8 @@
             <a href="#fields" class="nav-link">📋 Список полей</a>
             <a href="#owners" class="nav-link">👥 Владельцы</a>
             <a href="#stats" class="nav-link">📊 Статистика</a>
-            <a href="#" class="nav-link">Загрузки</a>
+            <a href="#uploads" class="nav-link">📥 Загрузки</a>
         </nav>
-
-        <div id="upload-section-sidebar">
-            <hr>
-            <h3>Загрузка Границ</h3>
-            <form id="upload-form">
-                <div class="form-group">
-                    <input type="file" id="shapefile-input" name="shapefile_zip" accept=".zip" required>
-                </div>
-                <button type="submit" id="upload-button" style="display: none;">Загрузить ZIP</button>
-                <div id="upload-status"></div>
-            </form>
-
-            <hr>
-            <h3>Загрузка NDVI (GeoTIFF)</h3>
-            <form id="raster-upload-form">
-                <div class="form-group">
-                    <input type="file" id="raster-input" name="raster_file" accept=".tif,.tiff" required>
-                </div>
-                <button type="submit" id="raster-upload-button" style="display: none;">Загрузить TIF</button>
-                <div id="raster-upload-status"></div>
-            </form>
-        </div>
         
         <div class="theme-switch-wrapper">
             <button id="theme-toggle-btn">
@@ -150,7 +128,7 @@
         <!-- View: Статистика -->
         <div id="view-stats" class="view-section" style="display: none;">
             <h1>Аналитика земельного банка</h1>
-            
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <span class="stat-label">Всего полей</span>
@@ -170,6 +148,55 @@
                 <div class="chart-box">
                     <h3>Распределение по владельцам (га)</h3>
                     <canvas id="chart-owners"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Загрузки -->
+        <div id="view-uploads" class="view-section" style="display: none;">
+            <h1>Загрузка Данных</h1>
+            
+            <div class="uploads-container">
+                <!-- Загрузка Shapefile -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h3>Загрузка Границ Полей (Shapefile)</h3>
+                    <p class="upload-description">Загрузите ZIP-архив с Shapefile (.shp, .shx, .dbf, .prj)</p>
+                    <form id="upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="shapefile-input" name="shapefile_zip" accept=".zip" required>
+                            <label for="shapefile-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите ZIP файл
+                            </label>
+                        </div>
+                        <button type="submit" id="upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                    </form>
+                    <div id="upload-status" class="upload-status"></div>
+                </div>
+
+                <!-- Загрузка NDVI -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-satellite"></i>
+                    </div>
+                    <h3>Загрузка NDVI (GeoTIFF)</h3>
+                    <p class="upload-description">Загрузите растровый файл GeoTIFF для анализа NDVI</p>
+                    <form id="raster-upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="raster-input" name="raster_file" accept=".tif,.tiff" required>
+                            <label for="raster-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите TIF файл
+                            </label>
+                        </div>
+                        <button type="submit" id="raster-upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                    </form>
+                    <div id="raster-upload-status" class="upload-status"></div>
                 </div>
             </div>
         </div>

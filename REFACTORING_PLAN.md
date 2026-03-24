@@ -55,6 +55,7 @@
 | ES6 модули | 9 новых модулей | Разделение ответственности |
 | FieldMapperApp | `static/js/main.js` | Инкапсуляция состояния |
 | Обработка ошибок | `static/js/modules/api.js` | Надёжность API вызовов |
+| Страница загрузок | `static/index.html`, `uploads.js` | Выделено в отдельный UI |
 
 #### Docker
 | Улучшение | Эффект |
@@ -81,10 +82,10 @@ static/js/modules/tables.js
 static/js/modules/theme.js
 static/js/modules/uploads.js
 static/js/modules/utils.js
-REFACTORING_PLAN.md
+static/js/modules/map_manager.js
 ```
 
-### Обновлённые файлы (16)
+### Обновлённые файлы (17)
 ```
 app.py
 db.py
@@ -97,10 +98,10 @@ src/tasks.py
 static/js/main.js
 static/js/modules/api.js
 static/js/modules/map_manager.js
+static/js/modules/router.js
+static/js/modules/uploads.js
 static/index.html
-static/js/field_click.test.js
-static/js/field_zones.test.js
-static/js/main.test.js
+static/css/style.css
 Dockerfile
 .dockerignore
 ```

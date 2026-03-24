@@ -36,5 +36,8 @@ export function handleRoute() {
     $(".nav-link[href=\"#stats\"]").addClass("active");
     // Инициализация статистики будет вызвана из main.js
     window.initStatsView?.();
+  } else if (hash === "#uploads") {
+    $("#view-uploads").show();
+    $(".nav-link[href=\"#uploads\"]").addClass("active");
   }
 }

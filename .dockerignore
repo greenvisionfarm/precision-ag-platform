@@ -29,7 +29,6 @@ uploads/
 *.swp
 *.swo
 *~
-/home/vladibuyanov/.gemini/tmp/
 
 # Tests
 tests/
