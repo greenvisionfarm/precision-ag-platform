@@ -1,58 +1,62 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
 venv/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ipynb_checkpoints/
+env/
+ENV/
+.venv
 
-# IDEs
+# Node
+node_modules/
+npm-debug.log*
+
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
 
 # Database
 *.db
-*.sqlite
-*.sqlite3
+!fields.db
 
-# Geopandas/Shapefile temp files
-*.cpg
-*.sbn
-*.sbx
-*.fbn
-*.fbx
-*.ain
-*.aih
-*.atx
-*.ixs
-*.mxs
-*.prj
-*.qix
-*.shp.xml
-*.shx.xml
-*.dbf.xml
-*.cpg.xml
-*.sbn.xml
-*.sbx.xml
-*.fbn.xml
-*.fbx.xml
-*.ain.xml
-*.aih.xml
-*.atx.xml
-*.ixs.xml
-*.mxs.xml
-*.qix.xml
-*.zip # Ignore uploaded zips if they are stored in the project dir
+# Uploads
+uploads/*
+!uploads/.gitkeep
 
-# Project specific
+# KMZ exports
+*.kmz
+*.zip
+
+# Temporary files
 tmp/
-node_modules/
-/test_files/
-uploads/
-data/
-.ruff_cache/
+temp/
+.tmp/
+
+# Docker
+.docker/
+
+# Documentation build
+docs/_build/
+docs/.mkdocs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Local config
+.local.env
+.env.local
