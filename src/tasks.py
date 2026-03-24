@@ -14,14 +14,13 @@ redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 huey = RedisHuey('field-mapper', url=redis_url)
 
 
-@huey.task()
-def process_geotiff_task(file_path: str, field_id: int) -> bool:
-    """Фоновая задача по обработке GeoTIFF и созданию зон.
-
+def _process_geotiff_impl(file_path: str, field_id: int) -> bool:
+    """Реализация обработки GeoTIFF (без декоратора huey).
+    
     Args:
         file_path: Путь к файлу GeoTIFF.
         field_id: ID поля для обработки.
-
+    
     Returns:
         True если обработка успешна, False иначе.
     """
@@ -67,3 +66,17 @@ def process_geotiff_task(file_path: str, field_id: int) -> bool:
     except Exception as e:
         logging.error(f"Ошибка в фоновой задаче: {str(e)}")
         return False
+
+
+@huey.task()
+def process_geotiff_task(file_path: str, field_id: int) -> bool:
+    """Фоновая задача по обработке GeoTIFF и созданию зон.
+
+    Args:
+        file_path: Путь к файлу GeoTIFF.
+        field_id: ID поля для обработки.
+
+    Returns:
+        True если обработка успешна, False иначе.
+    """
+    return _process_geotiff_impl(file_path, field_id)
