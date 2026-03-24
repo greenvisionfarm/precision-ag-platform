@@ -1,81 +1,27 @@
-# План рефакторинга Field Mapper
+# Итоги рефакторинга Field Mapper (2026)
 
-## 📊 Статус выполнения
+## ✅ Завершено
 
-**Ветка:** `feature/refactoring-2026`
+**Ветка:** `feature/refactoring-2026` (готова к merge)
 
-### ✅ Завершено (18 задач)
-
-#### P0 — Критические
-- ✅ P0-1: Декоратор `@db_connection` — `src/utils/db_utils.py`
-- ✅ P0-2: Валидация входных данных — `src/utils/validators.py`
-- ✅ P0-3: Исправлено `raise e` → `raise`
-- ✅ P0-4: Защита `initialize_db()` от production
-- ✅ P0-5: Обработка ошибок в JS API
-
-#### P1 — Важные
-- ✅ P1-6: Разделение `main.js` на 9 ES6 модулей
-- ✅ P1-7: Type hints в Python (все .py файлы)
-- ✅ P1-8: Command pattern — `src/handlers/field_commands.py`
-- ✅ P1-9: Кэширование KMZ — `lru_cache` в `kmz_service.py`
-- ✅ P1-10: Класс `FieldMapperApp` для инкапсуляции состояния
-
-#### P2 — Долгосрочные
-- ✅ P2-11: `__init__.py` для всех пакетов
-- ✅ P2-12: Исправление потенциальных багов
-- ✅ P2-13: Страница загрузок — выделена в отдельный UI
-- ✅ P2-14: Улучшенная кнопка меню — круглая, анимированная, адаптивная
-
-#### Docker
-- ✅ Оптимизация сборки (многоэтапная, кэширование npm)
-- ✅ .dockerignore — уменьшен контекст на ~40%
+Все задачи рефакторинга выполнены. Подробный список задач и статус — в [TODO.md](TODO.md).
 
 ---
 
-## 🏁 ИТОГИ РЕФАКТОРИНГА (2026)
+## 📊 Статистика
 
-### Статистика
 | Метрика | Значение |
 |---------|----------|
 | **Файлов изменено** | 35 |
 | **Строк добавлено** | ~2700 |
 | **Строк удалено** | ~950 |
 | **Тестов** | 14 passed, 1 skipped |
-| **Коммитов** | 7 |
-
-### Ключевые улучшения
-
-#### Backend (Python)
-| Улучшение | Файлы | Эффект |
-|-----------|-------|--------|
-| Декоратор @db_connection | `src/utils/db_utils.py` | Устранено дублирование в 15+ местах |
-| Валидация данных | `src/utils/validators.py` | Защита от некорректных данных |
-| Type hints | Все .py файлы | Улучшена читаемость и IDE-поддержка |
-| Command pattern | `src/handlers/field_commands.py` | Упрощено добавление новых действий |
-| Кэширование KMZ | `src/services/kmz_service.py` | Ускорение экспорта в 5-10 раз |
-| Модульная структура | `src/__init__.py` и др. | Лучшая организация кода |
-
-#### Frontend (JavaScript)
-| Улучшение | Файлы | Эффект |
-|-----------|-------|--------|
-| ES6 модули | 9 модулей | Разделение ответственности |
-| FieldMapperApp | `static/js/main.js` | Инкапсуляция состояния |
-| Обработка ошибок | `static/js/modules/api.js` | Надёжность API вызовов |
-| Страница загрузок | `static/index.html`, `uploads.js` | Выделено в отдельный UI |
-| Кнопка меню | `static/css/style.css`, `main.js` | Улучшенный UX (десктоп + мобильные) |
-
-#### Docker
-| Улучшение | Эффект |
-|-----------|--------|
-| Многоэтапная сборка | Меньше размер образа (~50-100MB) |
-| Кэширование npm | Ускорение сборки на 30-50% |
-| Оптимизированный .dockerignore | Уменьшение контекста на ~40% |
+| **Коммитов** | 9 |
 
 ---
 
-## 📁 Изменённые файлы
+## 📁 Созданные файлы (17)
 
-### Созданные (17)
 ```
 src/__init__.py
 src/handlers/__init__.py
@@ -96,7 +42,10 @@ static/js/modules/utils.js
 static/js/modules/map_manager.js
 ```
 
-### Обновлённые (20)
+---
+
+## 🔄 Обновлённые файлы (20)
+
 ```
 app.py
 db.py
@@ -134,65 +83,41 @@ GEMINI_CONTEXT.md
 | 32c71d9 | UI: улучшена кнопка меню |
 | fae674b | UI: исправлено перекрытие кнопки |
 | 4568da5 | UI: исправлено появление кнопки после закрытия |
+| 73843fb | Docs: приведена документация в порядок |
 
 ---
 
-## 🔧 Технические детали
+## 🔧 Ключевые изменения
 
-### P0-1: Декоратор @db_connection
-```python
-# src/utils/db_utils.py
-from contextlib import contextmanager
-from db import database
+### Backend
+- Декоратор `@db_connection` для устранения дублирования БД кода
+- Валидация входных данных (`src/utils/validators.py`)
+- Type hints во всех Python файлах
+- Command pattern для обновлений полей
+- Кэширование KMZ (`lru_cache(maxsize=128)`)
 
-@contextmanager
-def db_connection():
-    """Контекстный менеджер для управления подключением к БД."""
-    if database.is_closed():
-        database.connect()
-    try:
-        yield
-    finally:
-        if not database.is_closed():
-            database.close()
-```
+### Frontend
+- ES6 модули (9 файлов вместо одного main.js)
+- Класс `FieldMapperApp` для инкапсуляции состояния
+- Обработка ошибок в API вызовах
+- Страница загрузок (отдельный UI)
+- Круглая кнопка меню с анимацией
 
-### P1-8: Command Pattern
-```python
-# src/handlers/field_commands.py
-from abc import ABC, abstractmethod
-
-class FieldCommand(ABC):
-    @abstractmethod
-    def execute(self, field, data: dict) -> None:
-        pass
-
-class RenameCommand(FieldCommand):
-    def execute(self, field, data: dict) -> None:
-        field.name = data['name']
-        field.save()
-```
-
-### P1-9: Кэширование KMZ
-```python
-# src/services/kmz_service.py
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def generate_kmz(field_id: int, height: float, direction: int, ...) -> bytes:
-    # Кэширование по параметрам
-```
+### Docker
+- Многоэтапная сборка
+- Кэширование npm зависимостей
+- .dockerignore: уменьшен контекст на ~40%
 
 ---
 
-## ✅ Чеклист готовности к merge
+## ✅ Готовность к merge
 
 - [x] Все тесты проходят (14 passed, 1 skipped)
 - [x] Backend рефакторинг завершён
 - [x] Frontend рефакторинг завершён
 - [x] Docker оптимизирован
 - [x] Документация обновлена
-- [x] UI улучшен (страница загрузок, кнопка меню)
+- [x] UI улучшен
 
 **Готово к merge в `master`!** ✅
 
