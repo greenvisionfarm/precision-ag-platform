@@ -67,6 +67,7 @@ class FieldMapperApp {
   toggleSidebar() {
     $("body").toggleClass("sidebar-open");
     $("#sidebar").toggleClass("open");
+    $("#sidebar-toggle").toggleClass("open");
     setTimeout(() => {
       if (window.MapManager.instance) {
         window.MapManager.instance.invalidateSize();
