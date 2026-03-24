@@ -52,12 +52,13 @@ class Field(BaseModel):
 
 class FieldZone(BaseModel):
     """Модель зоны поля (для дифференцированного внесения)."""
-    
+
     field = ForeignKeyField(Field, backref='zones')
     name = CharField()
     geometry_wkt = TextField()
-    min_value = FloatField()
-    max_value = FloatField()
+    min_value = FloatField(null=True)
+    max_value = FloatField(null=True)
+    avg_ndvi = FloatField(null=True)
     color = CharField()
 
 

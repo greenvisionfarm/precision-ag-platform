@@ -10,6 +10,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./static:/app/static:ro
+      - ./uploads:/app/uploads
     expose:
       - "8888"
     depends_on:
