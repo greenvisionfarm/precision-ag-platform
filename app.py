@@ -1,10 +1,15 @@
+"""
+Главный модуль приложения Field Mapper.
+Настраивает и запускает Tornado сервер.
+"""
 import logging
 import os
+from typing import Any, Dict
 
 import tornado.ioloop
 import tornado.web
 
-from db import initialize_db
+from db import ensure_db_exists
 from src.handlers.field_handlers import (
     BulkKMZExportHandler,
     FieldActionHandler,
@@ -21,19 +26,28 @@ from src.handlers.upload_handlers import TaskStatusHandler, UploadHandler
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 class MainHandler(tornado.web.RequestHandler):
-    def get(self):
+    """Обработчик главной страницы."""
+    
+    def get(self) -> None:
         self.render("static/index.html")
 
-def make_app():
-    settings = {
+
+def make_app() -> tornado.web.Application:
+    """Создаёт и настраивает Tornado приложение.
+    
+    Returns:
+        Настроенное приложение Tornado.
+    """
+    settings: Dict[str, Any] = {
         "template_path": os.path.dirname(__file__),
         "static_path": os.path.join(os.path.dirname(__file__), "static"),
         "debug": True,
     }
     return tornado.web.Application([
         (r"/", MainHandler),
-        
+
         # API: Fields
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
@@ -44,16 +58,16 @@ def make_app():
         (r"/api/field/export/kmz/([0-9]+)", FieldExportKmzHandler),
         # Объединенный эндпоинт для апдейтов: rename, assign_owner, update_details, update_geometry
         (r"/api/field/(?P<action>rename|assign_owner|update_details|update_geometry)/(?P<field_id>[0-9]+)", FieldUpdateHandler),
-        
+
         # API: Owners
         (r"/api/owners", OwnersDataApiHandler),
         (r"/api/owner/add", OwnerActionHandler),
         (r"/api/owner/delete/([0-9]+)", OwnerActionHandler),
-        
+
         # Upload
         (r"/upload", UploadHandler),
         (r"/api/task/(.*)", TaskStatusHandler),
-        
+
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
         (r"/(manifest\.json)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
@@ -61,11 +75,12 @@ def make_app():
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
     ], **settings)
 
+
 if __name__ == "__main__":
     try:
-        initialize_db()
+        ensure_db_exists()
         app = make_app()
-        app.listen(8888, max_body_size=1024 * 1024 * 1024) # 1GB limit here
+        app.listen(8888, max_body_size=1024 * 1024 * 1024)  # 1GB limit
         logging.info("Сервер запущен: http://localhost:8888")
         tornado.ioloop.IOLoop.current().start()
     except KeyboardInterrupt:

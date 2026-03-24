@@ -19,24 +19,19 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         # ОПТИМИЗАЦИЯ: читаем с ресемплингом (уменьшаем в 10 раз)
         # Если файл огромный, уменьшаем до разумного размера (напр. макс 2000 пикселей по стороне)
         scale = max(1, max(src.width, src.height) // 1000)
-        
-        # Обрезаем растр по контуру поля (с маской и ресемплингом)
+
+        # Обрезаем растр по контуру поля (с маской)
         out_image, out_transform = rasterio.mask.mask(
-            src, [field_geom], crop=True, 
-            # Ресемплинг на этапе чтения
-            # Мы не можем просто передать Resampling в mask, поэтому сделаем это чуть иначе
+            src, [field_geom], crop=True,
         )
-        
+
         # Если после обрезки он все еще слишком большой, уменьшаем его
         if scale > 1:
-            int(out_image.shape[1] / scale)
-            int(out_image.shape[2] / scale)
-            
             # Читаем данные заново с ресемплингом
             data = out_image[0]
             # Упрощенный ресемплинг через numpy (берем каждый N-й пиксель)
             data = data[::scale, ::scale]
-            
+
             # Обновляем трансформ для векторизации
             from rasterio.transform import Affine
             out_transform = out_transform * Affine.scale(scale, scale)
