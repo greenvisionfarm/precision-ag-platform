@@ -74,6 +74,9 @@ const MapManager = {
   initDetailMap: (containerId, geometry, zones = []) => {
     if (MapManager.detailInstance) { MapManager.detailInstance.remove(); }
 
+    // Сохраняем геометрию поля для последующего обновления
+    MapManager.currentFieldGeometry = geometry;
+
     MapManager.detailInstance = L.map(containerId, { zoomControl: false, attributionControl: false });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
 
@@ -96,6 +99,44 @@ const MapManager = {
     }).addTo(MapManager.detailInstance);
 
     MapManager.detailInstance.fitBounds(mainLayer.getBounds(), { padding: [20, 20] });
+
+    setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
+  },
+
+  /**
+   * Обновляет зоны на карте деталей.
+   * @param {Array} zones - Массив зон для отображения.
+   */
+  updateZones: (zones = []) => {
+    if (!MapManager.detailInstance) return;
+
+    // Очищаем все слои кроме подложки
+    MapManager.detailInstance.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) return; // Сохраняем подложку
+      if (layer instanceof L.Polygon || layer instanceof L.GeoJSON) {
+        MapManager.detailInstance.removeLayer(layer);
+      }
+    });
+
+    // Рисуем новые зоны
+    if (zones && zones.length > 0) {
+      zones.forEach(zone => {
+        L.geoJSON(zone.geometry, {
+          style: {
+            color: zone.color,
+            weight: 1,
+            fillOpacity: 0.6
+          }
+        }).addTo(MapManager.detailInstance);
+      });
+    }
+
+    // Перерисовываем контур поля (если он сохранён)
+    if (MapManager.currentFieldGeometry) {
+      L.geoJSON(MapManager.currentFieldGeometry, {
+        style: { color: "#007BFF", weight: 3, fillOpacity: zones.length > 0 ? 0 : 0.2 }
+      }).addTo(MapManager.detailInstance);
+    }
 
     setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
   }

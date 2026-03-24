@@ -92,6 +92,20 @@ const API = {
     data: params,
     xhrFields: { responseType: 'arraybuffer' }
   }).catch(handleApiError),
+
+  /**
+   * Получение списка сканов поля.
+   * @param {number} fieldId - ID поля.
+   * @returns {Promise} Promise со списком сканов.
+   */
+  getFieldScans: (fieldId) => $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError),
+
+  /**
+   * Получение зон скана.
+   * @param {number} scanId - ID скана.
+   * @returns {Promise} Promise с зонами.
+   */
+  getScanZones: (scanId) => $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError),
 };
 
 export default API;

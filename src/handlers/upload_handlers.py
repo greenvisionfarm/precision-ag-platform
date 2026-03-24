@@ -10,6 +10,7 @@ import zipfile
 from typing import Any, Dict, Optional
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 import tornado.web
 
@@ -114,6 +115,7 @@ class UploadHandler(tornado.web.RequestHandler):
 
     def handle_geotiff(self) -> None:
         try:
+            from datetime import datetime
             from shapely import wkt
             from shapely.geometry import box
 
@@ -132,6 +134,13 @@ class UploadHandler(tornado.web.RequestHandler):
                     # Определяем границы растра
                     bounds = src.bounds
                     raster_box = box(bounds.left, bounds.bottom, bounds.right, bounds.top)
+                    
+                    # Статистика NDVI
+                    data = src.read(1)
+                    valid_data = data[(data > -1.0) & (data <= 1.0) & (data != 0)]
+                    ndvi_min = float(np.min(valid_data)) if len(valid_data) > 0 else None
+                    ndvi_max = float(np.max(valid_data)) if len(valid_data) > 0 else None
+                    ndvi_avg = float(np.mean(valid_data)) if len(valid_data) > 0 else None
 
                 # Ищем поле, которое пересекается с этим растром
                 with db_connection():
@@ -143,17 +152,35 @@ class UploadHandler(tornado.web.RequestHandler):
                             break
 
                     if not target_field:
-                        if os.path.exists(file_path): 
+                        if os.path.exists(file_path):
                             os.remove(file_path)
                         raise ValueError("Не найдено поле, соответствующее координатам этого растра")
 
+                    # Создаём запись скана
+                    scan = FieldScan.create(
+                        field=target_field,
+                        file_path=file_path,
+                        filename=uploaded_file['filename'],
+                        uploaded_at=datetime.now(),
+                        ndvi_min=ndvi_min,
+                        ndvi_max=ndvi_max,
+                        ndvi_avg=ndvi_avg,
+                        processed='false',
+                        task_id=None
+                    )
+
                     # Запускаем фоновую задачу
-                    task = process_geotiff_task(file_path, target_field.id)
+                    task = process_geotiff_task(file_path, target_field.id, scan.id)
+                    
+                    # Обновляем task_id
+                    scan.task_id = task.id
+                    scan.save()
 
                 self.write({
                     "message": f"Файл принят. Обработка NDVI для поля '{target_field.name}' запущена в фоне.",
                     "task_id": task.id,
-                    "field_id": target_field.id
+                    "field_id": target_field.id,
+                    "scan_id": scan.id
                 })
 
             except Exception as e:
@@ -202,6 +229,76 @@ class ISOXMLExportHandler(tornado.web.RequestHandler):
         except Field.DoesNotExist:
             self.set_status(404)
             self.write({"error": "Поле не найдено"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class FieldScansHandler(tornado.web.RequestHandler):
+    """Handler для получения списка сканов поля."""
+
+    def get(self, field_id: int) -> None:
+        try:
+            from db import FieldScan
+            
+            # Проверяем что поле существует
+            Field.get_by_id(field_id)
+            
+            # Получаем все сканы поля
+            scans = FieldScan.select().where(
+                FieldScan.field == field_id
+            ).order_by(FieldScan.uploaded_at.desc())
+            
+            result = []
+            for scan in scans:
+                result.append({
+                    "id": scan.id,
+                    "filename": scan.filename,
+                    "uploaded_at": scan.uploaded_at.isoformat(),
+                    "ndvi_min": scan.ndvi_min,
+                    "ndvi_max": scan.ndvi_max,
+                    "ndvi_avg": scan.ndvi_avg,
+                    "processed": scan.processed == 'true',
+                    "has_zones": scan.zones.count() > 0
+                })
+            
+            self.write({"scans": result})
+            
+        except Field.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Поле не найдено"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class FieldScanZonesHandler(tornado.web.RequestHandler):
+    """Handler для получения зон конкретного скана."""
+
+    def get(self, scan_id: int) -> None:
+        try:
+            from db import FieldScan, FieldZone
+            
+            scan = FieldScan.get_by_id(scan_id)
+            
+            # Получаем зоны этого скана
+            zones = FieldZone.select().where(FieldZone.scan == scan)
+            
+            result = []
+            for zone in zones:
+                result.append({
+                    "id": zone.id,
+                    "name": zone.name,
+                    "avg_ndvi": zone.avg_ndvi,
+                    "color": zone.color,
+                    "geometry_wkt": zone.geometry_wkt
+                })
+            
+            self.write({"zones": result})
+            
+        except FieldScan.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Скан не найден"})
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})

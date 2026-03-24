@@ -7,6 +7,7 @@ from typing import List
 
 from peewee import (
     CharField,
+    DateTimeField,
     FloatField,
     ForeignKeyField,
     Model,
@@ -30,30 +31,45 @@ else:
 
 class BaseModel(Model):
     """Базовая модель для всех моделей базы данных."""
-    
+
     class Meta:
         database = database
 
 
 class Owner(BaseModel):
     """Модель владельца поля."""
-    
+
     name = CharField(unique=True)
 
 
 class Field(BaseModel):
     """Модель сельскохозяйственного поля."""
-    
+
     name = CharField(null=True)
     geometry_wkt = TextField()  # Храним как WKT (Well-Known Text)
     properties_json = TextField(null=True)  # Доп. свойства (площадь и т.д.)
     owner = ForeignKeyField(Owner, backref='fields', null=True)
 
 
+class FieldScan(BaseModel):
+    """Модель скана поля (NDVI TIFF файл с датой загрузки)."""
+    
+    field = ForeignKeyField(Field, backref='scans', on_delete='CASCADE')
+    file_path = CharField()  # Путь к TIFF файлу
+    filename = CharField()  # Оригинальное имя файла
+    uploaded_at = DateTimeField()  # Дата загрузки
+    ndvi_min = FloatField(null=True)  # Минимальный NDVI в скане
+    ndvi_max = FloatField(null=True)  # Максимальный NDVI в скане
+    ndvi_avg = FloatField(null=True)  # Средний NDVI в скане
+    processed = TextField(null=True)  # 'true'/'false' — обработан ли файл
+    task_id = CharField(null=True)  # ID задачи обработки
+
+
 class FieldZone(BaseModel):
     """Модель зоны поля (для дифференцированного внесения)."""
 
     field = ForeignKeyField(Field, backref='zones')
+    scan = ForeignKeyField(FieldScan, backref='zones', null=True)  # Привязка зон к скану
     name = CharField()
     geometry_wkt = TextField()
     min_value = FloatField(null=True)
@@ -67,7 +83,7 @@ def initialize_db() -> None:
 
     WARNING: Эта функция удаляет ВСЕ данные из базы!
     Используйте только в тестовом окружении или при первом запуске.
-    
+
     Raises:
         RuntimeError: Если вызвана в production окружении с существующей БД.
     """
@@ -85,8 +101,8 @@ def initialize_db() -> None:
         database.close()
     database.connect(reuse_if_open=True)
     # Удаляем и создаем заново, чтобы тесты были изолированы
-    database.drop_tables([Field, Owner, FieldZone])
-    database.create_tables([Field, Owner, FieldZone])
+    database.drop_tables([Field, Owner, FieldZone, FieldScan])
+    database.create_tables([Field, Owner, FieldScan, FieldZone])
     database.close()
 
 
@@ -101,7 +117,7 @@ def ensure_db_exists() -> None:
 
     # Проверяем, существуют ли таблицы
     existing_tables: List[str] = database.get_tables()
-    required_tables = ['field', 'owner', 'fieldzone']
+    required_tables = ['field', 'owner', 'fieldzone', 'fieldscan']
 
     # Создаём только отсутствующие таблицы
     tables_to_create = []
@@ -109,6 +125,8 @@ def ensure_db_exists() -> None:
         tables_to_create.append(Field)
     if 'owner' not in existing_tables:
         tables_to_create.append(Owner)
+    if 'fieldscan' not in existing_tables:
+        tables_to_create.append(FieldScan)
     if 'fieldzone' not in existing_tables:
         tables_to_create.append(FieldZone)
 
