@@ -540,6 +540,18 @@ table.dataTable.display tbody tr:hover td {
     gap: var(--spacing-md);
 }
 
+/* Кнопки экспорта в шапке деталей поля */
+.field-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.field-actions .btn {
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
 .btn-action {
     background-color: var(--primary-color);
     color: white;
@@ -559,6 +571,77 @@ table.dataTable.display tbody tr:hover td {
     border: none;
     cursor: pointer;
     font-weight: 600;
+}
+
+/* Статистика зон внесения */
+.zones-stats {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+.zones-stats h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-color);
+}
+
+.zones-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.zones-table th,
+.zones-table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.zones-table th {
+    background-color: var(--table-header-bg);
+    font-weight: 600;
+}
+
+.zone-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* Легенда зон на карте */
+.zones-legend {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+}
+
+.legend-title {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    margin-right: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+}
+
+.legend-label {
+    font-size: 14px;
+    color: var(--text-color);
 }
 
 /* Сделать строки таблицы кликабельными */

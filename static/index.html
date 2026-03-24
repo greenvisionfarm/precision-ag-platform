@@ -77,12 +77,21 @@
             <div class="header-with-back">
                 <a href="#fields" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку</a>
                 <h1 id="field-detail-name">Детали поля</h1>
+                <div class="field-actions">
+                    <a href="#" id="detail-export-isoxml" class="btn btn-success" title="Экспорт ISOXML для техники">
+                        <i class="fas fa-tractor"></i> Экспорт ISOXML
+                    </a>
+                    <a href="#" id="detail-export-kmz" class="btn btn-primary" title="Экспорт KMZ для DJI">
+                        <i class="fas fa-file-export"></i> Экспорт DJI KMZ
+                    </a>
+                </div>
             </div>
-            
+
             <div class="detail-grid">
                 <div class="detail-card map-card">
-                    <h3>Расположение</h3>
+                    <h3>Карта поля</h3>
                     <div id="field-detail-map"></div>
+                    <div id="zones-legend" class="zones-legend"></div>
                 </div>
                 <div class="detail-card info-card">
                     <h3>Информация</h3>
@@ -93,8 +102,21 @@
                         <tr><th>Кадастровый номер</th><td id="field-detail-parcel"></td></tr>
                     </table>
                     <div class="detail-actions">
-                        <button id="detail-export-kmz" class="btn-action">Экспорт DJI KMZ</button>
                         <button id="detail-delete-field" class="btn-danger">Удалить поле</button>
+                    </div>
+                    
+                    <div id="zones-stats" class="zones-stats">
+                        <h4>Зоны внесения</h4>
+                        <table class="zones-table">
+                            <thead>
+                                <tr>
+                                    <th>Зона</th>
+                                    <th>NDVI</th>
+                                    <th>Норма</th>
+                                </tr>
+                            </thead>
+                            <tbody id="zones-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
