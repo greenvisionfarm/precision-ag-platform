@@ -89,6 +89,7 @@ h1, h2, h3 {
     transition: margin-left 0.3s ease, width 0.3s ease;
     box-sizing: border-box;
     position: relative;
+    padding-top: 70px; /* Отступ для кнопки меню */
 }
 
 /* Секции (Views) */
@@ -124,6 +125,11 @@ h1, h2, h3 {
     body.sidebar-open .main-content {
         margin-left: var(--sidebar-width);
         width: calc(100% - var(--sidebar-width));
+    }
+    
+    /* На десктопе кнопка вверху, нужен отступ */
+    .main-content {
+        padding-top: 70px;
     }
 }
 
@@ -198,10 +204,20 @@ h1, h2, h3 {
     transform: scale(0.95);
 }
 
+/* Скрываем кнопку когда меню открыто */
+body.sidebar-open #sidebar-toggle {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
 /* Анимация иконки при открытом меню */
+#sidebar-toggle i.fa-bars {
+    transition: transform 0.3s ease;
+}
+
 #sidebar-toggle.open i.fa-bars {
     transform: rotate(90deg);
-    transition: transform 0.3s ease;
 }
 
 /* Мобильные: кнопка внизу слева для удобства большого пальца */
@@ -213,6 +229,17 @@ h1, h2, h3 {
         width: 56px;
         height: 56px;
         font-size: 1.6rem;
+    }
+    
+    /* На мобильных скрываем кнопку когда меню открыто */
+    body.sidebar-open #sidebar-toggle {
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    /* На мобильных нет отступа сверху так как кнопка внизу */
+    .main-content {
+        padding-top: var(--spacing-lg);
     }
 }
 
@@ -432,7 +459,8 @@ table.dataTable.display tbody tr:hover td {
     }
 
     .main-content {
-        padding: 0;
+        padding: var(--spacing-lg);
+        padding-top: var(--spacing-lg);
     }
 
     .view-section {
