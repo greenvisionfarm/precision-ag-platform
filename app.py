@@ -80,8 +80,8 @@ if __name__ == "__main__":
     try:
         ensure_db_exists()
         app = make_app()
-        app.listen(8888, max_body_size=1024 * 1024 * 1024)  # 1GB limit
-        logging.info("Сервер запущен: http://localhost:8888")
+        app.listen(8888, address='0.0.0.0', max_body_size=1024 * 1024 * 1024)  # 1GB limit
+        logging.info("Сервер запущен: http://0.0.0.0:8888")
         tornado.ioloop.IOLoop.current().start()
     except KeyboardInterrupt:
         logging.info("Остановка сервера...")

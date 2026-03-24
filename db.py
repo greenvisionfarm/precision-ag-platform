@@ -21,6 +21,9 @@ TEST_DB_FILE = 'test_fields.db'
 # Выбор базы данных в зависимости от окружения
 if os.environ.get('FIELD_MAPPER_ENV') == 'test':
     database = SqliteDatabase(TEST_DB_FILE)
+elif os.environ.get('FIELD_MAPPER_DB'):
+    # Используем путь из переменной окружения (для Docker)
+    database = SqliteDatabase(os.environ.get('FIELD_MAPPER_DB'))
 else:
     database = SqliteDatabase(DB_FILE)
 
