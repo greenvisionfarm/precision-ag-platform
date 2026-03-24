@@ -1,20 +1,20 @@
-const fs = require('fs');
-const path = require('path');
-const { TextEncoder, TextDecoder } = require('util');
+const fs = require("fs");
+const path = require("path");
+const { TextEncoder, TextDecoder } = require("util");
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
-const { JSDOM } = require('jsdom');
+const { JSDOM } = require("jsdom");
 
 let dom;
 let window;
 let $;
 
 beforeAll(() => {
-    const apiCode = fs.readFileSync(path.resolve(__dirname, 'modules/api.js'), 'utf8');
-    const mapCode = fs.readFileSync(path.resolve(__dirname, 'modules/map_manager.js'), 'utf8');
-    const mainCode = fs.readFileSync(path.resolve(__dirname, 'main.js'), 'utf8');
+  const apiCode = fs.readFileSync(path.resolve(__dirname, "modules/api.js"), "utf8");
+  const mapCode = fs.readFileSync(path.resolve(__dirname, "modules/map_manager.js"), "utf8");
+  const mainCode = fs.readFileSync(path.resolve(__dirname, "main.js"), "utf8");
     
-    dom = new JSDOM(`
+  dom = new JSDOM(`
         <!DOCTYPE html>
         <html data-theme="light">
         <body>
@@ -41,162 +41,162 @@ beforeAll(() => {
         </body>
         </html>
     `, { 
-        url: "http://localhost/#map",
-        runScripts: "dangerously",
-        resources: "usable"
-    });
+    url: "http://localhost/#map",
+    runScripts: "dangerously",
+    resources: "usable"
+  });
 
-    window = dom.window;
+  window = dom.window;
     
-    // Мокаем Leaflet
-    const layerMock = { 
-        addTo: jest.fn().mockReturnThis(), 
-        bindPopup: jest.fn().mockReturnThis(),
-        getBounds: jest.fn().mockReturnValue({ isValid: () => true, pad: () => [[0,0],[1,1]] }) 
-    };
-    layerMock.getBounds.mockReturnValue({
-        getSouthWest: () => ({lat: 0, lng: 0}),
-        getNorthEast: () => ({lat: 1, lng: 1})
-    });
+  // Мокаем Leaflet
+  const layerMock = { 
+    addTo: jest.fn().mockReturnThis(), 
+    bindPopup: jest.fn().mockReturnThis(),
+    getBounds: jest.fn().mockReturnValue({ isValid: () => true, pad: () => [[0,0],[1,1]] }) 
+  };
+  layerMock.getBounds.mockReturnValue({
+    getSouthWest: () => ({lat: 0, lng: 0}),
+    getNorthEast: () => ({lat: 1, lng: 1})
+  });
 
-    window.L = { 
-        map: jest.fn().mockReturnValue({ 
-            setView: jest.fn().mockReturnThis(), 
-            addLayer: jest.fn(), 
-            addControl: jest.fn(), 
-            on: jest.fn(), 
-            locate: jest.fn(), 
-            invalidateSize: jest.fn(),
-            removeLayer: jest.fn(),
-            remove: jest.fn(),
-            fitBounds: jest.fn()
-        }),
-        tileLayer: jest.fn().mockReturnValue({ addTo: jest.fn() }),
-        FeatureGroup: jest.fn().mockImplementation(() => ({ 
-            addTo: jest.fn(), 
-            clearLayers: jest.fn(), 
-            addLayer: jest.fn(),
-            getBounds: () => ({isValid: () => false}) 
-        })),
-        Control: { Draw: jest.fn() },
-        Draw: { Event: { CREATED: 'c', EDITED: 'e', DELETED: 'd' } },
-        geoJSON: jest.fn().mockImplementation((data, options) => {
-            if (options && options.onEachFeature && data.features) {
-                data.features.forEach(f => options.onEachFeature(f, layerMock));
-            }
-            return layerMock;
-        })
-    };
+  window.L = { 
+    map: jest.fn().mockReturnValue({ 
+      setView: jest.fn().mockReturnThis(), 
+      addLayer: jest.fn(), 
+      addControl: jest.fn(), 
+      on: jest.fn(), 
+      locate: jest.fn(), 
+      invalidateSize: jest.fn(),
+      removeLayer: jest.fn(),
+      remove: jest.fn(),
+      fitBounds: jest.fn()
+    }),
+    tileLayer: jest.fn().mockReturnValue({ addTo: jest.fn() }),
+    FeatureGroup: jest.fn().mockImplementation(() => ({ 
+      addTo: jest.fn(), 
+      clearLayers: jest.fn(), 
+      addLayer: jest.fn(),
+      getBounds: () => ({isValid: () => false}) 
+    })),
+    Control: { Draw: jest.fn() },
+    Draw: { Event: { CREATED: "c", EDITED: "e", DELETED: "d" } },
+    geoJSON: jest.fn().mockImplementation((data, options) => {
+      if (options && options.onEachFeature && data.features) {
+        data.features.forEach(f => options.onEachFeature(f, layerMock));
+      }
+      return layerMock;
+    })
+  };
     
-    window.Chart = jest.fn();
-    window.Swal = { fire: jest.fn().mockResolvedValue({ isConfirmed: true, value: {} }) };
+  window.Chart = jest.fn();
+  window.Swal = { fire: jest.fn().mockResolvedValue({ isConfirmed: true, value: {} }) };
     
-    const localStorageMock = (function() {
-        let store = {};
-        return {
-            getItem: (key) => store[key] || null,
-            setItem: (key, value) => { store[key] = value.toString(); },
-            clear: () => { store = {}; }
-        };
-    })();
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-
-    const jqueryCode = fs.readFileSync(require.resolve('jquery'), 'utf8');
-    const jqScript = window.document.createElement("script");
-    jqScript.textContent = jqueryCode;
-    window.document.head.appendChild(jqScript);
-    $ = window.$;
-
-    // Мокаем $.getJSON
-    $.getJSON = jest.fn().mockImplementation((url, callback) => {
-        let responseData = { data: [] };
-        if (url.includes('/api/field/')) {
-            responseData = { id: 1, name: "Test Field", area: "10 га", owner: "Jan", land_status: "A", parcel_number: "777", geometry: {type: "Point", coordinates: [0,0]} };
-        }
-        if (callback) callback(responseData);
-        return {
-            then: (successCb) => { if (successCb) successCb(responseData); return { fail: jest.fn() }; },
-            fail: (failCb) => { return { then: jest.fn() }; }
-        };
-    });
-
-    // Мокаем DataTables
-    const dtMock = {
-        on: jest.fn(),
-        ajax: { reload: jest.fn() },
-        row: jest.fn().mockReturnValue({ data: jest.fn().mockReturnValue({ id: 1, name: "Test" }) })
+  const localStorageMock = (function() {
+    let store = {};
+    return {
+      getItem: (key) => store[key] || null,
+      setItem: (key, value) => { store[key] = value.toString(); },
+      clear: () => { store = {}; }
     };
-    $.fn.DataTable = jest.fn().mockReturnValue(dtMock);
-    window.fieldsTable = dtMock; // Чтобы setupTableEvents видел его
+  })();
+  Object.defineProperty(window, "localStorage", { value: localStorageMock });
 
-    const apiScript = window.document.createElement("script");
-    apiScript.textContent = apiCode;
-    window.document.head.appendChild(apiScript);
+  const jqueryCode = fs.readFileSync(require.resolve("jquery"), "utf8");
+  const jqScript = window.document.createElement("script");
+  jqScript.textContent = jqueryCode;
+  window.document.head.appendChild(jqScript);
+  $ = window.$;
 
-    const mapScript = window.document.createElement("script");
-    mapScript.textContent = mapCode;
-    window.document.head.appendChild(mapScript);
+  // Мокаем $.getJSON
+  $.getJSON = jest.fn().mockImplementation((url, callback) => {
+    let responseData = { data: [] };
+    if (url.includes("/api/field/")) {
+      responseData = { id: 1, name: "Test Field", area: "10 га", owner: "Jan", land_status: "A", parcel_number: "777", geometry: {type: "Point", coordinates: [0,0]} };
+    }
+    if (callback) callback(responseData);
+    return {
+      then: (successCb) => { if (successCb) successCb(responseData); return { fail: jest.fn() }; },
+      fail: (failCb) => { return { then: jest.fn() }; }
+    };
+  });
 
-    const script = window.document.createElement("script");
-    script.textContent = mainCode;
-    window.document.head.appendChild(script);
+  // Мокаем DataTables
+  const dtMock = {
+    on: jest.fn(),
+    ajax: { reload: jest.fn() },
+    row: jest.fn().mockReturnValue({ data: jest.fn().mockReturnValue({ id: 1, name: "Test" }) })
+  };
+  $.fn.DataTable = jest.fn().mockReturnValue(dtMock);
+  window.fieldsTable = dtMock; // Чтобы setupTableEvents видел его
 
-    global.handleRoute = window.handleRoute;
-    global.initTheme = window.initTheme;
-    global.downloadKmzWithSettings = window.downloadKmzWithSettings;
-    global.window = window;
-    global.$ = $;
-    global.API = window.API;
-    global.MapManager = window.MapManager;
+  const apiScript = window.document.createElement("script");
+  apiScript.textContent = apiCode;
+  window.document.head.appendChild(apiScript);
+
+  const mapScript = window.document.createElement("script");
+  mapScript.textContent = mapCode;
+  window.document.head.appendChild(mapScript);
+
+  const script = window.document.createElement("script");
+  script.textContent = mainCode;
+  window.document.head.appendChild(script);
+
+  global.handleRoute = window.handleRoute;
+  global.initTheme = window.initTheme;
+  global.downloadKmzWithSettings = window.downloadKmzWithSettings;
+  global.window = window;
+  global.$ = $;
+  global.API = window.API;
+  global.MapManager = window.MapManager;
 });
 
-describe('Field Mapper Frontend Logic', () => {
+describe("Field Mapper Frontend Logic", () => {
 
-    test('Routing: should switch views based on hash', () => {
-        window.location.hash = '#fields';
-        handleRoute();
-        expect(window.document.getElementById('view-fields').style.display).not.toBe('none');
-    });
+  test("Routing: should switch views based on hash", () => {
+    window.location.hash = "#fields";
+    handleRoute();
+    expect(window.document.getElementById("view-fields").style.display).not.toBe("none");
+  });
 
-    test('Routing: should show field detail view and load data', () => {
-        window.location.hash = '#field/1';
-        handleRoute();
+  test("Routing: should show field detail view and load data", () => {
+    window.location.hash = "#field/1";
+    handleRoute();
         
-        const detailSection = window.document.getElementById('view-field-detail');
-        expect(detailSection.style.display).not.toBe('none');
-        expect(window.document.getElementById('field-detail-name').textContent).toBe('Test Field');
-    });
+    const detailSection = window.document.getElementById("view-field-detail");
+    expect(detailSection.style.display).not.toBe("none");
+    expect(window.document.getElementById("field-detail-name").textContent).toBe("Test Field");
+  });
 
-    test('Interaction: clicking on table cell should change hash', () => {
-        window.location.hash = '#fields';
-        handleRoute();
+  test("Interaction: clicking on table cell should change hash", () => {
+    window.location.hash = "#fields";
+    handleRoute();
         
-        const tbody = $('#fields-table tbody');
-        const tr = $('<tr><td>Data</td></tr>');
-        tbody.append(tr);
+    const tbody = $("#fields-table tbody");
+    const tr = $("<tr><td>Data</td></tr>");
+    tbody.append(tr);
         
-        tr.find('td').click();
-        expect(window.location.hash).toBe('#field/1');
-    });
+    tr.find("td").click();
+    expect(window.location.hash).toBe("#field/1");
+  });
 
-    test('MapManager: should render fields from geojson', () => {
-        const testGeoJSON = {
-            type: "FeatureCollection",
-            features: [{ type: "Feature", properties: { db_id: 1, name: "MapTest" }, geometry: { type: "Point", coordinates: [0,0] } }]
-        };
+  test("MapManager: should render fields from geojson", () => {
+    const testGeoJSON = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: { db_id: 1, name: "MapTest" }, geometry: { type: "Point", coordinates: [0,0] } }]
+    };
         
-        MapManager.initMainMap('map');
-        MapManager.renderFields(testGeoJSON, jest.fn());
+    MapManager.initMainMap("map");
+    MapManager.renderFields(testGeoJSON, jest.fn());
         
-        expect(window.L.geoJSON).toHaveBeenCalled();
-        expect(MapManager.editableLayers.addLayer).toHaveBeenCalled();
-    });
+    expect(window.L.geoJSON).toHaveBeenCalled();
+    expect(MapManager.editableLayers.addLayer).toHaveBeenCalled();
+  });
 
-    test('Theme: should toggle theme attributes', () => {
-        initTheme();
-        const html = window.document.documentElement;
-        expect(html.getAttribute('data-theme')).toBe('light');
-        $('#theme-toggle-btn').click();
-        expect(html.getAttribute('data-theme')).toBe('dark');
-    });
+  test("Theme: should toggle theme attributes", () => {
+    initTheme();
+    const html = window.document.documentElement;
+    expect(html.getAttribute("data-theme")).toBe("light");
+    $("#theme-toggle-btn").click();
+    expect(html.getAttribute("data-theme")).toBe("dark");
+  });
 });

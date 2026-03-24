@@ -39,16 +39,51 @@
 
 ## Установка и запуск
 
-1. `python -m venv venv`
-2. `source venv/bin/activate`
-3. `pip install -r requirements.txt`
-4. `npm install` (для JS-тестов)
-5. `python app.py`
-6. Откройте [http://localhost:8888](http://localhost:8888).
+### 🐳 Быстрый старт через Docker (Рекомендуется)
+Самый простой способ запустить весь стек (API, Worker, Redis, Nginx):
+
+1. **Запустите проект:**
+   ```bash
+   docker-compose up -d --build
+   ```
+2. **Проверьте работу:** Откройте [http://localhost](http://localhost) (порт 80, через Nginx) или [http://localhost:8888](http://localhost:8888) (напрямую к API).
+3. **Остановка:** `docker-compose down`.
+
+### 🛠️ Локальная разработка (без Docker)
+1. Создайте и активируйте окружение:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # для Linux/macOS
+   ```
+2. Установите зависимости:
+   ```bash
+   pip install -r requirements.txt
+   npm install
+   ```
+3. Запустите приложение:
+   ```bash
+   python app.py
+   ```
+4. Откройте [http://localhost:8888](http://localhost:8888).
 
 ## Тестирование
 
+### Запуск тестов в Docker
+Для гарантии идентичности среды выполнения тесты можно запустить внутри контейнера:
+
+```bash
+# Все тесты (Python + JS)
+docker-compose run --rm app npm test && docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest
+
+# Только Python тесты
+docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest
+
+# Только JS тесты
+docker-compose run --rm app npm test
+```
+
+### Локальный запуск
 Проект использует изолированную среду для тестов, чтобы не затронуть рабочую базу данных `fields.db`.
 
-- **Backend:** `FIELD_MAPPER_ENV=test ./venv/bin/pytest tests/test_app.py`
+- **Backend:** `FIELD_MAPPER_ENV=test ./venv/bin/pytest`
 - **Frontend (JS Unit):** `npm test` (Jest + JSDOM).
