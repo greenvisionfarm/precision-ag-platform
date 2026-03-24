@@ -1,163 +1,148 @@
-# Field Mapper (Open Source Precision Ag Platform)
+# Field Mapper
 
-**Field Mapper** — это открытая веб-платформа для фермеров и агрономов. Она превращает данные с дронов (особенно мультиспектральных, таких как DJI Mavic 3M) в карты предписаний для сельскохозяйственной техники.
+> Платформа точного земледелия с открытым исходным кодом
 
-Наша цель — дать фермерам простой инструмент для **точного земледелия** (Precision Agriculture), который позволяет:
-1.  Управлять земельным банком (границы, кадастр, аренда).
-2.  Загружать ортофотопланы полей.
-3.  Анализировать здоровье растений (NDVI, NDRE).
-4.  Создавать карты для дифференцированного внесения (VRA) удобрений и СЗР.
+[![Tests](https://img.shields.io/badge/tests-14%20passed%2C%201%20skipped-green)]()
+[![Python](https://img.shields.io/badge/python-3.12-blue)]()
+[![Node](https://img.shields.io/badge/node-20-green)]()
+[![Docker](https://img.shields.io/badge/docker-ready-blue)]()
+[![License](https://img.shields.io/badge/license-Open%20Source-green)]()
 
-## Основные возможности
+**Field Mapper** — веб-платформа для фермеров и агрономов, которая превращает данные с дронов (DJI Mavic 3M) в карты предписаний для сельскохозяйственной техники.
 
-### 🌱 Управление полями (Land Management)
-- **Интерактивная карта:** Рисование и редактирование границ.
-- **Детали поля:** Просмотр подробной информации, мини-карта и управление конкретным участком.
-- **Земельный учет:** Статус (Собственность/Аренда), кадастровые номера.
-- **Импорт/Экспорт:** Загрузка контуров из Shapefile и экспорт полетных заданий в DJI KMZ.
-- **DJI Pilot Ready:** Генерация `template.kml` для Mavic 3M (настройка высоты, перекрытий).
-- **Кадастр:** Интеграция с официальными слоями (WMS).
+![Field Mapper Interface](docs/assets/screenshot.png)
 
-### 🚁 Агро-аналитика
-- **Анализ NDVI:** Загрузка мультиспектральных данных в формате GeoTIFF.
-- **Умное зонирование:** Автоматическая векторизация растра в 3 зоны продуктивности (Низкая, Средняя, Высокая) за считанные секунды.
-- **Визуализация:** Отображение зон вегетации прямо поверх карты полей.
-- **Оптимизация:** Обработка данных "на лету" без хранения тяжелых оригиналов (экономия места на сервере).
+---
 
-## Архитектура
+## 🚀 Возможности
 
-Проект следует принципам модульности для облегчения тестирования и расширения:
+| 🌱 **Управление полями** | 🚁 **NDVI анализ** | 📤 **Экспорт** |
+|-------------------------|-------------------|---------------|
+| Границы на карте | Загрузка GeoTIFF | DJI KMZ (WPML 1.0.6) |
+| Владельцы и кадастр | Автоматическое зонирование | Shapefile (в разработке) |
+| Импорт/экспорт | 3 зоны продуктивности | VRA карты (в разработке) |
+| Статистика и отчёты | Визуализация на карте | Массовый экспорт ZIP |
 
-- **Backend:** Python 3.12 (Tornado)
-    - `src/handlers/`: REST API контроллеры (Command pattern)
-    - `src/services/`: Гео-вычисления и логика экспорта (с кэшированием)
-    - `src/utils/`: Утилиты (валидация, декораторы БД)
-    - `db.py`: Модели данных SQLite (Peewee, type hints)
-- **Frontend:** SPA (HTML5, CSS3, Leaflet.js, ES6 модули)
-    - `static/js/modules/`: Модули (utils, router, tables, modals, uploads, stats, theme, field-detail, map-callbacks)
-    - `static/js/main.js`: Класс FieldMapperApp для управления состоянием
-- **PWA:** Поддержка офлайн-работы через Service Worker
-- **Task Queue:** Huey + Redis для фоновых задач
+---
 
-## Установка и запуск
+## ⚡ Быстрый старт
 
-### 🐳 Быстрый старт через Docker (Рекомендуется)
-Самый простой способ запустить весь стек (API, Worker, Redis, Nginx):
-
-1. **Запустите проект:**
-   ```bash
-   docker-compose up -d --build
-   ```
-2. **Проверьте работу:** Откройте [http://localhost](http://localhost) (порт 80, через Nginx) или [http://localhost:8888](http://localhost:8888) (напрямую к API).
-3. **Остановка:** `docker-compose down`.
-
-> **Оптимизация:** Dockerfile оптимизирован для быстрой сборки (кэширование npm, многоэтапная сборка). Время сборки с кэшем: ~1.5-2 минуты.
-
-### 🛠️ Локальная разработка (без Docker)
-1. Создайте и активируйте окружение:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # для Linux/macOS
-   ```
-2. Установите зависимости:
-   ```bash
-   pip install -r requirements.txt
-   npm install
-   ```
-3. Запустите приложение:
-   ```bash
-   python app.py
-   ```
-4. Откройте [http://localhost:8888](http://localhost:8888).
-
-## Тестирование
-
-### Запуск тестов в Docker
-Для гарантии идентичности среды выполнения тесты можно запустить внутри контейнера:
+### Docker (рекомендуется)
 
 ```bash
-# Все тесты (Python + JS)
-docker-compose run --rm app npm test && docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest
+docker-compose up -d --build
+```
 
-# Только Python тесты
-docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest
+Откройте [http://localhost](http://localhost)
 
-# Только JS тесты
+### Локально
+
+```bash
+python3.12 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt && npm install
+python app.py
+```
+
+Откройте [http://localhost:8888](http://localhost:8888)
+
+📖 **Подробная инструкция:** [docs/getting-started/installation.md](docs/getting-started/installation.md)
+
+---
+
+## 📚 Документация
+
+| Раздел | Описание |
+|--------|----------|
+| [🚀 Быстрый старт](docs/getting-started/installation.md) | Установка и настройка |
+| [👤 Руководство пользователя](docs/user-guide/fields.md) | Управление полями, NDVI, экспорт |
+| [👨‍💻 Для разработчиков](docs/developer-guide/architecture.md) | Архитектура, API, тестирование |
+| [📋 Changelog](docs/changelog/CHANGELOG.md) | История изменений |
+| [📅 Roadmap](TODO.md) | Планы развития |
+
+---
+
+## 🏗️ Архитектура
+
+```
+┌─────────────┐     ┌─────────────┐
+│   Nginx     │────▶│   Tornado   │
+│  (80/443)   │     │   (8888)    │
+└─────────────┘     └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │   SQLite    │
+                    │   /Postgres │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │  Redis+Huey │
+                    │  (Queue)    │
+                    └─────────────┘
+```
+
+**Стек:**
+- **Backend:** Python 3.12 (Tornado, Peewee, Huey, GDAL, Rasterio)
+- **Frontend:** jQuery, Leaflet, DataTables, Chart.js, ES6 Modules
+- **Infrastructure:** Docker, Redis, Nginx
+
+📖 **Подробнее:** [docs/developer-guide/architecture.md](docs/developer-guide/architecture.md)
+
+---
+
+## ✅ Тесты
+
+```bash
+# Backend
+FIELD_MAPPER_ENV=test ./venv/bin/pytest tests/
+
+# Frontend
+npm test
+
+# В Docker
+docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest tests/
 docker-compose run --rm app npm test
 ```
 
-### Локальный запуск
-Проект использует изолированную среду для тестов, чтобы не затронуть рабочую базу данных `fields.db`.
+**Статус:** 14 passed, 1 skipped
 
-- **Backend:** `FIELD_MAPPER_ENV=test ./venv/bin/pytest` (14 passed, 1 skipped)
-- **Frontend (JS Unit):** `npm test` (Jest + JSDOM)
+---
 
-## Рефакторинг и качество кода
+## 🤝 Вклад в проект
 
-В проекте проведён масштабный рефакторинг (2026):
+Приветствуются:
+- Баг-репорты и фич-реквесты (GitHub Issues)
+- Pull Request'ы с исправлениями и улучшениями
+- Документация и переводы
+- Тесты и CI/CD
 
-### Backend улучшения:
-- ✅ Декоратор `@db_connection` для управления подключением к БД
-- ✅ Валидация входных данных (`src/utils/validators.py`)
-- ✅ Type hints во всех модулях
-- ✅ Command pattern для обновлений полей (`src/handlers/field_commands.py`)
-- ✅ Кэширование KMZ экспорта (lru_cache)
-- ✅ Модульная структура пакетов (`src/handlers/`, `src/services/`, `src/utils/`)
+📖 **Инструкция:** [docs/developer-guide/contributing.md](docs/developer-guide/contributing.md)
 
-### Frontend улучшения:
-- ✅ ES6 модули для всего JavaScript кода
-- ✅ Класс `FieldMapperApp` для инкапсуляции состояния
-- ✅ Разделение ответственности между модулями
-- ✅ Обработка ошибок API вызовов
-- ✅ Страница загрузок — выделена в отдельный UI с улучшенным дизайном
+---
 
-Подробности в [REFACTORING_PLAN.md](REFACTORING_PLAN.md)
+## 📊 Метрики проекта
 
-## Структура проекта
+| Метрика | Значение |
+|---------|----------|
+| **Тесты** | 14 passed, 1 skipped |
+| **Покрытие** | ~60% (backend) |
+| **Размер образа** | ~1.5 GB (с GIS) |
+| **Время сборки** | ~6 мин (с кэшем ~2 мин) |
+| **Ветка** | `feature/refactoring-2026` (готова к merge) |
 
-```
-field_mapper/
-├── app.py                      # Точка входа приложения
-├── db.py                       # Модели данных Peewee
-├── requirements.txt            # Python зависимости
-├── package.json                # Node.js зависимости
-├── docker-compose.yml          # Docker оркестрация
-├── Dockerfile                  # Оптимизированная сборка
-├── src/
-│   ├── handlers/               # REST API контроллеры
-│   │   ├── field_handlers.py   # Обработчики полей
-│   │   ├── owner_handlers.py   # Обработчики владельцев
-│   │   ├── upload_handlers.py  # Обработчики загрузки
-│   │   └── field_commands.py   # Command pattern для обновлений
-│   ├── services/               # Бизнес-логика
-│   │   ├── gis_service.py      # GIS вычисления
-│   │   ├── kmz_service.py      # KMZ экспорт (с кэшированием)
-│   │   └── raster_service.py   # Растровая аналитика
-│   └── utils/                  # Утилиты
-│       ├── db_utils.py         # Декораторы БД
-│       └── validators.py       # Валидация данных
-├── static/
-│   ├── index.html              # Главный HTML
-│   ├── css/                    # Стили
-│   └── js/
-│       ├── main.js             # Класс FieldMapperApp
-│       └── modules/            # ES6 модули
-│           ├── api.js          # API вызовы
-│           ├── router.js       # Маршрутизация
-│           ├── tables.js       # DataTables
-│           ├── modals.js       # Модальные окна
-│           ├── uploads.js      # Загрузка файлов
-│           ├── stats.js        # Статистика и графики
-│           ├── theme.js        # Тема оформления
-│           ├── field-detail.js # Детали поля
-│           ├── map-callbacks.js# Callback'и карты
-│           ├── utils.js        # Утилиты
-│           └── map_manager.js  # Управление картой
-└── tests/                      # Тесты
-    ├── test_app.py             # Backend тесты
-    └── *.test.js               # Frontend тесты
-```
+---
 
-## Лицензия
+## 📝 Лицензия
 
 Open Source проект для развития точного земледелия.
+
+---
+
+## 🔗 Контакты
+
+- **Сайт:** [http://localhost:8888](http://localhost:8888)
+- **GitHub:** [your-org/field-mapper](https://github.com/your-org/field-mapper)
+- **Документация:** [docs/](docs/)
+
+---
+
+*Последнее обновление: 24 марта 2026 г.*
