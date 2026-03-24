@@ -58,6 +58,7 @@ python app.py
 | [👨‍💻 Для разработчиков](docs/developer-guide/architecture.md) | Архитектура, API, тестирование |
 | [📋 Changelog](docs/changelog/CHANGELOG.md) | История изменений |
 | [📅 Roadmap](TODO.md) | Планы развития |
+| [🤖 AI Contexts](.ai-contexts/) | Контекст для AI ассистентов |
 
 ---
 
