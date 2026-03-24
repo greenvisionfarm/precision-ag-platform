@@ -17,14 +17,15 @@ huey = RedisHuey('field-mapper', url=redis_url)
 @huey.task()
 def process_geotiff_task(file_path: str, field_id: int) -> bool:
     """Фоновая задача по обработке GeoTIFF и созданию зон.
-    
+
     Args:
         file_path: Путь к файлу GeoTIFF.
         field_id: ID поля для обработки.
-        
+
     Returns:
         True если обработка успешна, False иначе.
     """
+    # Импортируем database внутри функции чтобы использовать правильный путь
     from db import Field, FieldZone, database
     from src.services.raster_service import process_ndvi_zones
 
