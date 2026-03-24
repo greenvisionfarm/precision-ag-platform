@@ -14,7 +14,7 @@ import numpy as np
 import rasterio
 import tornado.web
 
-from db import Field, database
+from db import Field, FieldScan, database
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 from src.services.isoxml_service import export_isoxml
