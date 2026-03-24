@@ -20,7 +20,7 @@ from src.handlers.field_handlers import (
     FieldUpdateHandler,
 )
 from src.handlers.owner_handlers import OwnerActionHandler, OwnersDataApiHandler
-from src.handlers.upload_handlers import TaskStatusHandler, UploadHandler
+from src.handlers.upload_handlers import TaskStatusHandler, UploadHandler, ISOXMLExportHandler
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,
@@ -67,6 +67,7 @@ def make_app() -> tornado.web.Application:
         # Upload
         (r"/upload", UploadHandler),
         (r"/api/task/(.*)", TaskStatusHandler),
+        (r"/api/field/export/isoxml/([0-9]+)", ISOXMLExportHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

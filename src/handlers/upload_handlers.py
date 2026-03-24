@@ -16,6 +16,7 @@ import tornado.web
 from db import Field, database
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
+from src.services.isoxml_service import export_isoxml
 
 # Используем абсолютный путь для загрузок
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -156,10 +157,51 @@ class UploadHandler(tornado.web.RequestHandler):
                 })
 
             except Exception as e:
-                if os.path.exists(file_path): 
+                if os.path.exists(file_path):
                     os.remove(file_path)
                 raise
 
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class ISOXMLExportHandler(tornado.web.RequestHandler):
+    """Handler для экспорта поля в формате ISOXML."""
+
+    def get(self, field_id: int) -> None:
+        try:
+            # Проверяем что поле существует
+            field = Field.get_by_id(field_id)
+            
+            # Проверяем что есть зоны
+            from db import FieldZone
+            zones_count = FieldZone.select().where(FieldZone.field == field).count()
+            if zones_count == 0:
+                self.set_status(404)
+                self.write({"error": "Нет зон для экспорта"})
+                return
+            
+            # Генерируем имя файла
+            filename = f"field_{field_id}_isoxml.xml"
+            output_path = os.path.join(UPLOAD_DIR, filename)
+            
+            # Экспортируем
+            export_isoxml(field_id, output_path)
+            
+            # Отправляем файл
+            self.set_header('Content-Type', 'application/xml')
+            self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
+            
+            with open(output_path, 'rb') as f:
+                self.write(f.read())
+            
+            # Удаляем временный файл
+            os.remove(output_path)
+            
+        except Field.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Поле не найдено"})
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
