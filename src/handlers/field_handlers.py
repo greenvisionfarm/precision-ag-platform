@@ -95,10 +95,10 @@ class FieldsDataApiHandler(FieldApiBaseHandler):
 
 class FieldGetHandler(FieldApiBaseHandler):
     """Handler для получения деталей конкретного поля."""
-    
+
     def get(self, field_id: int) -> None:
         try:
-            from db import FieldZone
+            from db import FieldZone, FieldScan
             with db_connection():
                 field = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).where(Field.id == field_id).objects().first()
                 if not field:
@@ -106,15 +106,33 @@ class FieldGetHandler(FieldApiBaseHandler):
                     self.write({"error": "Field not found"})
                     return
 
-                # Собираем зоны
+                # Находим последний обработанный скан
+                last_scan = FieldScan.select().where(
+                    FieldScan.field == field,
+                    FieldScan.processed == 'true'
+                ).order_by(FieldScan.uploaded_at.desc()).first()
+
+                # Собираем зоны из последнего скана (или все если сканов нет)
                 zones: List[Dict[str, Any]] = []
-                for z in FieldZone.select().where(FieldZone.field == field):
-                    zones.append({
-                        "name": z.name,
-                        "geometry": mapping(wkt_loads(z.geometry_wkt)),
-                        "avg_ndvi": z.avg_ndvi,
-                        "color": z.color
-                    })
+                if last_scan:
+                    # Зоны из последнего скана
+                    for z in FieldZone.select().where(FieldZone.scan == last_scan):
+                        zones.append({
+                            "name": z.name,
+                            "geometry": mapping(wkt_loads(z.geometry_wkt)),
+                            "avg_ndvi": z.avg_ndvi,
+                            "color": z.color,
+                            "scan_id": last_scan.id
+                        })
+                else:
+                    # Старые зоны без привязки к скану (для обратной совместимости)
+                    for z in FieldZone.select().where(FieldZone.field == field, FieldZone.scan.is_null(True)):
+                        zones.append({
+                            "name": z.name,
+                            "geometry": mapping(wkt_loads(z.geometry_wkt)),
+                            "avg_ndvi": z.avg_ndvi,
+                            "color": z.color
+                        })
 
                 geom = wkt_loads(field.geometry_wkt)
                 properties = json.loads(field.properties_json) if field.properties_json else {}
@@ -130,7 +148,8 @@ class FieldGetHandler(FieldApiBaseHandler):
                     "parcel_number": properties.get('parcel_number', "N/A"),
                     "geometry": mapping(geom),
                     "properties": properties,
-                    "zones": zones
+                    "zones": zones,
+                    "last_scan_id": last_scan.id if last_scan else None
                 }
             self.write(json.dumps(data))
         except Exception as e:
