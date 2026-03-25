@@ -99,7 +99,12 @@ const MapManager = {
       MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
     }
 
-    // Сначала рисуем зоны (если есть), чтобы они были под границей
+    // Сначала рисуем контур поля (он будет ПОД зонами)
+    L.geoJSON(geometry, {
+      style: { color: "#007BFF", weight: 3, fillOpacity: 0 }
+    }).addTo(MapManager.detailInstance);
+
+    // Затем рисуем зоны ПОВЕРХ контура
     if (zones && zones.length > 0) {
       zones.forEach(zone => {
         L.geoJSON(zone.geometry, {
@@ -112,12 +117,7 @@ const MapManager = {
       });
     }
 
-    // Затем рисуем контур поля
-    const mainLayer = L.geoJSON(geometry, {
-      style: { color: "#007BFF", weight: 3, fillOpacity: zones.length > 0 ? 0 : 0.2 }
-    }).addTo(MapManager.detailInstance);
-
-    MapManager.detailInstance.fitBounds(mainLayer.getBounds(), { padding: [20, 20] });
+    MapManager.detailInstance.fitBounds(geometry.bbox || L.geoJSON(geometry).getBounds(), { padding: [20, 20] });
 
     setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
   },
@@ -145,19 +145,32 @@ const MapManager = {
       MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
     }
 
-    // Перерисовываем контур поля и зоны
+    // Перерисовываем контур поля и зоны в правильном порядке
     if (MapManager.currentFieldGeometry) {
-      // Сначала удаляем старые слои
+      // Сначала удаляем старые слои (кроме подложки и контролов)
       MapManager.detailInstance.eachLayer(layer => {
-        if (layer instanceof L.GeoJSON || layer instanceof L.Polygon) {
-          MapManager.detailInstance.removeLayer(layer);
-        }
+        if (layer instanceof L.TileLayer) return;
+        if (layer instanceof L.Control) return;
+        MapManager.detailInstance.removeLayer(layer);
       });
 
-      // Рисуем заново
+      // Рисуем контур
       L.geoJSON(MapManager.currentFieldGeometry, {
-        style: { color: "#007BFF", weight: 3, fillOpacity: 0.2 }
+        style: { color: "#007BFF", weight: 3, fillOpacity: 0 }
       }).addTo(MapManager.detailInstance);
+
+      // Рисуем зоны поверх
+      if (MapManager.currentZones && MapManager.currentZones.length > 0) {
+        MapManager.currentZones.forEach(zone => {
+          L.geoJSON(zone.geometry, {
+            style: {
+              color: zone.color,
+              weight: 1,
+              fillOpacity: 0.6
+            }
+          }).addTo(MapManager.detailInstance);
+        });
+      }
     }
   },
 
@@ -184,7 +197,14 @@ const MapManager = {
       MapManager.detailInstance.removeLayer(layer);
     });
 
-    // Рисуем новые зоны
+    // Сначала рисуем контур поля (он будет ПОД зонами)
+    if (MapManager.currentFieldGeometry) {
+      L.geoJSON(MapManager.currentFieldGeometry, {
+        style: { color: "#007BFF", weight: 3, fillOpacity: 0 }
+      }).addTo(MapManager.detailInstance);
+    }
+
+    // Рисуем новые зоны ПОВЕРХ контура
     if (zones && zones.length > 0) {
       zones.forEach(zone => {
         console.log('[MapManager] Рисуем зону:', zone.name, zone.color);
@@ -196,13 +216,6 @@ const MapManager = {
           }
         }).addTo(MapManager.detailInstance);
       });
-    }
-
-    // Перерисовываем контур поля (если он сохранён)
-    if (MapManager.currentFieldGeometry) {
-      L.geoJSON(MapManager.currentFieldGeometry, {
-        style: { color: "#007BFF", weight: 3, fillOpacity: zones.length > 0 ? 0 : 0.2 }
-      }).addTo(MapManager.detailInstance);
     }
 
     setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
