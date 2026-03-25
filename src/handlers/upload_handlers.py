@@ -278,24 +278,29 @@ class FieldScanZonesHandler(tornado.web.RequestHandler):
     def get(self, scan_id: int) -> None:
         try:
             from db import FieldScan, FieldZone
-            
+            from shapely.wkt import loads as wkt_loads
+            from shapely.geometry import mapping
+
             scan = FieldScan.get_by_id(scan_id)
-            
+
             # Получаем зоны этого скана
             zones = FieldZone.select().where(FieldZone.scan == scan)
-            
+
             result = []
             for zone in zones:
+                # Конвертируем WKT в GeoJSON
+                geometry = mapping(wkt_loads(zone.geometry_wkt)) if zone.geometry_wkt else None
+                
                 result.append({
                     "id": zone.id,
                     "name": zone.name,
                     "avg_ndvi": zone.avg_ndvi,
                     "color": zone.color,
-                    "geometry_wkt": zone.geometry_wkt
+                    "geometry": geometry
                 })
-            
+
             self.write({"zones": result})
-            
+
         except FieldScan.DoesNotExist:
             self.set_status(404)
             self.write({"error": "Скан не найден"})
