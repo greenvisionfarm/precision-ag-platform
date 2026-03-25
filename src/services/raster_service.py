@@ -12,12 +12,13 @@ from scipy import ndimage
 def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
     """
     Анализирует NDVI растр и разбивает его на крупные агрегированные зоны.
-    
+
     Оптимизировано для создания карт-заданий для техники:
     - Минимум мелких фрагментов
     - Крупные сплошные зоны
     - Упрощённые геометрии
     """
+    import logging
     from shapely import wkt
     field_geom = wkt.loads(field_geometry_wkt)
 
@@ -36,7 +37,7 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             # Упрощенный ресемплинг через numpy (берем каждый N-й пиксель)
             data = data[::scale, ::scale]
 
-            # Обновляем трансформ для векторизации
+            # Обновляем трансформ для векторизации (умножаем на scale)
             from rasterio.transform import Affine
             out_transform = out_transform * Affine.scale(scale, scale)
         else:
@@ -47,6 +48,7 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         valid_data = data[valid_mask].reshape(-1, 1)
 
         if len(valid_data) < 10:
+            logging.warning("Not enough valid data for clustering")
             return []
 
         # 3. Кластеризация
@@ -68,7 +70,7 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         # 4. МОРФОЛОГИЧЕСКАЯ ОБРАБОТКА для укрупнения зон
         # Применяем медианный фильтр для удаления шума
         labels = ndimage.median_filter(labels, size=5)
-        
+
         # Заполняем мелкие отверстия в зонах
         for i in range(num_zones):
             zone_mask = (labels == i).astype(np.uint8)
@@ -82,19 +84,19 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         results = []
         colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
         names = ["Низкая", "Средняя", "Высокая"]
-        
+
         # Увеличенное упрощение для более гладких геометрий
         simplify_tolerance = 0.0001  # Было 0.00002
 
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
-            
+
             # Находим связные компоненты
             labeled_array, num_features = ndimage.label(mask)
-            
+
             if num_features == 0:
                 continue
-            
+
             # Собираем все полигоны
             all_polygons = []
             for j in range(1, num_features + 1):
@@ -102,16 +104,18 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                 shapes_gen = features.shapes(component_mask, mask=component_mask, transform=out_transform)
                 for s, v in shapes_gen:
                     poly = shape(s)
-                    # Фильтруем слишком мелкие полигоны (< 0.5 га ≈ 5000 м²)
-                    if poly.area > 0.00005:  # ~0.5 га в градусах
+                    # Фильтруем слишком мелкие полигоны
+                    # После ресемплинга площадь в градусах очень мала, поэтому используем адаптивный порог
+                    min_area = 0.00005 / (scale * scale)  # Адаптируем под scale
+                    if poly.area > min_area:
                         all_polygons.append(poly)
-            
+
             if not all_polygons:
                 continue
 
             # Объединяем все полигоны зоны в один
             merged = unary_union(all_polygons)
-            
+
             # Упрощаем геометрию для гладкости
             simplified = merged.simplify(simplify_tolerance, preserve_topology=True)
 

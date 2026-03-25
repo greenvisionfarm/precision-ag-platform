@@ -8,8 +8,8 @@ services:
       - FIELD_MAPPER_DB=/app/data/fields.db
       - REDIS_URL=redis://redis:6379/0
     volumes:
+      - .:/app
       - ./data:/app/data
-      - ./static:/app/static:ro
       - ./uploads:/app/uploads
     expose:
       - "8888"
@@ -26,6 +26,7 @@ services:
       - FIELD_MAPPER_DB=/app/data/fields.db
       - REDIS_URL=redis://redis:6379/0
     volumes:
+      - .:/app
       - ./data:/app/data
       - ./uploads:/app/uploads
     depends_on:
