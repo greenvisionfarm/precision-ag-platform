@@ -673,6 +673,67 @@ table.dataTable.display tbody tr:hover td {
     cursor: pointer;
 }
 
+/* Заголовок карты с кнопкой fullscreen */
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.map-header h3 {
+    margin: 0;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+    font-size: 18px;
+}
+
+.btn-icon:hover {
+    background-color: var(--hover-bg);
+}
+
+/* Полноэкранный режим */
+.map-card.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.map-card.fullscreen .map-header h3 {
+    flex: 1;
+}
+
+.map-card.fullscreen #field-detail-map {
+    height: calc(100% - 120px);
+}
+
+.map-card.fullscreen .zones-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--card-bg);
+    padding: var(--spacing-md);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
 .scan-select:focus {
     outline: none;
     border-color: var(--primary-color);

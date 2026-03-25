@@ -57,13 +57,62 @@ export function showFieldDetail(id) {
 
     // Отображение статистики зон
     renderZonesStats(field.zones);
-    
+
     // Загрузка списка сканов
     loadFieldScans(id);
+
+    // Обработчик полноэкранного режима
+    initFullscreenMode();
 
   }).fail(() => {
     showMessage("Данные не найдены", "error");
     window.location.hash = "#fields";
+  });
+}
+
+/**
+ * Инициализирует полноэкранный режим карты.
+ */
+function initFullscreenMode() {
+  const $btn = $("#map-fullscreen-btn");
+  const $mapCard = $(".map-card");
+  const $icon = $btn.find("i");
+  
+  $btn.off("click").on("click", () => {
+    const isFullscreen = $mapCard.hasClass("fullscreen");
+    
+    if (isFullscreen) {
+      // Выход из полноэкранного режима
+      $mapCard.removeClass("fullscreen");
+      $icon.removeClass("fa-compress").addClass("fa-expand");
+      $btn.attr("title", "На весь экран");
+    } else {
+      // Вход в полноэкранный режим
+      $mapCard.addClass("fullscreen");
+      $icon.removeClass("fa-expand").addClass("fa-compress");
+      $btn.attr("title", "Выйти из полноэкранного");
+    }
+    
+    // Перерисовываем карту для корректного отображения
+    setTimeout(() => {
+      if (window.MapManager.detailInstance) {
+        window.MapManager.detailInstance.invalidateSize();
+      }
+    }, 100);
+  });
+  
+  // Выход по ESC
+  $(document).off("keydown.fullscreen").on("keydown.fullscreen", (e) => {
+    if (e.key === "Escape" && $mapCard.hasClass("fullscreen")) {
+      $mapCard.removeClass("fullscreen");
+      $icon.removeClass("fa-compress").addClass("fa-expand");
+      $btn.attr("title", "На весь экран");
+      setTimeout(() => {
+        if (window.MapManager.detailInstance) {
+          window.MapManager.detailInstance.invalidateSize();
+        }
+      }, 100);
+    }
   });
 }
 
