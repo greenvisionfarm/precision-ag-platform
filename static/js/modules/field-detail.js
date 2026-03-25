@@ -86,11 +86,17 @@ function initFullscreenMode() {
       $mapCard.removeClass("fullscreen");
       $icon.removeClass("fa-compress").addClass("fa-expand");
       $btn.attr("title", "На весь экран");
+      
+      // Включаем подложку
+      window.MapManager.toggleBaseLayer(false);
     } else {
       // Вход в полноэкранный режим
       $mapCard.addClass("fullscreen");
       $icon.removeClass("fa-expand").addClass("fa-compress");
       $btn.attr("title", "Выйти из полноэкранного");
+      
+      // Выключаем подложку - показываем только поле
+      window.MapManager.toggleBaseLayer(true);
     }
     
     // Перерисовываем карту для корректного отображения
@@ -107,6 +113,7 @@ function initFullscreenMode() {
       $mapCard.removeClass("fullscreen");
       $icon.removeClass("fa-compress").addClass("fa-expand");
       $btn.attr("title", "На весь экран");
+      window.MapManager.toggleBaseLayer(false);
       setTimeout(() => {
         if (window.MapManager.detailInstance) {
           window.MapManager.detailInstance.invalidateSize();

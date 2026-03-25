@@ -71,14 +71,33 @@ const MapManager = {
     }
   },
 
-  initDetailMap: (containerId, geometry, zones = []) => {
+  /**
+   * Инициализирует карту деталей поля.
+   * @param {string} containerId - ID контейнера карты.
+   * @param {Object} geometry - GeoJSON геометрия поля.
+   * @param {Array} zones - Массив зон для отображения.
+   * @param {boolean} fullscreen - Режим без подложки (только поле).
+   */
+  initDetailMap: (containerId, geometry, zones = [], fullscreen = false) => {
     if (MapManager.detailInstance) { MapManager.detailInstance.remove(); }
 
     // Сохраняем геометрию поля для последующего обновления
     MapManager.currentFieldGeometry = geometry;
+    MapManager.isFullscreenMode = fullscreen;
 
-    MapManager.detailInstance = L.map(containerId, { zoomControl: false, attributionControl: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
+    MapManager.detailInstance = L.map(containerId, {
+      zoomControl: false,
+      attributionControl: !fullscreen, // Скрываем attribution в fullscreen
+      zoomSnap: fullscreen ? 0 : 1
+    });
+
+    // Добавляем подложку только если не fullscreen режим
+    if (!fullscreen) {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
+    } else {
+      // В fullscreen режиме устанавливаем тёмный фон
+      MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
+    }
 
     // Сначала рисуем зоны (если есть), чтобы они были под границей
     if (zones && zones.length > 0) {
@@ -104,11 +123,53 @@ const MapManager = {
   },
 
   /**
+   * Переключает режим отображения подложки.
+   * @param {boolean} fullscreen - true для режима без подложки.
+   */
+  toggleBaseLayer: (fullscreen) => {
+    if (!MapManager.detailInstance) return;
+
+    MapManager.isFullscreenMode = fullscreen;
+
+    // Удаляем все тайловые слои
+    MapManager.detailInstance.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) {
+        MapManager.detailInstance.removeLayer(layer);
+      }
+    });
+
+    // Добавляем подложку только если не fullscreen
+    if (!fullscreen) {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
+    } else {
+      MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
+    }
+
+    // Перерисовываем контур поля и зоны
+    if (MapManager.currentFieldGeometry) {
+      // Сначала удаляем старые слои
+      MapManager.detailInstance.eachLayer(layer => {
+        if (layer instanceof L.GeoJSON || layer instanceof L.Polygon) {
+          MapManager.detailInstance.removeLayer(layer);
+        }
+      });
+
+      // Рисуем заново
+      L.geoJSON(MapManager.currentFieldGeometry, {
+        style: { color: "#007BFF", weight: 3, fillOpacity: 0.2 }
+      }).addTo(MapManager.detailInstance);
+    }
+  },
+
+  /**
    * Обновляет зоны на карте деталей.
    * @param {Array} zones - Массив зон для отображения.
    */
   updateZones: (zones = []) => {
     if (!MapManager.detailInstance) return;
+
+    // Сохраняем текущие зоны
+    MapManager.currentZones = zones;
 
     // Очищаем все слои кроме подложки
     MapManager.detailInstance.eachLayer(layer => {
@@ -139,6 +200,16 @@ const MapManager = {
     }
 
     setTimeout(() => MapManager.detailInstance.invalidateSize(), 100);
+  },
+
+  /**
+   * Обновляет геометрию поля и зоны.
+   * @param {Object} geometry - GeoJSON геометрия поля.
+   * @param {Array} zones - Массив зон.
+   */
+  updateFieldGeometry: (geometry, zones = []) => {
+    MapManager.currentFieldGeometry = geometry;
+    MapManager.updateZones(zones);
   }
 };
 
