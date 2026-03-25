@@ -17,14 +17,26 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
     - Минимум мелких фрагментов
     - Крупные сплошные зоны
     - Упрощённые геометрии
+    
+    Args:
+        tif_path: Путь к TIFF файлу с NDVI.
+        field_geometry_wkt: WKT геометрии поля.
+        num_zones: Количество зон для кластеризации.
+        
+    Returns:
+        Список зон с геометрией, средним NDVI и цветом.
     """
     import logging
     from shapely import wkt
+    logger = logging.getLogger(__name__)
+    
     field_geom = wkt.loads(field_geometry_wkt)
 
     with rasterio.open(tif_path) as src:
         # ОПТИМИЗАЦИЯ: читаем с ресемплингом (уменьшаем до разумного размера)
         scale = max(1, max(src.width, src.height) // 500)
+
+        logger.info(f"Обработка растра: scale={scale}, original_size=({src.width}x{src.height})")
 
         # Обрезаем растр по контуру поля (с маской)
         out_image, out_transform = rasterio.mask.mask(
@@ -47,8 +59,10 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         valid_mask = (data > -1.0) & (data <= 1.0) & (data != 0)
         valid_data = data[valid_mask].reshape(-1, 1)
 
+        logger.info(f"Обрезано: {data.shape}, валидных пикселей: {len(valid_data)}")
+
         if len(valid_data) < 10:
-            logging.warning("Not enough valid data for clustering")
+            logger.warning("Недостаточно валидных данных для кластеризации")
             return []
 
         # 3. Кластеризация
@@ -66,6 +80,8 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         all_labels = kmeans.predict(valid_data)
         ranked_labels = np.array([rank_map[l] for l in all_labels])
         labels[valid_mask] = ranked_labels
+
+        logger.info(f"Кластеризация завершена, центры: {[round(c, 3) for c in centers]}")
 
         # 4. МОРФОЛОГИЧЕСКАЯ ОБРАБОТКА для укрупнения зон
         # Применяем медианный фильтр для удаления шума
@@ -95,6 +111,7 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             labeled_array, num_features = ndimage.label(mask)
 
             if num_features == 0:
+                logger.debug(f"Зона {i}: нет связных компонент")
                 continue
 
             # Собираем все полигоны
@@ -109,6 +126,8 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                     min_area = 0.00005 / (scale * scale)  # Адаптируем под scale
                     if poly.area > min_area:
                         all_polygons.append(poly)
+
+            logger.debug(f"Зона {i}: {num_features} компонент, {len(all_polygons)} полигонов после фильтрации")
 
             if not all_polygons:
                 continue
@@ -126,4 +145,5 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                 "color": colors[i] if i < len(colors) else "#808080"
             })
 
+    logger.info(f"Создано зон: {len(results)}")
     return results
