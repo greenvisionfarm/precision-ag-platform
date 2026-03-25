@@ -95,8 +95,8 @@ const MapManager = {
     if (!fullscreen) {
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
     } else {
-      // В fullscreen режиме устанавливаем тёмный фон
-      MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
+      // В fullscreen режиме устанавливаем тёмный фон через CSS
+      $(`#${containerId}`).css('background', '#1a1a2e');
     }
 
     // Сначала рисуем контур поля (он будет ПОД зонами)
@@ -141,8 +141,11 @@ const MapManager = {
     // Добавляем подложку только если не fullscreen
     if (!fullscreen) {
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.detailInstance);
+      // Убираем тёмный фон
+      $(MapManager.detailInstance.getContainer()).css('background', '');
     } else {
-      MapManager.detailInstance.setStyle({ backgroundColor: '#1a1a2e' });
+      // В fullscreen режиме устанавливаем тёмный фон
+      $(MapManager.detailInstance.getContainer()).css('background', '#1a1a2e');
     }
 
     // Перерисовываем контур поля и зоны в правильном порядке
