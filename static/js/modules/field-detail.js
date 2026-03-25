@@ -186,12 +186,17 @@ function loadScanZones(scanId) {
   API.getScanZones(scanId).then(data => {
     const zones = data.zones || [];
     
+    console.log(`[DEBUG] Загружено зон для скана ${scanId}:`, zones.length);
+    if (zones.length > 0) {
+      console.log(`[DEBUG] Первая зона:`, zones[0]);
+    }
+
     // Перерисовываем зоны на карте
     window.MapManager.updateZones(zones);
-    
+
     // Обновляем статистику
     renderZonesStats(zones);
-    
+
   }).fail(err => {
     console.error("Ошибка загрузки зон:", err);
     showMessage("Не удалось загрузить зоны для этого скана", "error");

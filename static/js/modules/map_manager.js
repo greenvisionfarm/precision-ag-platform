@@ -166,22 +166,28 @@ const MapManager = {
    * @param {Array} zones - Массив зон для отображения.
    */
   updateZones: (zones = []) => {
-    if (!MapManager.detailInstance) return;
+    if (!MapManager.detailInstance) {
+      console.error('[MapManager] detailInstance не инициализирован');
+      return;
+    }
+
+    console.log('[MapManager.updateZones] Обновление зон:', zones.length);
 
     // Сохраняем текущие зоны
     MapManager.currentZones = zones;
 
-    // Очищаем все слои кроме подложки
+    // Очищаем все слои кроме подложки и attribution
     MapManager.detailInstance.eachLayer(layer => {
       if (layer instanceof L.TileLayer) return; // Сохраняем подложку
-      if (layer instanceof L.Polygon || layer instanceof L.GeoJSON) {
-        MapManager.detailInstance.removeLayer(layer);
-      }
+      if (layer instanceof L.Control) return; // Сохраняем контролы
+      // Удаляем полигоны и GeoJSON слои
+      MapManager.detailInstance.removeLayer(layer);
     });
 
     // Рисуем новые зоны
     if (zones && zones.length > 0) {
       zones.forEach(zone => {
+        console.log('[MapManager] Рисуем зону:', zone.name, zone.color);
         L.geoJSON(zone.geometry, {
           style: {
             color: zone.color,
