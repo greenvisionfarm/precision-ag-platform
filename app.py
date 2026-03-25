@@ -69,6 +69,7 @@ def make_app() -> tornado.web.Application:
         (r"/api/task/(.*)", TaskStatusHandler),
         (r"/api/field/export/isoxml/([0-9]+)", ISOXMLExportHandler),
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),
+        (r"/api/field/([0-9]+)/scans/([0-9]+)", FieldScansHandler),  # DELETE /api/field/{id}/scans/{scan_id}
         (r"/api/scan/([0-9]+)/zones", FieldScanZonesHandler),
 
         # Static & PWA

@@ -240,15 +240,15 @@ class FieldScansHandler(tornado.web.RequestHandler):
     def get(self, field_id: int) -> None:
         try:
             from db import FieldScan
-            
+
             # Проверяем что поле существует
             Field.get_by_id(field_id)
-            
+
             # Получаем все сканы поля
             scans = FieldScan.select().where(
                 FieldScan.field == field_id
             ).order_by(FieldScan.uploaded_at.desc())
-            
+
             result = []
             for scan in scans:
                 result.append({
@@ -259,11 +259,52 @@ class FieldScansHandler(tornado.web.RequestHandler):
                     "ndvi_max": scan.ndvi_max,
                     "ndvi_avg": scan.ndvi_avg,
                     "processed": scan.processed == 'true',
-                    "has_zones": scan.zones.count() > 0
+                    "has_zones": scan.zones.count() > 0,
+                    "zones_count": scan.zones.count()
                 })
-            
+
             self.write({"scans": result})
-            
+
+        except Field.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Поле не найдено"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+    def delete(self, field_id: int, scan_id: int) -> None:
+        """Удаление скана и всех его зон."""
+        try:
+            import os
+            from db import FieldScan, FieldZone
+
+            # Проверяем что поле существует
+            Field.get_by_id(field_id)
+
+            # Находим скан
+            scan = FieldScan.get_or_none(FieldScan.id == scan_id)
+            if not scan:
+                self.set_status(404)
+                self.write({"error": "Скан не найден"})
+                return
+
+            # Удаляем зоны скана
+            zones_count = FieldZone.delete().where(FieldZone.scan == scan).execute()
+
+            # Удаляем файл TIFF если существует
+            if scan.file_path and os.path.exists(scan.file_path):
+                os.remove(scan.file_path)
+
+            # Удаляем скан
+            scan_id_deleted = scan.id
+            scan.delete_instance()
+
+            self.write({
+                "success": True,
+                "message": f"Скан {scan_id_deleted} удалён",
+                "deleted_zones": zones_count
+            })
+
         except Field.DoesNotExist:
             self.set_status(404)
             self.write({"error": "Поле не найдено"})

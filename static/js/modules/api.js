@@ -101,6 +101,17 @@ const API = {
   getFieldScans: (fieldId) => $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError),
 
   /**
+   * Удаление скана.
+   * @param {number} fieldId - ID поля.
+   * @param {number} scanId - ID скана.
+   * @returns {Promise} Promise с результатом удаления.
+   */
+  deleteScan: (fieldId, scanId) => $.ajax({
+    url: `/api/field/${fieldId}/scans/${scanId}`,
+    type: "DELETE"
+  }).catch(handleApiError),
+
+  /**
    * Получение зон скана.
    * @param {number} scanId - ID скана.
    * @returns {Promise} Promise с зонами.

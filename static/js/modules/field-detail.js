@@ -130,16 +130,16 @@ function initFullscreenMode() {
 function loadFieldScans(fieldId) {
   API.getFieldScans(fieldId).then(data => {
     const scans = data.scans || [];
-    
+
     if (scans.length === 0) {
       $("#scans-selector").hide();
       return;
     }
-    
+
     $("#scans-selector").show();
-    const select = $("#scan-select");
-    select.empty();
-    
+    const $list = $("#scan-list");
+    $list.empty();
+
     scans.forEach((scan, index) => {
       const date = new Date(scan.uploaded_at).toLocaleDateString('ru-RU', {
         day: 'numeric',
@@ -149,32 +149,83 @@ function loadFieldScans(fieldId) {
       const status = scan.processed ? '✓' : '⏳';
       const zones = scan.has_zones ? `${scan.zones_count || 3} зоны` : 'Нет зон';
       const ndvi = scan.ndvi_avg ? `NDVI: ${scan.ndvi_avg.toFixed(2)}` : '';
-      
-      const option = $('<option></option>')
-        .val(scan.id)
-        .text(`${status} ${date} — ${zones} (${ndvi})`);
-      
-      select.append(option);
-      
+
+      const $item = $(`
+        <div class="scan-item ${index === 0 ? 'active' : ''}" data-scan-id="${scan.id}">
+          <div class="scan-info" onclick="selectScan(${scan.id})">
+            <span class="scan-status">${status}</span>
+            <span class="scan-date">${date}</span>
+            <span class="scan-zones">${zones}</span>
+            <span class="scan-ndvi">${ndvi}</span>
+          </div>
+          <button class="btn-delete-scan" onclick="deleteScan(${fieldId}, ${scan.id})" title="Удалить снимок">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `);
+
+      $list.append($item);
+
       // Выбираем первый (последний по дате) скан
       if (index === 0) {
         currentScanId = scan.id;
       }
     });
-    
-    // Обработчик переключения сканов
-    select.off("change").on("change", function() {
-      currentScanId = parseInt($(this).val());
-      loadScanZones(currentScanId);
-    });
-    
+
     // Загружаем зоны последнего скана
     if (currentScanId) {
       loadScanZones(currentScanId);
     }
-    
+
   }).fail(err => {
     console.error("Ошибка загрузки сканов:", err);
+  });
+}
+
+/**
+ * Выбирает скан для отображения.
+ * @param {number} scanId - ID скана.
+ */
+function selectScan(scanId) {
+  currentScanId = scanId;
+  
+  // Обновляем активный элемент в списке
+  $(".scan-item").removeClass("active");
+  $(`.scan-item[data-scan-id="${scanId}"]`).addClass("active");
+  
+  loadScanZones(scanId);
+}
+
+/**
+ * Удаляет скан.
+ * @param {number} fieldId - ID поля.
+ * @param {number} scanId - ID скана.
+ */
+function deleteScan(fieldId, scanId) {
+  Swal.fire({
+    title: "Удалить снимок?",
+    text: "Все зоны этого снимка будут удалены",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Удалить",
+    cancelButtonText: "Отмена"
+  }).then(result => {
+    if (result.isConfirmed) {
+      API.deleteScan(fieldId, scanId).then(data => {
+        showMessage(data.message || "Скан удалён", "success");
+        // Перезагружаем список сканов
+        loadFieldScans(fieldId);
+        // Если удалили текущий скан, очищаем карту
+        if (currentScanId === scanId) {
+          window.MapManager.updateZones([]);
+          renderZonesStats([]);
+          currentScanId = null;
+        }
+      }).fail(err => {
+        console.error("Ошибка удаления скана:", err);
+        showMessage("Не удалось удалить скан", "error");
+      });
+    }
   });
 }
 
@@ -185,7 +236,7 @@ function loadFieldScans(fieldId) {
 function loadScanZones(scanId) {
   API.getScanZones(scanId).then(data => {
     const zones = data.zones || [];
-    
+
     console.log(`[DEBUG] Загружено зон для скана ${scanId}:`, zones.length);
     if (zones.length > 0) {
       console.log(`[DEBUG] Первая зона:`, zones[0]);
