@@ -2,7 +2,7 @@
 
 > Платформа точного земледелия с открытым исходным кодом
 
-[![Tests](https://img.shields.io/badge/tests-22%20passed%2C%201%20skipped-green)]()
+[![Tests](https://img.shields.io/badge/tests-32%20passed%2C%201%20skipped-green)]()
 [![Python](https://img.shields.io/badge/python-3.12-blue)]()
 [![Node](https://img.shields.io/badge/node-20-green)]()
 [![Docker](https://img.shields.io/badge/docker-ready-blue)]()
@@ -21,7 +21,9 @@
 | Границы на карте | Загрузка GeoTIFF | **ISOXML** (John Deere, Claas) | Автоматический расчёт норм |
 | Владельцы и кадастр | Автоматическое зонирование | DJI KMZ (WPML 1.0.6) | 3 зоны продуктивности |
 | Импорт/экспорт KMZ | Крупные агрегированные зоны | Shapefile | Нормы: 150/250/350 кг/га |
-| Статистика и отчёты | Визуализация на карте | Массовый экспорт ZIP | Статистика по зонам |
+| Статистика и отчёты | **История сканов** | Массовый экспорт ZIP | Статистика по зонам |
+| | **Удаление сканов** | | |
+| | **Fullscreen режим** | | |
 
 ---
 
@@ -105,7 +107,7 @@ docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest tests/
 docker-compose run --rm app npm test
 ```
 
-**Статус:** 22 passed, 1 skipped
+**Статус:** 32 passed, 1 skipped
 
 ---
 
@@ -125,7 +127,7 @@ docker-compose run --rm app npm test
 
 | Метрика | Значение |
 |---------|----------|
-| **Тесты** | 22 passed, 1 skipped |
+| **Тесты** | 32 passed, 1 skipped |
 | **Покрытие** | ~65% (backend) |
 | **Размер образа** | ~1.5 GB (с GIS) |
 | **Время сборки** | ~6 мин (с кэшем ~2 мин) |
@@ -147,4 +149,4 @@ Open Source проект для развития точного земледел
 
 ---
 
-*Последнее обновление: 24 марта 2026 г.*
+*Последнее обновление: 25 марта 2026 г.*
