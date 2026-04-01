@@ -1,6 +1,10 @@
 """
 Модуль для работы с базой данных Field Mapper.
 Определяет модели данных и функции инициализации БД.
+
+NOTE: Для новой системы с мульти-тенантностью используйте:
+    from src.models.auth import Company, User
+    from src.models.field import Field, FieldScan, FieldZone, Owner
 """
 import os
 from typing import List
@@ -37,13 +41,13 @@ class BaseModel(Model):
 
 
 class Owner(BaseModel):
-    """Модель владельца поля."""
+    """Модель владельца поля. (устаревшая, для совместимости)"""
 
     name = CharField(unique=True)
 
 
 class Field(BaseModel):
-    """Модель сельскохозяйственного поля."""
+    """Модель сельскохозяйственного поля. (устаревшая, для совместимости)"""
 
     name = CharField(null=True)
     geometry_wkt = TextField()  # Храним как WKT (Well-Known Text)
@@ -52,8 +56,8 @@ class Field(BaseModel):
 
 
 class FieldScan(BaseModel):
-    """Модель скана поля (NDVI TIFF файл с датой загрузки)."""
-    
+    """Модель скана поля. (устаревшая, для совместимости)"""
+
     field = ForeignKeyField(Field, backref='scans', on_delete='CASCADE')
     file_path = CharField()  # Путь к TIFF файлу
     filename = CharField()  # Оригинальное имя файла
@@ -66,7 +70,7 @@ class FieldScan(BaseModel):
 
 
 class FieldZone(BaseModel):
-    """Модель зоны поля (для дифференцированного внесения)."""
+    """Модель зоны поля. (устаревшая, для совместимости)"""
 
     field = ForeignKeyField(Field, backref='zones')
     scan = ForeignKeyField(FieldScan, backref='zones', null=True)  # Привязка зон к скану

@@ -1,10 +1,29 @@
 """Модуль валидации входных данных."""
+import re
 from typing import Any, Dict, List, Optional
 
 
 class ValidationError(Exception):
     """Исключение валидации."""
     pass
+
+
+def validate_email(email: str) -> bool:
+    """
+    Валидация email адреса.
+    
+    Args:
+        email: Email для проверки
+        
+    Returns:
+        True если email валидный
+    """
+    if not email:
+        return False
+    
+    # Простая валидация по паттерну
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
 
 
 def validate_field_data(data: Dict[str, Any]) -> List[str]:

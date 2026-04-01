@@ -57,6 +57,14 @@ docs/.mkdocs/
 htmlcov/
 .tox/
 
+# E2E Results
+e2e-results/
+e2e/results/*.png
+e2e/results/*.mp4
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Local config
 .local.env
 .env.local

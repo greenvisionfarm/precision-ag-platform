@@ -1,5 +1,6 @@
 """
 Handlers для работы с полями (CRUD, экспорт KMZ).
+С поддержкой мульти-тенантности и авторизации.
 """
 import io
 import json
@@ -13,7 +14,10 @@ from peewee import JOIN
 from shapely.geometry import mapping, shape
 from shapely.wkt import loads as wkt_loads
 
-from db import Field, Owner, database
+from db import database
+from src.models.auth import User
+from src.models.field import Field, FieldScan, FieldZone, Owner
+from src.middleware.auth import AuthenticatedRequestHandler, require_auth
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
 from src.utils.db_utils import db_connection
@@ -22,42 +26,54 @@ from src.utils.validators import validate_field_data
 
 def slugify(text: Optional[str]) -> str:
     """Очистка строки для использования в имени файла.
-    
+
     Args:
         text: Исходная строка.
-        
+
     Returns:
         Очищенная строка для имени файла.
     """
-    if not text: 
+    if not text:
         return "Field"
     return "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in text]).strip().replace(' ', '_')
 
 
-class FieldApiBaseHandler(tornado.web.RequestHandler):
-    """Базовый класс для API handlers полей."""
-    
+class FieldApiBaseHandler(AuthenticatedRequestHandler):
+    """Базовый класс для API handlers полей с авторизацией."""
+
     def set_default_headers(self) -> None:
         self.set_header("Content-Type", "application/json")
+    
+    def get_current_user(self) -> Optional[User]:
+        """Получает текущего пользователя."""
+        return self.current_user
+    
+    def get_company_fields_query(self):
+        """Возвращает query для полей текущей компании."""
+        user = self.get_current_user()
+        if not user:
+            return Field.select().where(Field.id == -1)
+        return Field.select().where(Field.company == user.company)
 
 
 class FieldsApiHandler(FieldApiBaseHandler):
     """Handler для получения всех полей в формате GeoJSON."""
-    
+
     def get(self) -> None:
+        """Получает все поля текущей компании."""
         try:
             with db_connection():
-                fields_from_db = Field.select()
+                fields_from_db = self.get_company_fields_query()
                 features: List[Dict[str, Any]] = []
                 for field in fields_from_db:
                     geom = wkt_loads(field.geometry_wkt)
                     properties = json.loads(field.properties_json) if field.properties_json else {}
                     properties['db_id'] = field.id
-                    if field.name: 
+                    if field.name:
                         properties['name'] = field.name
                     features.append({
-                        "type": "Feature", 
-                        "geometry": mapping(geom), 
+                        "type": "Feature",
+                        "geometry": mapping(geom),
                         "properties": properties
                     })
             self.write(json.dumps({"type": "FeatureCollection", "features": features}))
@@ -68,11 +84,17 @@ class FieldsApiHandler(FieldApiBaseHandler):
 
 class FieldsDataApiHandler(FieldApiBaseHandler):
     """Handler для получения данных полей для таблицы."""
-    
+
     def get(self) -> None:
+        """Получает данные полей для таблицы (с пагинацией и сортировкой)."""
         try:
             with db_connection():
-                query = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).objects()
+                query = (
+                    self.get_company_fields_query()
+                    .select(Field, Owner)
+                    .join(Owner, JOIN.LEFT_OUTER)
+                    .objects()
+                )
                 data: List[Dict[str, Any]] = []
                 for field in query:
                     properties = json.loads(field.properties_json) if field.properties_json else {}
@@ -97,10 +119,17 @@ class FieldGetHandler(FieldApiBaseHandler):
     """Handler для получения деталей конкретного поля."""
 
     def get(self, field_id: int) -> None:
+        """Получает детали поля с проверкой принадлежности компании."""
         try:
-            from db import FieldZone, FieldScan
             with db_connection():
-                field = Field.select(Field, Owner).join(Owner, JOIN.LEFT_OUTER).where(Field.id == field_id).objects().first()
+                # Получаем поле с проверкой принадлежности компании
+                field = (
+                    Field.select(Field, Owner)
+                    .join(Owner, JOIN.LEFT_OUTER)
+                    .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                    .objects()
+                    .first()
+                )
                 if not field:
                     self.set_status(404)
                     self.write({"error": "Field not found"})
@@ -159,14 +188,21 @@ class FieldGetHandler(FieldApiBaseHandler):
 
 class FieldActionHandler(FieldApiBaseHandler):
     """Объединенный обработчик для действий с полем (PUT/DELETE/POST)"""
-    
+
+    @require_auth
     def delete(self, field_id: int) -> None:
+        """Удаляет поле с проверкой принадлежности компании."""
         try:
-            from db import FieldZone
             with db_connection():
-                field = Field.get_or_none(Field.id == field_id)
+                # Проверяем принадлежность компании
+                field = (
+                    Field.select()
+                    .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                    .first()
+                )
                 if not field:
                     self.set_status(404)
+                    self.write({"error": "Field not found"})
                     return
 
                 # Проверяем наличие связанных зон
@@ -185,8 +221,9 @@ class FieldActionHandler(FieldApiBaseHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
+    @require_auth
     def post(self) -> None:
-        """Добавление поля"""
+        """Добавление поля в компанию текущего пользователя."""
         try:
             data = json.loads(self.request.body)
 
@@ -201,9 +238,10 @@ class FieldActionHandler(FieldApiBaseHandler):
             area = calculate_accurate_area(poly)
             with db_connection():
                 new_f = Field.create(
-                    name=data.get('name', 'Поле'), 
-                    geometry_wkt=poly.wkt, 
-                    properties_json=json.dumps({"area_sq_m": area})
+                    name=data.get('name', 'Поле'),
+                    geometry_wkt=poly.wkt,
+                    properties_json=json.dumps({"area_sq_m": area}),
+                    company=self.current_user.company  # Привязываем к компании
                 )
             self.write({"id": new_f.id})
         except Exception as e:
@@ -213,12 +251,14 @@ class FieldActionHandler(FieldApiBaseHandler):
 
 class FieldUpdateHandler(FieldApiBaseHandler):
     """Обработчик обновлений (PUT) с использованием паттерна Command."""
-    
+
+    @require_auth
     def put(self, action: str, field_id: int) -> None:
+        """Обновляет поле с проверкой принадлежности компании."""
         try:
             # Получаем команду из реестра
             from src.handlers.field_commands import get_command, get_available_actions
-            
+
             command = get_command(action)
             if not command:
                 self.set_status(400)
@@ -227,18 +267,23 @@ class FieldUpdateHandler(FieldApiBaseHandler):
                              f"Доступные действия: {', '.join(get_available_actions())}"
                 })
                 return
-            
+
             with db_connection():
-                field = Field.get_or_none(Field.id == field_id)
+                # Проверяем принадлежность компании
+                field = (
+                    Field.select()
+                    .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                    .first()
+                )
                 if not field:
                     self.set_status(404)
                     self.write({"error": "Field not found"})
                     return
-                
+
                 data = json.loads(self.request.body)
                 command.execute(field, data)
                 field.save()
-            
+
             self.write({"message": "OK"})
         except Exception as e:
             self.set_status(500)
@@ -247,13 +292,21 @@ class FieldUpdateHandler(FieldApiBaseHandler):
 
 class FieldExportKmzHandler(FieldApiBaseHandler):
     """Handler для экспорта поля в KMZ."""
-    
+
+    @require_auth
     def get(self, field_id: int) -> None:
+        """Экспортирует поле в KMZ с проверкой принадлежности компании."""
         try:
             with db_connection():
-                field = Field.get_or_none(Field.id == field_id)
+                # Проверяем принадлежность компании
+                field = (
+                    Field.select()
+                    .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                    .first()
+                )
                 if not field:
                     self.set_status(404)
+                    self.write({"error": "Field not found"})
                     return
                 height = int(self.get_argument("height", 100))
                 overlap_h = int(self.get_argument("overlap_h", 80))
@@ -276,11 +329,13 @@ class FieldExportKmzHandler(FieldApiBaseHandler):
 
 class BulkKMZExportHandler(FieldApiBaseHandler):
     """Handler для массового экспорта всех полей в KMZ (ZIP)."""
-    
+
+    @require_auth
     def get(self) -> None:
+        """Экспортирует все поля компании в ZIP архиве."""
         try:
             with db_connection():
-                fields = Field.select()
+                fields = self.get_company_fields_query()
                 if not fields.exists():
                     self.set_status(404)
                     self.write(json.dumps({"error": "Нет полей для экспорта"}))

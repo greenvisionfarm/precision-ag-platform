@@ -4,12 +4,20 @@
 """
 import logging
 import os
+import secrets
 from typing import Any, Dict
 
 import tornado.ioloop
 import tornado.web
 
 from db import ensure_db_exists
+from src.handlers.auth_handlers import (
+    CompanyHandler,
+    LoginHandler,
+    LogoutHandler,
+    ProfileHandler,
+    RegisterHandler,
+)
 from src.handlers.field_handlers import (
     BulkKMZExportHandler,
     FieldActionHandler,
@@ -36,17 +44,28 @@ class MainHandler(tornado.web.RequestHandler):
 
 def make_app() -> tornado.web.Application:
     """Создаёт и настраивает Tornado приложение.
-    
+
     Returns:
         Настроенное приложение Tornado.
     """
+    # Генерируем secret_key из окружения или создаём новый
+    secret_key = os.environ.get('SESSION_SECRET', secrets.token_hex(32))
+    
     settings: Dict[str, Any] = {
         "template_path": os.path.dirname(__file__),
         "static_path": os.path.join(os.path.dirname(__file__), "static"),
         "debug": True,
+        "cookie_secret": secret_key,
     }
     return tornado.web.Application([
         (r"/", MainHandler),
+
+        # API: Authentication
+        (r"/api/auth/login", LoginHandler),
+        (r"/api/auth/register", RegisterHandler),
+        (r"/api/auth/logout", LogoutHandler),
+        (r"/api/auth/profile", ProfileHandler),
+        (r"/api/auth/company", CompanyHandler),
 
         # API: Fields
         (r"/api/fields", FieldsApiHandler),
