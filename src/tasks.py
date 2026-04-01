@@ -63,7 +63,7 @@ def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] 
                         avg_ndvi=z['avg_ndvi'],
                         color=z['color']
                     )
-                
+
                 # Обновляем статус скана
                 if scan_id:
                     FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
@@ -96,3 +96,96 @@ def process_geotiff_task(file_path: str, field_id: int, scan_id: Optional[int] =
         True если обработка успешна, False иначе.
     """
     return _process_geotiff_impl(file_path, field_id, scan_id)
+
+
+def _process_orthomosaic_impl(
+    zip_path: str,
+    field_id: int,
+    crop_type: Optional[str] = None
+) -> dict:
+    """
+    Реализация обработки снимков с дрона (ортомозаика).
+    
+    Args:
+        zip_path: Путь к ZIP архиву со снимками
+        field_id: ID поля
+        crop_type: Тип культуры (опционально)
+        
+    Returns:
+        Результаты обработки
+    """
+    from db import Field, FieldScan, database
+    from src.services.orthomosaic_service import process_drone_imagery
+    from src.services.crop_classifier import classify_from_orthomosaic
+    
+    logging.info(f"Запуск обработки ортомозаики: {zip_path} для поля ID {field_id}")
+    
+    try:
+        # 1. Создаём ортомозаику и обрабатываем NDVI
+        results = process_drone_imagery(zip_path, field_id, crop_type)
+        
+        if results.get("error"):
+            logging.error(f"Ошибка обработки ортомозаики: {results['error']}")
+            return {"error": results["error"]}
+        
+        # 2. Если crop_type='auto', классифицируем культуру
+        if crop_type == 'auto' and results.get("orthomosaic", {}).get("output_path"):
+            ortho_path = results["orthomosaic"]["output_path"]
+            
+            # Получаем дату съёмки из первого снимка
+            acquisition_date = None
+            with db_connection():
+                scan = FieldScan.get_by_id(results.get("scan_id"))
+                if scan and scan.uploaded_at:
+                    acquisition_date = scan.uploaded_at
+            
+            # Классифицируем
+            crop_result = classify_from_orthomosaic(
+                ortho_path,
+                acquisition_date=acquisition_date
+            )
+            
+            results["crop_classification"] = crop_result
+            
+            # Сохраняем в БД
+            with db_connection():
+                if results.get("scan_id"):
+                    scan = FieldScan.get_by_id(results["scan_id"])
+                    scan.crop_type = crop_result.get("crop_type")
+                    scan.crop_confidence = crop_result.get("confidence", 0)
+                    scan.save()
+        
+        logging.info(f"Обработка ортомозаики завершена: {results}")
+        
+        # Удаляем временный ZIP
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        
+        return results
+        
+    except Exception as e:
+        logging.error(f"Ошибка в задаче ортомозаики: {str(e)}", exc_info=True)
+        return {"error": str(e)}
+
+
+@huey.task()
+def process_orthomosaic_task(
+    zip_path: str,
+    field_id: int,
+    crop_type: Optional[str] = None
+) -> dict:
+    """
+    Фоновая задача по обработке снимков с дрона.
+    
+    Создаёт ортомозаику из ZIP архива со снимками,
+    обрабатывает NDVI и классифицирует культуру.
+    
+    Args:
+        zip_path: Путь к ZIP архиву со снимками
+        field_id: ID поля
+        crop_type: Тип культуры (опционально)
+        
+    Returns:
+        Результаты обработки
+    """
+    return _process_orthomosaic_impl(zip_path, field_id, crop_type)

@@ -82,15 +82,28 @@ class FieldScan(Model):
     file_path = CharField(help_text="Путь к TIFF файлу")
     filename = CharField(help_text="Оригинальное имя файла")
     uploaded_at = DateTimeField(help_text="Дата загрузки")
-    
+
     # Метрики NDVI
     ndvi_min = FloatField(null=True, help_text="Минимальный NDVI в скане")
     ndvi_max = FloatField(null=True, help_text="Максимальный NDVI в скане")
     ndvi_avg = FloatField(null=True, help_text="Средний NDVI в скане")
-    
+
     # Статус обработки
     processed = TextField(null=True, help_text="'true'/'false' — обработан ли файл")
     task_id = CharField(null=True, help_text="ID задачи обработки")
+
+    # Источник данных
+    source = CharField(
+        default='satellite',
+        help_text="Источник: 'satellite', 'drone', 'file'"
+    )
+
+    # Информация о культуре
+    crop_type = CharField(null=True, help_text="Тип культуры (wheat, corn, etc.)")
+    crop_confidence = FloatField(
+        null=True,
+        help_text="Уверенность классификации культуры (0-1)"
+    )
 
     class Meta:
         table_name = 'fieldscan'

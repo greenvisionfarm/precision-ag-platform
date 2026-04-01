@@ -30,3 +30,8 @@ typing_extensions==4.15.0
 huey==2.5.2
 redis==5.0.1
 ruff==0.4.4
+
+# Обработка снимков с дрона
+opencv-python-headless==4.11.0.86
+Pillow==11.2.1
+scikit-image==0.25.2

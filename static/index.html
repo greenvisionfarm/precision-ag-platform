@@ -212,6 +212,52 @@
                     <div id="upload-status" class="upload-status"></div>
                 </div>
 
+                <!-- Загрузка снимков с дрона -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-plane"></i>
+                    </div>
+                    <h3>Обработка снимков с дрона</h3>
+                    <p class="upload-description">Загрузите ZIP архив со снимками (JPEG/TIFF) для создания ортомозаики и NDVI анализа</p>
+                    <form id="drone-upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="drone-input" name="drone_images" accept=".zip,.jpg,.jpeg,.tif,.tiff" required multiple>
+                            <label for="drone-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите ZIP или снимки
+                            </label>
+                        </div>
+                        <div class="drone-options">
+                            <label for="drone-field-select">Поле:</label>
+                            <select id="drone-field-select" name="field_id">
+                                <option value="">Авто (по GPS)</option>
+                            </select>
+                            
+                            <label for="drone-crop-type">Культура:</label>
+                            <select id="drone-crop-type" name="crop_type">
+                                <option value="auto">Авто-определение</option>
+                                <option value="wheat">Пшеница</option>
+                                <option value="corn">Кукуруза</option>
+                                <option value="sunflower">Подсолнечник</option>
+                                <option value="soybean">Соя</option>
+                                <option value="rapeseed">Рапс</option>
+                                <option value="barley">Ячмень</option>
+                                <option value="potato">Картофель</option>
+                                <option value="grass">Трава</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="drone-upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить и обработать
+                        </button>
+                    </form>
+                    <div id="drone-upload-status" class="upload-status"></div>
+                    <div id="drone-progress" class="upload-progress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <p class="progress-text">Обработка снимков...</p>
+                    </div>
+                </div>
+
                 <!-- Загрузка NDVI -->
                 <div class="upload-card">
                     <div class="upload-icon">

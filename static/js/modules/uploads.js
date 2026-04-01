@@ -19,7 +19,7 @@ export function initShapefileUpload() {
     const form = this;
     const statusDiv = $("#upload-status");
     const btn = $("#upload-button");
-    
+
     statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка...");
     btn.prop("disabled", true);
 
@@ -51,47 +51,72 @@ export function initShapefileUpload() {
 }
 
 /**
- * Инициализирует форму загрузки растра (NDVI).
+ * Инициализирует форму загрузки снимков с дрона.
  */
-export function initRasterUpload() {
-  $("#raster-input").on("change", function() {
-    const fileName = this.files[0]?.name || "Выберите TIF файл";
-    $(this).siblings(".file-input-label").html(`<i class="fas fa-file-image"></i> ${fileName}`);
-    $("#raster-upload-button").toggle(this.files.length > 0);
+export function initDroneUpload() {
+  // Загрузка файлов
+  $("#drone-input").on("change", function() {
+    const files = this.files;
+    let fileName;
+    
+    if (files.length > 1) {
+      fileName = `Файлов: ${files.length}`;
+    } else if (files.length === 1) {
+      fileName = files[0].name;
+    } else {
+      fileName = "Выберите ZIP или снимки";
+    }
+    
+    $(this).siblings(".file-input-label").html(`<i class="fas fa-file-archive"></i> ${fileName}`);
+    $("#drone-upload-button").toggle(this.files.length > 0);
   });
 
-  $("#raster-upload-form").on("submit", function(e) {
+  // Заполняем список полей
+  loadFieldsForDropdown();
+
+  // Обработка формы
+  $("#drone-upload-form").on("submit", function(e) {
     e.preventDefault();
     const form = this;
-    const statusDiv = $("#raster-upload-status");
-    const btn = $("#raster-upload-button");
+    const statusDiv = $("#drone-upload-status");
+    const progressDiv = $("#drone-progress");
+    const btn = $("#drone-upload-button");
+    const fieldId = $("#drone-field-select").val();
+    const cropType = $("#drone-crop-type").val();
 
-    statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка файла...");
+    statusDiv.removeClass("text-success text-danger").html("");
+    progressDiv.show();
     btn.prop("disabled", true);
 
+    // Создаём FormData
+    const formData = new FormData();
+    formData.append("drone_images", $("#drone-input")[0].files[0]);
+    formData.append("data", JSON.stringify({
+      field_id: fieldId || null,
+      crop_type: cropType
+    }));
+
     $.ajax({
-      url: "/upload",
+      url: "/api/drone/upload",
       type: "POST",
-      data: new FormData(form),
+      data: formData,
       processData: false,
       contentType: false,
       success: (res) => {
+        statusDiv.html("<i class=\"fas fa-check\"></i> Архив принят. Обработка...");
+        
         if (res.task_id) {
-          statusDiv.html("<i class=\"fas fa-cog fa-spin\"></i> Файл на сервере. Анализ NDVI...");
-          pollTaskStatus(res.task_id, res.field_id);
-        } else {
-          statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Готово!");
-          btn.prop("disabled", false);
-          form.reset();
-          $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
-          if (res.field_id) {
-            window.location.hash = `#field/${res.field_id}`;
-          }
+          pollDroneTaskStatus(res.task_id, res.field_id);
         }
+        
+        form.reset();
+        $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP или снимки');
+        btn.hide();
       },
       error: (xhr) => {
         const err = xhr.responseJSON?.error || "Ошибка загрузки";
         statusDiv.addClass("text-danger").html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
+        progressDiv.hide();
         btn.prop("disabled", false);
         showMessage(err, "error");
       }
@@ -100,39 +125,71 @@ export function initRasterUpload() {
 }
 
 /**
- * Опрашивает статус фоновой задачи.
+ * Загружает список полей для dropdown.
+ */
+function loadFieldsForDropdown() {
+  API.getFields().then(fields => {
+    const select = $("#drone-field-select");
+    fields.features.forEach(field => {
+      const name = field.properties.name || `Поле #${field.properties.db_id}`;
+      select.append(`<option value="${field.properties.db_id}">${name}</option>`);
+    });
+  }).catch(() => {
+    // Игнорируем ошибку
+  });
+}
+
+/**
+ * Опрашивает статус задачи обработки ортомозаики.
  * @param {string} taskId - ID задачи.
  * @param {string|number} fieldId - ID поля.
  */
-function pollTaskStatus(taskId, fieldId) {
-  const statusDiv = $("#raster-upload-status");
+function pollDroneTaskStatus(taskId, fieldId) {
+  const statusDiv = $("#drone-upload-status");
+  const progressDiv = $("#drone-progress");
+  const progressFill = progressDiv.find(".progress-fill");
+  const progressText = progressDiv.find(".progress-text");
+  
+  let progress = 0;
+  
   const interval = setInterval(() => {
-    API.getTaskStatus(taskId).then(res => {
-      if (res.status === "completed") {
-        clearInterval(interval);
-        statusDiv.removeClass("text-danger").addClass("text-success")
-          .html("<i class=\"fas fa-check\"></i> Анализ завершен!");
-        setTimeout(() => {
-          statusDiv.removeClass("text-success").hide();
-          $("#raster-upload-button").prop("disabled", false).hide();
-          $("#raster-upload-form")[0].reset();
-          $("#raster-upload-form").find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
-          if (window.location.hash === `#field/${fieldId}`) {
-            window.showFieldDetail?.(fieldId);
-          } else {
-            window.location.hash = `#field/${fieldId}`;
-          }
-          window.loadMapData?.();
-        }, 2000);
-      } else if (res.status === "error") {
-        clearInterval(interval);
-        statusDiv.removeClass("text-success").addClass("text-danger")
-          .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.message}`);
-        $("#raster-upload-button").prop("disabled", false);
-        showMessage(res.message, "error");
+    $.ajax({
+      url: `/api/drone/orthomosaic/status/${taskId}`,
+      method: "GET",
+      success: (res) => {
+        if (res.status === "completed") {
+          clearInterval(interval);
+          progressDiv.hide();
+          statusDiv.removeClass("text-danger").addClass("text-success")
+            .html("<i class=\"fas fa-check\"></i> Обработка завершена!");
+          
+          setTimeout(() => {
+            statusDiv.hide();
+            if (fieldId) {
+              window.location.hash = `#field/${fieldId}`;
+              window.showFieldDetail?.(fieldId);
+            }
+            window.loadMapData?.();
+          }, 2000);
+          
+        } else if (res.status === "error") {
+          clearInterval(interval);
+          progressDiv.hide();
+          statusDiv.removeClass("text-success").addClass("text-danger")
+            .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.error}`);
+          $("#drone-upload-button").prop("disabled", false);
+          showMessage(res.error, "error");
+          
+        } else if (res.status === "processing") {
+          // Обновляем прогресс
+          progress = Math.min(progress + 10, 90);
+          progressFill.css("width", `${progress}%`);
+          progressText.text(res.progress || "Обработка снимков...");
+        }
+      },
+      error: () => {
+        // Игнорируем ошибки сети
       }
-    }).catch(() => {
-      // Игнорируем ошибки сети, продолжаем опрос
     });
   }, 3000);
 }

@@ -28,7 +28,18 @@ from src.handlers.field_handlers import (
     FieldUpdateHandler,
 )
 from src.handlers.owner_handlers import OwnerActionHandler, OwnersDataApiHandler
-from src.handlers.upload_handlers import TaskStatusHandler, UploadHandler, ISOXMLExportHandler, FieldScansHandler, FieldScanZonesHandler
+from src.handlers.upload_handlers import (
+    TaskStatusHandler,
+    UploadHandler,
+    ISOXMLExportHandler,
+    FieldScansHandler,
+    FieldScanZonesHandler,
+)
+from src.handlers.drone_handlers import (
+    DroneUploadHandler,
+    CropClassificationHandler,
+    OrthomosaicStatusHandler,
+)
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO,
@@ -90,6 +101,11 @@ def make_app() -> tornado.web.Application:
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),
         (r"/api/field/([0-9]+)/scans/([0-9]+)", FieldScansHandler),  # DELETE /api/field/{id}/scans/{scan_id}
         (r"/api/scan/([0-9]+)/zones", FieldScanZonesHandler),
+
+        # Drone imagery processing
+        (r"/api/drone/upload", DroneUploadHandler),
+        (r"/api/drone/orthomosaic/status/(.*)", OrthomosaicStatusHandler),
+        (r"/api/scan/([0-9]+)/classify", CropClassificationHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

@@ -9,7 +9,7 @@ import { handleRoute } from './modules/router.js';
 import { initFieldsTable, initOwnersTable, getFieldsTable } from './modules/tables.js';
 import { openFieldModal, downloadKmzWithSettings } from './modules/modals.js';
 import { showFieldDetail } from './modules/field-detail.js';
-import { initShapefileUpload, initRasterUpload } from './modules/uploads.js';
+import { initShapefileUpload, initRasterUpload, initDroneUpload } from './modules/uploads.js';
 import { initStatsView } from './modules/stats.js';
 import { initTheme } from './modules/theme.js';
 import { loadMapData, onFieldCreated, onFieldEdited, onFieldDeleted } from './modules/map-callbacks.js';
@@ -55,6 +55,7 @@ class FieldMapperApp {
     // Инициализация загрузки файлов
     initShapefileUpload();
     initRasterUpload();
+    initDroneUpload();
 
     // Экспортируем методы для глобального доступа
     this.exportGlobalMethods();
