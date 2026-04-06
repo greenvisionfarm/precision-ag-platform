@@ -2,11 +2,11 @@
 
 > Платформа точного земледелия с открытым исходным кодом
 
-[![Tests](https://img.shields.io/badge/tests-32%20passed%2C%201%20skipped-green)]()
-[![Python](https://img.shields.io/badge/python-3.12-blue)]()
-[![Node](https://img.shields.io/badge/node-20-green)]()
-[![Docker](https://img.shields.io/badge/docker-ready-blue)]()
-[![License](https://img.shields.io/badge/license-Open%20Source-green)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/greenvisionfarm/precision-ag-platform/blob/master/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![Node](https://img.shields.io/badge/node-20-green.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://docs.docker.com/)
+[![Docs](https://img.shields.io/badge/docs-online-green.svg)](https://greenvisionfarm.github.io/precision-ag-platform/)
 
 **Field Mapper** — веб-платформа для фермеров и агрономов, которая превращает данные с дронов (DJI Mavic 3M, NDVI снимки) в карты предписаний для сельскохозяйственной техники.
 
@@ -141,12 +141,14 @@ Open Source проект для развития точного земледел
 
 ---
 
-## 🔗 Контакты
+## 🔗 Контакты и ссылки
 
 - **Сайт:** [http://localhost:8888](http://localhost:8888)
-- **GitHub:** [your-org/field-mapper](https://github.com/your-org/field-mapper)
-- **Документация:** [docs/](docs/)
+- **GitHub:** [greenvisionfarm/precision-ag-platform](https://github.com/greenvisionfarm/precision-ag-platform)
+- **Документация:** [GitHub Pages](https://greenvisionfarm.github.io/precision-ag-platform/)
+- **Issues:** [Bug Reports & Features](https://github.com/greenvisionfarm/precision-ag-platform/issues)
 
 ---
 
-*Последнее обновление: 25 марта 2026 г.*
+*Последнее обновление: 6 апреля 2026 г.*
+*Built with ❤️ and AI agents 🤖*
