@@ -51,6 +51,55 @@ export function initShapefileUpload() {
 }
 
 /**
+ * Инициализирует форму загрузки NDVI (GeoTIFF).
+ */
+export function initRasterUpload() {
+  $("#raster-input").on("change", function() {
+    const fileName = this.files[0]?.name || "Выберите TIF файл";
+    $(this).siblings(".file-input-label").html(`<i class="fas fa-file-image"></i> ${fileName}`);
+    $("#raster-upload-button").toggle(this.files.length > 0);
+  });
+
+  $("#raster-upload-form").on("submit", function(e) {
+    e.preventDefault();
+    const form = this;
+    const statusDiv = $("#raster-upload-status");
+    const btn = $("#raster-upload-button");
+
+    statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка...");
+    btn.prop("disabled", true);
+
+    const formData = new FormData();
+    formData.append("raster_file", $("#raster-input")[0].files[0]);
+
+    $.ajax({
+      url: "/api/raster/upload",
+      type: "POST",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: (res) => {
+        statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> NDVI загружен!");
+        window.loadMapData?.();
+        form.reset();
+        $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
+        btn.hide();
+        setTimeout(() => {
+          statusDiv.removeClass("text-success").html("");
+          btn.prop("disabled", false);
+        }, 3000);
+      },
+      error: (xhr) => {
+        const err = xhr.responseJSON?.error || "Ошибка загрузки";
+        statusDiv.addClass("text-danger").html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
+        btn.prop("disabled", false);
+        showMessage(err, "error");
+      }
+    });
+  });
+}
+
+/**
  * Инициализирует форму загрузки снимков с дрона.
  */
 export function initDroneUpload() {
