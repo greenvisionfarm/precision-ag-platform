@@ -29,7 +29,8 @@ Thumbs.db
 
 # Database
 *.db
-!fields.db
+*.sqlite
+*.sqlite3
 
 # Uploads
 uploads/*
@@ -66,8 +67,10 @@ playwright-report/
 playwright/.cache/
 
 # Local config
+.env
 .local.env
 .env.local
+.env.example
 
 # AI Contexts (temporary files)
 .qwen/*.tmp
