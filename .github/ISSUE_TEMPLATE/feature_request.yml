@@ -1,0 +1,56 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+labels: ["feature", "priority: medium"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe your idea.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear description of what the problem is.
+      placeholder: I'm always frustrated when...
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: What should happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or features you've considered.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - 🚁 Обработка снимков
+        - 🚜 Карты предписаний
+        - 📊 Аналитика
+        - 🎨 UX/UI
+        - 🔗 Интеграции
+        - 🏗️ Инфраструктура
+        - Другое
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other context, mockups, or screenshots.
+    validations:
+      required: false
