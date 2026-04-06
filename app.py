@@ -67,6 +67,7 @@ def make_app() -> tornado.web.Application:
         "static_path": os.path.join(os.path.dirname(__file__), "static"),
         "debug": True,
         "cookie_secret": secret_key,
+        "login_url": "/",  # Для @tornado.web.authenticated
     }
     return tornado.web.Application([
         (r"/", MainHandler),

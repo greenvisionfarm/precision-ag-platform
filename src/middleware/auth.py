@@ -136,7 +136,12 @@ class AuthenticatedRequestHandler(tornado.web.RequestHandler):
         Переопределяет метод из RequestHandler.
         """
         # Пробуем получить токен из cookie
+        raw_cookie = self.request.cookies.get('session_token')
+        logger.debug(f"Raw cookie: {raw_cookie is not None}")
+        
         token = self.get_secure_cookie('session_token')
+        logger.debug(f"Secure cookie decoded: {token is not None}")
+        
         if not token:
             # Пробуем из заголовка Authorization
             auth_header = self.request.headers.get('Authorization', '')

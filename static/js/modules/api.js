@@ -5,6 +5,14 @@
  * @param {string} error - Текст ошибки.
  */
 export function handleApiError(xhr, status, error) {
+  // 401 — пользователь не авторизован, показываем форму входа
+  if (xhr.status === 401) {
+    if (window.AuthModule) {
+      window.AuthModule.openLogin();
+    }
+    return Promise.reject({ xhr, status, error });
+  }
+
   const errorMsg = xhr.responseJSON?.error || error || 'Неизвестная ошибка';
   console.error(`API Error: ${xhr.status} ${status}`, errorMsg);
 
@@ -18,6 +26,11 @@ export function handleApiError(xhr, status, error) {
 
   return Promise.reject({ xhr, status, error });
 }
+
+// Настраиваем jQuery на отправку cookie со всеми запросами (для авторизации)
+$.ajaxSetup({
+  xhrFields: { withCredentials: true }
+});
 
 const API = {
   getFields: () => $.getJSON("/api/fields").catch(handleApiError),

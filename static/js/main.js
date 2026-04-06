@@ -3,6 +3,11 @@
  * Инкапсулирует состояние приложения в классе.
  */
 
+// Глобальная настройка jQuery для отправки cookie (авторизация)
+$.ajaxSetup({
+  xhrFields: { withCredentials: true }
+});
+
 // Импорт модулей
 import { showMessage } from './modules/utils.js';
 import { handleRoute } from './modules/router.js';
@@ -36,8 +41,10 @@ class FieldMapperApp {
     window.MapManager.initMainMap("map", onFieldCreated, onFieldEdited, onFieldDeleted);
     this.mapInitialized = true;
 
-    // Загрузка данных карты
-    loadMapData();
+    // Загрузка данных карты (только если авторизован)
+    if (window.AuthModule?.isLoggedIn()) {
+      loadMapData();
+    }
 
     // Обработка навигации
     $(window).on("hashchange", this.onHashChange.bind(this));

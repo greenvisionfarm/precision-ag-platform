@@ -172,7 +172,19 @@ export function initOwnersTable() {
         render: (d, t, r) => `<button class="btn btn-danger btn-sm btn-delete-owner" data-id="${r.id}"><i class="fas fa-trash"></i></button>` 
       } 
     ],
-    language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json" }
+    language: {
+      processing: "Обработка...",
+      search: "Поиск:",
+      lengthMenu: "Показать _MENU_ записей",
+      info: "Записи с _START_ до _END_ из _TOTAL_",
+      infoEmpty: "Нет записей",
+      infoFiltered: "(отфильтровано из _MAX_)",
+      loadingRecords: "Загрузка...",
+      zeroRecords: "Ничего не найдено",
+      emptyTable: "В таблице отсутствуют данные",
+      paginate: { first: "Первая", previous: "Предыдущая", next: "Следующая", last: "Последняя" },
+      aria: { sortAscending: ": активировать для сортировки столбца по возрастанию", sortDescending: ": активировать для сортировки столбца по убыванию" }
+    }
   });
   
   $("#owners-table tbody").on("click", ".btn-delete-owner", function() {

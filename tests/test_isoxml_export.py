@@ -7,7 +7,9 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from db import Field, FieldZone, database
+from db import database
+from src.models.field import Field, FieldZone
+from src.models.auth import Company
 from src.services.isoxml_service import export_isoxml
 
 # Namespace для ISOXML
@@ -17,11 +19,14 @@ ISOXML_NS = '{http://www.isobus.net/isobus/TaskFile}'
 @pytest.fixture
 def setup_field_with_zones(test_db):
     """Создаёт тестовое поле с зонами."""
+    company = Company.create(name='ISOXML Co', slug='isoxml-co')
+    
     with database.atomic():
         field = Field.create(
             name="Тестовое поле для ISOXML",
             geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
-            properties_json='{"area": 100}'
+            properties_json='{"area": 100}',
+            company=company
         )
         
         # Создаём 3 зоны с разными NDVI

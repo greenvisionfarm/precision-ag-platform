@@ -9,13 +9,13 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 import rasterio
-from tornado.testing import AsyncHTTPTestCase
-from tornado.web import Application
+from peewee import SqliteDatabase
 
-from db import Field, FieldScan, FieldZone, database, initialize_db
+from src.models.field import Field, FieldScan, FieldZone
 from src.handlers.field_handlers import FieldGetHandler
 from src.services.raster_service import process_ndvi_zones
 from src.tasks import _process_geotiff_impl
+from db import database
 
 
 @pytest.fixture
@@ -54,11 +54,15 @@ def mock_ndvi_tif():
 @pytest.fixture
 def setup_field(test_db):
     """Создает тестовое поле в БД."""
+    from src.models.auth import Company
+    company = Company.create(name='Upload Co', slug='upload-co')
+    
     with database.atomic():
         field = Field.create(
             name="Тестовое поле",
             geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
-            properties_json='{"area": 100}'
+            properties_json='{"area": 100}',
+            company=company
         )
     yield field
     # Очищаем после теста
@@ -72,12 +76,16 @@ def setup_field_with_scans(test_db, mock_ndvi_tif):
     """Создаёт поле с несколькими сканами и зонами."""
     import tempfile
     from datetime import datetime
+    from src.models.auth import Company
     
+    company = Company.create(name='Scans Co', slug='scans-co')
+
     with database.atomic():
         field = Field.create(
             name="Поле с сканами",
             geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
-            properties_json='{"area": 100}'
+            properties_json='{"area": 100}',
+            company=company
         )
         
         # Создаём 3 скана

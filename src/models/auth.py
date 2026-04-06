@@ -11,16 +11,15 @@ from peewee import (
     CharField,
     DateTimeField,
     ForeignKeyField,
-    Model,
     SqliteDatabase,
     TextField,
 )
 
-# Используем ту же БД, что и в основном приложении
-from db import database
+# Используем ту же БД и BaseModel, что и в основном приложении
+from db import BaseModel, database
 
 
-class Company(Model):
+class Company(BaseModel):
     """
     Модель компании (тенанта).
     Каждая компания имеет изолированные данные (поля, сканы, зоны).
@@ -50,7 +49,7 @@ class UserRole:
     VIEWER = 'viewer'     # Наблюдатель (только просмотр)
 
 
-class User(Model):
+class User(BaseModel):
     """
     Модель пользователя системы.
     Пользователь принадлежит одной компании и имеет роль.

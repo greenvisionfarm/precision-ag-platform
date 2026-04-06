@@ -7,6 +7,7 @@ services:
       - FIELD_MAPPER_ENV=production
       - FIELD_MAPPER_DB=/app/data/fields.db
       - REDIS_URL=redis://redis:6379/0
+      - SESSION_SECRET=field-mapper-dev-secret-key-2026-do-not-use-in-prod
     volumes:
       - .:/app
       - ./data:/app/data

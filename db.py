@@ -104,9 +104,21 @@ def initialize_db() -> None:
     if not database.is_closed():
         database.close()
     database.connect(reuse_if_open=True)
-    # Удаляем и создаем заново, чтобы тесты были изолированы
-    database.drop_tables([Field, Owner, FieldZone, FieldScan])
-    database.create_tables([Field, Owner, FieldScan, FieldZone])
+
+    # Импортируем новые модели (с company_id и auth)
+    try:
+        from src.models.auth import Company, User
+        from src.models.field import Field as NewField, FieldScan as NewFieldScan, FieldZone as NewFieldZone, Owner as NewOwner
+
+        # Удаляем в правильном порядке (foreign keys)
+        all_tables = [NewFieldZone, NewFieldScan, NewField, NewOwner, User, Company]
+        database.drop_tables(all_tables, safe=True)
+        database.create_tables([Company, User, NewOwner, NewField, NewFieldScan, NewFieldZone])
+    except ImportError:
+        # Fallback для старых тестов без auth
+        database.drop_tables([Field, Owner, FieldZone, FieldScan], safe=True)
+        database.create_tables([Field, Owner, FieldScan, FieldZone])
+
     database.close()
 
 
@@ -121,7 +133,7 @@ def ensure_db_exists() -> None:
 
     # Проверяем, существуют ли таблицы
     existing_tables: List[str] = database.get_tables()
-    required_tables = ['field', 'owner', 'fieldzone', 'fieldscan']
+    required_tables = ['field', 'owner', 'fieldzone', 'fieldscan', 'company', 'user']
 
     # Создаём только отсутствующие таблицы
     tables_to_create = []
@@ -136,5 +148,19 @@ def ensure_db_exists() -> None:
 
     if tables_to_create:
         database.create_tables(tables_to_create)
+
+    # Создаём auth-таблицы через импорт моделей (они регистрируются автоматически)
+    if 'company' not in existing_tables or 'user' not in existing_tables:
+        try:
+            from src.models.auth import Company, User  # noqa: F811
+            auth_tables = []
+            if 'company' not in existing_tables:
+                auth_tables.append(Company)
+            if 'user' not in existing_tables:
+                auth_tables.append(User)
+            if auth_tables:
+                database.create_tables(auth_tables)
+        except ImportError:
+            pass  # Модуль auth может отсутствовать в тестовом окружении
 
     database.close()

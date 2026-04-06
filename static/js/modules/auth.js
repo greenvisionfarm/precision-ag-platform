@@ -201,17 +201,21 @@ const AuthModule = (function() {
      */
     async function loadCurrentUser() {
         try {
-            const response = await fetch('/api/auth/profile');
+            const response = await fetch('/api/auth/profile', { credentials: 'include' });
             if (response.ok) {
                 const data = await response.json();
                 currentUser = data.user;
                 currentLanguage = currentUser.language || 'ru';
                 updateUserMenu();
                 updatePageLanguage(currentLanguage);
+            } else {
+                // Не авторизован — показываем форму входа
+                updateUserMenu();
             }
         } catch (error) {
             // Пользователь не авторизован
             currentUser = null;
+            updateUserMenu();
         }
     }
 
@@ -471,11 +475,12 @@ const AuthModule = (function() {
      */
     async function handleLogin(formData) {
         const alertEl = document.getElementById('login-alert');
-        
+
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     email: formData.get('email'),
                     password: formData.get('password'),
@@ -508,11 +513,12 @@ const AuthModule = (function() {
      */
     async function handleRegister(formData) {
         const alertEl = document.getElementById('register-alert');
-        
+
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     email: formData.get('email'),
                     password: formData.get('password'),
@@ -711,6 +717,7 @@ const AuthModule = (function() {
         logout,
         getCurrentUser: () => currentUser,
         getCurrentLanguage: () => currentLanguage,
+        isLoggedIn: () => currentUser !== null,
     };
 
 })();

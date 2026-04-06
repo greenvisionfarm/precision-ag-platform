@@ -99,6 +99,40 @@ Open [http://localhost:8888](http://localhost:8888)
 
 ---
 
+## 🔐 Authentication
+
+Платформа поддерживает **мульти-тенантность** — каждая компания изолирована и видит только свои данные.
+
+### Self-service регистрация
+1. Откройте `http://localhost:80` (или `http://localhost:8888` без Docker)
+2. Нажмите **"Регистрация"** на странице входа
+3. Введите email, пароль и название компании
+4. Вы автоматически войдёте как владелец компании
+
+### Тестовый доступ (Docker)
+```bash
+# Запустите Docker
+docker compose up -d
+
+# Войдите с тестовым пользователем
+Email: admin@fieldmapper.test
+Password: admin
+```
+
+### API Authentication
+```bash
+# 1. Логин
+curl -X POST http://localhost:80/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@fieldmapper.test","password":"admin"}' \
+  -c cookies.txt
+
+# 2. Запрос с cookie
+curl http://localhost:80/api/fields -b cookies.txt
+```
+
+---
+
 ## ✅ Testing
 
 ```bash

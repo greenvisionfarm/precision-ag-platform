@@ -43,11 +43,7 @@ class FieldApiBaseHandler(AuthenticatedRequestHandler):
 
     def set_default_headers(self) -> None:
         self.set_header("Content-Type", "application/json")
-    
-    def get_current_user(self) -> Optional[User]:
-        """Получает текущего пользователя."""
-        return self.current_user
-    
+
     def get_company_fields_query(self):
         """Возвращает query для полей текущей компании."""
         user = self.get_current_user()

@@ -9,15 +9,14 @@ from peewee import (
     DateTimeField,
     FloatField,
     ForeignKeyField,
-    Model,
     TextField,
 )
 
-from db import database
+from db import BaseModel, database
 from src.models.auth import Company
 
 
-class Owner(Model):
+class Owner(BaseModel):
     """Модель владельца поля (устаревшая, оставлена для совместимости)."""
 
     name = CharField(unique=True, help_text="Имя владельца")
@@ -37,7 +36,7 @@ class Owner(Model):
         return self.name
 
 
-class Field(Model):
+class Field(BaseModel):
     """Модель сельскохозяйственного поля."""
 
     name = CharField(null=True, help_text="Название поля")
@@ -56,10 +55,11 @@ class Field(Model):
         Company,
         backref='fields',
         on_delete='CASCADE',
+        null=True,
         help_text="Компания, которой принадлежит поле"
     )
     
-    created_at = DateTimeField(default=datetime.now, help_text="Дата создания")
+    created_at = DateTimeField(null=True, help_text="Дата создания")
     updated_at = DateTimeField(null=True, help_text="Дата последнего обновления")
 
     class Meta:
@@ -70,7 +70,7 @@ class Field(Model):
         return self.name or f"Field #{self.id}"
 
 
-class FieldScan(Model):
+class FieldScan(BaseModel):
     """Модель скана поля (NDVI TIFF файл с датой загрузки)."""
 
     field = ForeignKeyField(
@@ -113,7 +113,7 @@ class FieldScan(Model):
         return f"{self.field.name} - {self.filename}"
 
 
-class FieldZone(Model):
+class FieldZone(BaseModel):
     """Модель зоны поля (для дифференцированного внесения)."""
 
     field = ForeignKeyField(

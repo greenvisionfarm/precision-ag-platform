@@ -9,7 +9,7 @@ const ASSETS_TO_CACHE = [
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css",
   "https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js",
-  "https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css"
+  "https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css",
 ];
 
 // Установка: кэшируем статику

@@ -2,8 +2,8 @@
  * Базовые фикстуры и утилиты для E2E тестов Field Mapper
  */
 
-import { test as base, expect, devices } from '@playwright/test';
-import type { Page, BrowserContext } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+import type { Page, APIRequestContext } from '@playwright/test';
 
 /**
  * Тестовые данные для авторизации
@@ -34,10 +34,36 @@ export const TEST_OWNER = {
 };
 
 /**
+ * Авторизация через API и получение cookie
+ */
+async function getAuthenticatedContext(browser: any): Promise<{ context: any; page: Page }> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  
+  // Авторизация через UI
+  await page.goto('/');
+  await page.waitForSelector('input[type="email"], input[name="email"]', { timeout: 10000 }).catch(() => {});
+  
+  const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+  const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
+  const loginButton = page.locator('button[type="submit"], button:has-text("Войти")').first();
+  
+  if (await emailInput.isVisible() && await passwordInput.isVisible()) {
+    await emailInput.fill(TEST_USER.email);
+    await passwordInput.fill(TEST_USER.password);
+    await loginButton.click();
+    await page.waitForTimeout(1500);
+  }
+  
+  return { context, page };
+}
+
+/**
  * Расширенный тест с базовыми фикстурами
  */
 export const test = base.extend<{
   page: Page;
+  authedRequest: APIRequestContext;
   authenticatedPage: Page;
   loginTestUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -55,31 +81,27 @@ export const test = base.extend<{
   },
 
   /**
+   * Авторизованный API request context с cookie
+   */
+  authedRequest: async ({ browser }, use) => {
+    const { context, page } = await getAuthenticatedContext(browser);
+    
+    // Получаем cookie и создаём authenticated request
+    const cookies = await context.cookies();
+    const request = await browser.newContext({ storageState: await context.storageState() });
+    const authedPage = await request.newPage();
+    
+    await use(authedPage.request);
+    
+    await context.close();
+    await request.close();
+  },
+
+  /**
    * Страница с авторизованным пользователем
    */
   authenticatedPage: async ({ browser }, use) => {
-    const context = await browser.newContext({
-      viewport: { width: 1920, height: 1080 },
-    });
-    const page = await context.newPage();
-    
-    // Авторизация
-    await page.goto('/');
-    await page.waitForSelector('[data-testid="login-form"], #login-modal, .auth-modal, input[type="email"], input[name="email"]', { timeout: 10000 })
-      .catch(() => {});
-    
-    // Пробуем найти форму входа
-    const emailInput = page.locator('input[type="email"], input[name="email"], input[id*="email"]').first();
-    const passwordInput = page.locator('input[type="password"], input[name="password"], input[id*="password"]').first();
-    const loginButton = page.locator('button[type="submit"], button:has-text("Войти"), button:has-text("Login"), .login-btn').first();
-    
-    if (await emailInput.isVisible() && await passwordInput.isVisible()) {
-      await emailInput.fill(TEST_USER.email);
-      await passwordInput.fill(TEST_USER.password);
-      await loginButton.click();
-      await page.waitForTimeout(2000);
-    }
-    
+    const { context, page } = await getAuthenticatedContext(browser);
     await use(page);
     await context.close();
   },
@@ -90,12 +112,9 @@ export const test = base.extend<{
   loginTestUser: async ({ page }, use) => {
     const loginFn = async () => {
       await page.goto('/');
-      
-      // Ищем форму входа
       const emailInput = page.locator('input[type="email"], input[name="email"]').first();
       const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
       const loginButton = page.locator('button[type="submit"], button:has-text("Войти")').first();
-      
       if (await emailInput.isVisible()) {
         await emailInput.fill(TEST_USER.email);
         await passwordInput.fill(TEST_USER.password);
@@ -121,17 +140,15 @@ export const test = base.extend<{
   },
 
   /**
-   * Создание тестового поля через API
+   * Создание тестового поля через API с авторизацией
    */
-  createTestField: async ({ page }, use) => {
+  createTestField: async ({ authedRequest }, use) => {
     const createFieldFn = async (fieldData?: Partial<typeof TEST_FIELD>) => {
       const data = { ...TEST_FIELD, ...fieldData };
-      
-      const response = await page.request.post('/api/field/add', {
-        json: data,
+      const response = await authedRequest.post('/api/field/add', {
+        data: data,
       });
-      
-      expect(response.ok()).toBeTruthy();
+      expect(response.ok(), `createField failed: ${await response.text()}`).toBeTruthy();
       const result = await response.json();
       return result.id;
     };
@@ -139,17 +156,15 @@ export const test = base.extend<{
   },
 
   /**
-   * Создание тестового владельца через API
+   * Создание тестового владельца через API с авторизацией
    */
-  createTestOwner: async ({ page }, use) => {
+  createTestOwner: async ({ authedRequest }, use) => {
     const createOwnerFn = async (ownerData?: Partial<typeof TEST_OWNER>) => {
       const data = { ...TEST_OWNER, ...ownerData };
-      
-      const response = await page.request.post('/api/owner/add', {
-        json: data,
+      const response = await authedRequest.post('/api/owner/add', {
+        data: data,
       });
-      
-      expect(response.ok()).toBeTruthy();
+      expect(response.ok(), `createOwner failed: ${await response.text()}`).toBeTruthy();
       const result = await response.json();
       return result.id;
     };
