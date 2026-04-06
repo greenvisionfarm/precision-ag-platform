@@ -15,10 +15,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" crossorigin=""/>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/auth.css">
 </head>
 <body>
 
-    <button id="sidebar-toggle">☰</button>
+    <button id="sidebar-toggle" aria-label="Открыть меню">
+        <i class="fas fa-bars"></i>
+    </button>
 
     <div id="sidebar">
         <h2>Field Mapper</h2>
@@ -27,30 +30,8 @@
             <a href="#fields" class="nav-link">📋 Список полей</a>
             <a href="#owners" class="nav-link">👥 Владельцы</a>
             <a href="#stats" class="nav-link">📊 Статистика</a>
-            <a href="#" class="nav-link">Загрузки</a>
+            <a href="#uploads" class="nav-link">📥 Загрузки</a>
         </nav>
-
-        <div id="upload-section-sidebar">
-            <hr>
-            <h3>Загрузка Границ</h3>
-            <form id="upload-form">
-                <div class="form-group">
-                    <input type="file" id="shapefile-input" name="shapefile_zip" accept=".zip" required>
-                </div>
-                <button type="submit" id="upload-button" style="display: none;">Загрузить ZIP</button>
-                <div id="upload-status"></div>
-            </form>
-
-            <hr>
-            <h3>Загрузка NDVI (GeoTIFF)</h3>
-            <form id="raster-upload-form">
-                <div class="form-group">
-                    <input type="file" id="raster-input" name="raster_file" accept=".tif,.tiff" required>
-                </div>
-                <button type="submit" id="raster-upload-button" style="display: none;">Загрузить TIF</button>
-                <div id="raster-upload-status"></div>
-            </form>
-        </div>
         
         <div class="theme-switch-wrapper">
             <button id="theme-toggle-btn">
@@ -97,12 +78,30 @@
             <div class="header-with-back">
                 <a href="#fields" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку</a>
                 <h1 id="field-detail-name">Детали поля</h1>
+                <div class="field-actions">
+                    <a href="#" id="detail-export-isoxml" class="btn btn-success" title="Экспорт ISOXML для техники">
+                        <i class="fas fa-tractor"></i> Экспорт ISOXML
+                    </a>
+                    <a href="#" id="detail-export-kmz" class="btn btn-primary" title="Экспорт KMZ для DJI">
+                        <i class="fas fa-file-export"></i> Экспорт DJI KMZ
+                    </a>
+                </div>
             </div>
-            
+
             <div class="detail-grid">
                 <div class="detail-card map-card">
-                    <h3>Расположение</h3>
+                    <div class="map-header">
+                        <h3>Карта поля</h3>
+                        <button id="map-fullscreen-btn" class="btn-icon" title="На весь экран">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                    <div id="scans-selector" class="scans-selector" style="display: none;">
+                        <label><i class="fas fa-satellite"></i> Снимки NDVI:</label>
+                        <div id="scan-list" class="scan-list"></div>
+                    </div>
                     <div id="field-detail-map"></div>
+                    <div id="zones-legend" class="zones-legend"></div>
                 </div>
                 <div class="detail-card info-card">
                     <h3>Информация</h3>
@@ -113,8 +112,21 @@
                         <tr><th>Кадастровый номер</th><td id="field-detail-parcel"></td></tr>
                     </table>
                     <div class="detail-actions">
-                        <button id="detail-export-kmz" class="btn-action">Экспорт DJI KMZ</button>
                         <button id="detail-delete-field" class="btn-danger">Удалить поле</button>
+                    </div>
+
+                    <div id="zones-stats" class="zones-stats">
+                        <h4>Зоны внесения</h4>
+                        <table class="zones-table">
+                            <thead>
+                                <tr>
+                                    <th>Зона</th>
+                                    <th>NDVI</th>
+                                    <th>Норма</th>
+                                </tr>
+                            </thead>
+                            <tbody id="zones-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -150,7 +162,7 @@
         <!-- View: Статистика -->
         <div id="view-stats" class="view-section" style="display: none;">
             <h1>Аналитика земельного банка</h1>
-            
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <span class="stat-label">Всего полей</span>
@@ -173,6 +185,101 @@
                 </div>
             </div>
         </div>
+
+        <!-- View: Загрузки -->
+        <div id="view-uploads" class="view-section" style="display: none;">
+            <h1>Загрузка Данных</h1>
+            
+            <div class="uploads-container">
+                <!-- Загрузка Shapefile -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h3>Загрузка Границ Полей (Shapefile)</h3>
+                    <p class="upload-description">Загрузите ZIP-архив с Shapefile (.shp, .shx, .dbf, .prj)</p>
+                    <form id="upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="shapefile-input" name="shapefile_zip" accept=".zip" required>
+                            <label for="shapefile-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите ZIP файл
+                            </label>
+                        </div>
+                        <button type="submit" id="upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                    </form>
+                    <div id="upload-status" class="upload-status"></div>
+                </div>
+
+                <!-- Загрузка снимков с дрона -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-plane"></i>
+                    </div>
+                    <h3>Обработка снимков с дрона</h3>
+                    <p class="upload-description">Загрузите ZIP архив со снимками (JPEG/TIFF) для создания ортомозаики и NDVI анализа</p>
+                    <form id="drone-upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="drone-input" name="drone_images" accept=".zip,.jpg,.jpeg,.tif,.tiff" required multiple>
+                            <label for="drone-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите ZIP или снимки
+                            </label>
+                        </div>
+                        <div class="drone-options">
+                            <label for="drone-field-select">Поле:</label>
+                            <select id="drone-field-select" name="field_id">
+                                <option value="">Авто (по GPS)</option>
+                            </select>
+                            
+                            <label for="drone-crop-type">Культура:</label>
+                            <select id="drone-crop-type" name="crop_type">
+                                <option value="auto">Авто-определение</option>
+                                <option value="wheat">Пшеница</option>
+                                <option value="corn">Кукуруза</option>
+                                <option value="sunflower">Подсолнечник</option>
+                                <option value="soybean">Соя</option>
+                                <option value="rapeseed">Рапс</option>
+                                <option value="barley">Ячмень</option>
+                                <option value="potato">Картофель</option>
+                                <option value="grass">Трава</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="drone-upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить и обработать
+                        </button>
+                    </form>
+                    <div id="drone-upload-status" class="upload-status"></div>
+                    <div id="drone-progress" class="upload-progress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <p class="progress-text">Обработка снимков...</p>
+                    </div>
+                </div>
+
+                <!-- Загрузка NDVI -->
+                <div class="upload-card">
+                    <div class="upload-icon">
+                        <i class="fas fa-satellite"></i>
+                    </div>
+                    <h3>Загрузка NDVI (GeoTIFF)</h3>
+                    <p class="upload-description">Загрузите растровый файл GeoTIFF для анализа NDVI</p>
+                    <form id="raster-upload-form" class="upload-form">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="raster-input" name="raster_file" accept=".tif,.tiff" required>
+                            <label for="raster-input" class="file-input-label">
+                                <i class="fas fa-file-upload"></i> Выберите TIF файл
+                            </label>
+                        </div>
+                        <button type="submit" id="raster-upload-button" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                    </form>
+                    <div id="raster-upload-status" class="upload-status"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- JS Libraries -->
@@ -183,10 +290,11 @@
     <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script src="/static/js/modules/api.js"></script>
-    <script src="/static/js/modules/map_manager.js"></script>
-    <script src="/static/js/main.js"></script>
-    
+    <script src="/static/js/modules/auth.js"></script>
+    <script src="/static/js/modules/api.js" type="module"></script>
+    <script src="/static/js/modules/map_manager.js" type="module"></script>
+    <script src="/static/js/main.js" type="module"></script>
+
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

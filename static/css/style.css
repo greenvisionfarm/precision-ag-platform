@@ -89,6 +89,7 @@ h1, h2, h3 {
     transition: margin-left 0.3s ease, width 0.3s ease;
     box-sizing: border-box;
     position: relative;
+    padding-top: 70px; /* Отступ для кнопки меню */
 }
 
 /* Секции (Views) */
@@ -125,6 +126,11 @@ h1, h2, h3 {
         margin-left: var(--sidebar-width);
         width: calc(100% - var(--sidebar-width));
     }
+    
+    /* На десктопе кнопка вверху, нужен отступ */
+    .main-content {
+        padding-top: 70px;
+    }
 }
 
 /* Сайдбар */
@@ -143,42 +149,95 @@ h1, h2, h3 {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+}
 
-    & .open {
-        left: 0;
-        box-shadow: 5px 0 15px rgba(0,0,0,0.2);
-    }
-    & h2 { margin-bottom: var(--spacing-xl); }
-    & nav {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        flex: 1;
-    }
-    & a {
-        color: var(--sidebar-link);
-        text-decoration: none;
-        font-weight: 500;
-    }
+#sidebar.open {
+    left: 0;
+    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+}
+
+#sidebar h2 {
+    margin-bottom: var(--spacing-xl);
+}
+
+#sidebar nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+#sidebar a {
+    color: var(--sidebar-link);
+    text-decoration: none;
+    font-weight: 500;
 }
 
 /* Кнопка переключения сайдбара */
 #sidebar-toggle {
     position: fixed;
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
+    top: 15px;
+    left: 15px;
     z-index: 1002;
     background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 10px 14px;
-    border-radius: var(--radius);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
+    transition: all 0.3s ease;
+}
+
+#sidebar-toggle:hover {
+    background-color: var(--primary-hover);
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+#sidebar-toggle:active {
+    transform: scale(0.95);
+}
+
+/* Скрываем кнопку когда меню открыто */
+body.sidebar-open #sidebar-toggle {
+    opacity: 0;
+}
+
+/* Анимация иконки при открытом меню */
+#sidebar-toggle i.fa-bars {
+    transition: transform 0.3s ease;
+}
+
+#sidebar-toggle.open i.fa-bars {
+    transform: rotate(90deg);
+}
+
+/* Мобильные: кнопка внизу слева для удобства большого пальца */
+@media (max-width: 768px) {
+    #sidebar-toggle {
+        top: auto;
+        bottom: 20px;
+        left: 20px;
+        width: 56px;
+        height: 56px;
+        font-size: 1.6rem;
+    }
+    
+    /* На мобильных скрываем кнопку когда меню открыто */
+    body.sidebar-open #sidebar-toggle {
+        opacity: 0;
+    }
+    
+    /* На мобильных нет отступа сверху так как кнопка внизу */
+    .main-content {
+        padding-top: var(--spacing-lg);
+    }
 }
 
 /* Карта */
@@ -391,14 +450,14 @@ table.dataTable.display tbody tr:hover td {
     .charts-container {
         grid-template-columns: 1fr;
     }
-    
+
     .chart-box {
         min-height: 250px;
     }
-}
 
     .main-content {
-        padding: 0;
+        padding: var(--spacing-lg);
+        padding-top: var(--spacing-lg);
     }
 
     .view-section {
@@ -481,6 +540,18 @@ table.dataTable.display tbody tr:hover td {
     gap: var(--spacing-md);
 }
 
+/* Кнопки экспорта в шапке деталей поля */
+.field-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.field-actions .btn {
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
 .btn-action {
     background-color: var(--primary-color);
     color: white;
@@ -502,6 +573,235 @@ table.dataTable.display tbody tr:hover td {
     font-weight: 600;
 }
 
+/* Статистика зон внесения */
+.zones-stats {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+.zones-stats h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-color);
+}
+
+.zones-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.zones-table th,
+.zones-table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.zones-table th {
+    background-color: var(--table-header-bg);
+    font-weight: 600;
+}
+
+.zone-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* Легенда зон на карте */
+.zones-legend {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+}
+
+.legend-title {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    margin-right: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+}
+
+.legend-label {
+    font-size: 14px;
+    color: var(--text-color);
+}
+
+/* Селектор сканов */
+.scans-selector {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+}
+
+.scans-selector label {
+    font-weight: 600;
+    color: var(--text-color);
+    display: block;
+    margin-bottom: var(--spacing-sm);
+}
+
+.scan-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.scan-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius);
+    background-color: var(--input-bg);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.scan-item:hover {
+    background-color: var(--border-color);
+}
+
+.scan-item.active {
+    border-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.scan-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    font-size: 14px;
+}
+
+.scan-status {
+    font-weight: bold;
+    color: var(--success-color);
+}
+
+.scan-date {
+    color: var(--text-color);
+}
+
+.scan-zones {
+    color: var(--muted-text);
+    font-size: 13px;
+}
+
+.scan-ndvi {
+    color: var(--muted-text);
+    font-size: 13px;
+}
+
+.btn-delete-scan {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: none;
+    background: transparent;
+    color: var(--danger-color);
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.btn-delete-scan:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Старый select скрываем */
+.scan-select {
+    display: none;
+}
+
+/* Заголовок карты с кнопкой fullscreen */
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.map-header h3 {
+    margin: 0;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+    font-size: 18px;
+}
+
+.btn-icon:hover {
+    background-color: var(--hover-bg);
+}
+
+/* Полноэкранный режим */
+.map-card.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.map-card.fullscreen .map-header h3 {
+    flex: 1;
+}
+
+.map-card.fullscreen #field-detail-map {
+    height: calc(100% - 120px);
+}
+
+.map-card.fullscreen .zones-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--card-bg);
+    padding: var(--spacing-md);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.scan-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
 /* Сделать строки таблицы кликабельными */
 #fields-table tbody tr {
     cursor: pointer;
@@ -518,4 +818,178 @@ table.dataTable.display tbody tr:hover td {
 .dataTables_wrapper .dataTables_filter input {
     background-color: var(--input-bg) !important;
     color: var(--text-color) !important;
+}
+
+/* Uploads Page Styles */
+.uploads-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.upload-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: var(--spacing-xl);
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.upload-card:hover {
+    transform: translateY(-3px);
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.upload-description {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.9rem;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.file-input-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+}
+
+.file-input-wrapper input[type="file"] {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.file-input-wrapper .file-input-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    background: var(--input-bg);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-muted);
+}
+
+.file-input-wrapper:hover .file-input-label {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: var(--hover-bg);
+}
+
+.file-input-wrapper input[type="file"]:focus + .file-input-label {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.upload-status {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    min-height: 40px;
+}
+
+.upload-status.text-success {
+    color: var(--success-color);
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.upload-status.text-danger {
+    color: var(--danger-color);
+    background: rgba(220, 53, 69, 0.1);
+}
+
+/* Опции для загрузки дронов */
+.drone-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: var(--spacing-md);
+}
+
+.drone-options label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.drone-options select {
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.drone-options select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Прогресс бар обработки */
+.upload-progress {
+    width: 100%;
+    max-width: 300px;
+    margin-top: var(--spacing-md);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+    transition: width 0.3s ease;
+    border-radius: var(--radius);
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: var(--spacing-xs);
+}
+
+/* Dark mode adjustments for uploads */
+[data-theme="dark"] .upload-card {
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .file-input-wrapper .file-input-label {
+    background: var(--card-bg);
+}
+
+@media (max-width: 768px) {
+    .uploads-container {
+        grid-template-columns: 1fr;
+    }
 }
