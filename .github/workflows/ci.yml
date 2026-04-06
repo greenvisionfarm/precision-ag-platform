@@ -38,8 +38,8 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Run tests
-        run: npm test
+      - name: Run tests (Jest only, exclude Playwright)
+        run: npm test -- --testPathIgnorePatterns=e2e/
 
   lint-python:
     name: Python Lint
