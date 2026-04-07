@@ -106,9 +106,12 @@ seed-test-data: ## Создать тестовые данные
 	@echo "$(GREEN)✅ Готово!$(NC)"
 
 # Деплой на домашний сервер
-DEPLOY_SERVER ?= user@your-server-ip
-DEPLOY_DIR = ~/field_mapper
-DEPLOY_COMPOSE = docker-compose.server.yml
+# Конфигурация загружается из .deploy.env (не коммитится в git!)
+-include .deploy.env
+
+DEPLOY_SERVER ?= user@localhost
+DEPLOY_DIR ?= ~/field_mapper
+DEPLOY_COMPOSE ?= docker-compose.server.yml
 
 deploy: ## Задеплоить на домашний сервер
 	@echo "$(YELLOW)Деплой на $(DEPLOY_SERVER)...$(NC)"
