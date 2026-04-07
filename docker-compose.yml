@@ -16,12 +16,19 @@ services:
       - "8888"
     depends_on:
       - redis
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
 
   worker:
     build: .
     container_name: field-mapper-worker
     restart: always
-    command: ["huey_consumer.py", "src.tasks.huey"]
+    command: ["huey_consumer.py", "src.tasks.huey", "--workers=1", "--max-delay=60"]
     environment:
       - FIELD_MAPPER_ENV=production
       - FIELD_MAPPER_DB=/app/data/fields.db
@@ -32,11 +39,25 @@ services:
       - ./uploads:/app/uploads
     depends_on:
       - redis
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
 
   redis:
     image: redis:alpine
     container_name: field-mapper-redis
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
 
   nginx:
     image: nginx:alpine
@@ -49,3 +70,8 @@ services:
       - ./static:/app/static:ro
     depends_on:
       - app
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'

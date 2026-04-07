@@ -25,12 +25,27 @@ TEST_DB_FILE = 'test_fields.db'
 
 # Выбор базы данных в зависимости от окружения
 if os.environ.get('FIELD_MAPPER_ENV') == 'test':
-    database = SqliteDatabase(TEST_DB_FILE)
+    database = SqliteDatabase(TEST_DB_FILE, pragmas={
+        'journal_mode': 'wal',  # Write-Ahead Logging для лучшей конкурентности
+        'cache_size': -64000,  # 64MB кэш (отрицательное значение = KB)
+        'foreign_keys': 1,  # Включаем foreign keys
+        'synchronous': 'NORMAL',  # Для WAL режима
+    })
 elif os.environ.get('FIELD_MAPPER_DB'):
     # Используем путь из переменной окружения (для Docker)
-    database = SqliteDatabase(os.environ.get('FIELD_MAPPER_DB'))
+    database = SqliteDatabase(os.environ.get('FIELD_MAPPER_DB'), pragmas={
+        'journal_mode': 'wal',
+        'cache_size': -64000,
+        'foreign_keys': 1,
+        'synchronous': 'NORMAL',
+    })
 else:
-    database = SqliteDatabase(DB_FILE)
+    database = SqliteDatabase(DB_FILE, pragmas={
+        'journal_mode': 'wal',
+        'cache_size': -64000,
+        'foreign_keys': 1,
+        'synchronous': 'NORMAL',
+    })
 
 
 class BaseModel(Model):

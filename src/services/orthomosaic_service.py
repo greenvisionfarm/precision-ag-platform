@@ -377,29 +377,32 @@ def stitch_images_sequential(
             (w_out, h_out)
         )
         
-        # Бесшовное слияние (простое взвешенное)
+        # Бесшовное слияние (векторизованное на numpy)
         mask1 = np.any(result_warped > 0, axis=2).astype(np.float32)
         mask2 = np.any(img2_warped > 0, axis=2).astype(np.float32)
-        
+
         # Область перекрытия
         overlap_mask = (mask1 > 0) & (mask2 > 0)
-        
-        # Создаем градиент для плавного перехода
+
+        # ВЕКТОРИЗАЦИЯ: вместо попиксельного цикла используем numpy операции
+        # Создаем blended изображение
         blended = result_warped.astype(np.float32)
         
-        for y in range(h_out):
-            for x in range(w_out):
-                if overlap_mask[y, x]:
-                    # Взвешенное среднее на основе расстояния до краёв
-                    w1_weight = 0.5
-                    w2_weight = 0.5
-                    blended[y, x] = (
-                        result_warped[y, x] * w1_weight +
-                        img2_warped[y, x] * w2_weight
-                    )
-                elif mask2[y, x] > 0:
-                    blended[y, x] = img2_warped[y, x]
+        # В области перекрытия - среднее взвешенное
+        if np.any(overlap_mask):
+            # Для overlap используем простое среднее (0.5/0.5)
+            overlap_mask_3d = np.repeat(overlap_mask[:, :, np.newaxis], 3, axis=2)
+            blended[overlap_mask_3d] = (
+                result_warped[overlap_mask_3d] * 0.5 +
+                img2_warped[overlap_mask_3d] * 0.5
+            )
         
+        # Там где есть только второе изображение - берем его
+        only_mask2 = (mask1 == 0) & (mask2 > 0)
+        if np.any(only_mask2):
+            only_mask2_3d = np.repeat(only_mask2[:, :, np.newaxis], 3, axis=2)
+            blended[only_mask2_3d] = img2_warped[only_mask2_3d]
+
         result = np.clip(blended, 0, 255).astype(np.uint8)
         logger.debug(f"Промежуточный результат: {result.shape}")
     

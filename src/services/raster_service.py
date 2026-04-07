@@ -17,43 +17,79 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
     - Минимум мелких фрагментов
     - Крупные сплошные зоны
     - Упрощённые геометрии
-    
+    - Windowed reading для экономии RAM
+
     Args:
         tif_path: Путь к TIFF файлу с NDVI.
         field_geometry_wkt: WKT геометрии поля.
         num_zones: Количество зон для кластеризации.
-        
+
     Returns:
         Список зон с геометрией, средним NDVI и цветом.
     """
     import logging
     from shapely import wkt
+    from rasterio.transform import Affine
+    from rasterio.windows import from_bounds
     logger = logging.getLogger(__name__)
-    
+
     field_geom = wkt.loads(field_geometry_wkt)
 
     with rasterio.open(tif_path) as src:
         # ОПТИМИЗАЦИЯ: читаем с ресемплингом (уменьшаем до разумного размера)
-        scale = max(1, max(src.width, src.height) // 500)
+        target_size = 500
+        scale = max(1, max(src.width, src.height) // target_size)
 
         logger.info(f"Обработка растра: scale={scale}, original_size=({src.width}x{src.height})")
 
-        # Обрезаем растр по контуру поля (с маской)
-        out_image, out_transform = rasterio.mask.mask(
-            src, [field_geom], crop=True,
+        # ОПТИМИЗАЦИЯ: windowed reading вместо чтения всего растра
+        # Сначала определяем bounding box геометрии
+        minx, miny, maxx, maxy = field_geom.bounds
+        logger.debug(f"Bounds поля: ({minx:.6f}, {miny:.6f}, {maxx:.6f}, {maxy:.6f})")
+
+        # Преобразуем bounds в window
+        window = from_bounds(minx, miny, maxx, maxy, src.transform)
+        
+        # Рассчитываем размер окна с учетом scale
+        window_scaled = rasterio.windows.Window(
+            col_off=window.col_off / scale,
+            row_off=window.row_off / scale,
+            width=max(1, window.width / scale),
+            height=max(1, window.height / scale)
         )
+        
+        # Читаем только нужную область с нужным разрешением
+        out_image = src.read(
+            1,  # Первый канал (NDVI)
+            window=window_scaled,
+            out_shape=(
+                int(window_scaled.height),
+                int(window_scaled.width)
+            )
+        )
+        
+        # Создаем трансформ для обрезанной области
+        out_transform = src.window_transform(window_scaled)
+        
+        # Маскируем по точной геометрии поля
+        from rasterio.mask import mask as raster_mask
+        try:
+            out_image, out_transform = raster_mask(
+                src, [field_geom], crop=True
+            )
+            out_image = out_image[0]  # Берем первый канал
+        except ValueError:
+            # Если маска не применилась, используем уже прочитанные данные
+            logger.warning("Не удалось применить маску, используем windowed данные")
+            out_image = out_image
 
-        # Если после обрезки он все еще слишком большой, уменьшаем его
-        if scale > 1:
-            data = out_image[0]
-            # Упрощенный ресемплинг через numpy (берем каждый N-й пиксель)
-            data = data[::scale, ::scale]
-
-            # Обновляем трансформ для векторизации (умножаем на scale)
-            from rasterio.transform import Affine
-            out_transform = out_transform * Affine.scale(scale, scale)
+        # Если после обрезки он все еще слишком большой, дополнительно уменьшаем
+        if max(out_image.shape) > target_size * 1.5:
+            actual_scale = max(out_image.shape) / target_size
+            data = out_image[::int(actual_scale), ::int(actual_scale)]
+            out_transform = out_transform * Affine.scale(actual_scale, actual_scale)
         else:
-            data = out_image[0]
+            data = out_image
 
         # 2. Фильтруем данные (убираем NoData и значения вне диапазона NDVI)
         valid_mask = (data > -1.0) & (data <= 1.0) & (data != 0)
@@ -82,6 +118,9 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         labels[valid_mask] = ranked_labels
 
         logger.info(f"Кластеризация завершена, центры: {[round(c, 3) for c in centers]}")
+
+        # Рассчитываем адаптивный scale для фильтрации
+        adaptive_scale = max(1, max(src.width, src.height) // target_size)
 
         # 4. МОРФОЛОГИЧЕСКАЯ ОБРАБОТКА для укрупнения зон
         # Применяем медианный фильтр для удаления шума
@@ -123,7 +162,7 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                     poly = shape(s)
                     # Фильтруем слишком мелкие полигоны
                     # После ресемплинга площадь в градусах очень мала, поэтому используем адаптивный порог
-                    min_area = 0.00005 / (scale * scale)  # Адаптируем под scale
+                    min_area = 0.00005 / (adaptive_scale * adaptive_scale)  # Адаптируем под adaptive_scale
                     if poly.area > min_area:
                         all_polygons.append(poly)
 

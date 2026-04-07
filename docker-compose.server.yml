@@ -12,6 +12,13 @@ services:
       - ./data:/app/data
     networks:
       - field-mapper-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
 
   nginx:
     image: nginx:alpine
@@ -25,6 +32,11 @@ services:
       - app
     networks:
       - field-mapper-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
 
   redis:
     image: redis:7-alpine
@@ -32,6 +44,13 @@ services:
     restart: unless-stopped
     networks:
       - field-mapper-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
 
 networks:
   field-mapper-net:
