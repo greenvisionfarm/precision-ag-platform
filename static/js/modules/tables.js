@@ -13,15 +13,28 @@ let ownersTable = null;
  * Инициализирует таблицу полей.
  */
 export function initFieldsTable() {
+  // Не загружаем данные если пользователь не авторизован
+  if (!window.AuthModule?.isLoggedIn()) {
+    return;
+  }
+
   API.getOwners().then(res => {
     ownersList = res.data;
-    if (fieldsTable) { 
-      fieldsTable.ajax.reload(); 
-      return; 
+    if (fieldsTable) {
+      fieldsTable.ajax.reload();
+      return;
     }
-    
+
     fieldsTable = $("#fields-table").DataTable({
-      ajax: "/api/fields_data",
+      ajax: {
+        url: "/api/fields_data",
+        error: function(xhr, error, thrown) {
+          // Если 401 — значит сессия истекла, предлагаем войти
+          if (xhr.status === 401) {
+            window.AuthModule?.openLogin();
+          }
+        }
+      },
       columns: [
         { data: "id" },
         { 
