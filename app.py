@@ -47,13 +47,15 @@ logging.basicConfig(level=logging.INFO,
 
 
 class MainHandler(tornado.web.RequestHandler):
-    """Обработчик главной страницы."""
+    """Обработчик главной страницы — без кэширования."""
 
     def get(self) -> None:
+        # render() вызывает write() → finish(). Перехватываем finish.
+        html = self.render_string("static/index.html")
         self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.set_header('Pragma', 'no-cache')
         self.set_header('Expires', '0')
-        self.render("static/index.html")
+        self.finish(html)
 
 
 class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
