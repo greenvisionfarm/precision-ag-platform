@@ -13,19 +13,27 @@ let ownersTable = null;
  * Инициализирует таблицу полей.
  */
 export function initFieldsTable() {
-  // Не загружаем данные если пользователь не авторизован
-  if (!window.AuthModule?.isLoggedIn()) {
+  // Если таблица уже инициализирована — просто перезагружаем
+  if (fieldsTable) {
+    fieldsTable.ajax.reload();
     return;
   }
 
+  // Загружаем owners (может вернуть 401 если не авторизован)
   API.getOwners().then(res => {
     ownersList = res.data;
-    if (fieldsTable) {
-      fieldsTable.ajax.reload();
-      return;
-    }
+  }).catch(() => {
+    ownersList = [];
+  }).finally(() => {
+    _createFieldsTable();
+  });
+}
 
-    fieldsTable = $("#fields-table").DataTable({
+/**
+ * Создаёт DataTables для полей.
+ */
+function _createFieldsTable() {
+  fieldsTable = $("#fields-table").DataTable({
       ajax: {
         url: "/api/fields_data",
         error: function(xhr, error, thrown) {
@@ -42,12 +50,12 @@ export function initFieldsTable() {
           render: (d, t, r) => `<span class="editable-name" data-id="${r.id}">${d}</span>` 
         },
         { data: "area" },
-        { 
-          data: "owner_id", 
+        {
+          data: "owner_id",
           render: (d, t, r) => {
             let opts = "<option value=\"\">Не назначен</option>";
-            ownersList.forEach(o => { 
-              opts += `<option value="${o.id}" ${o.id == d ? "selected" : ""}>${o.name}</option>`; 
+            (ownersList || []).forEach(o => {
+              opts += `<option value="${o.id}" ${o.id == d ? "selected" : ""}>${o.name}</option>`;
             });
             return `<select class="owner-select" data-id="${r.id}">${opts}</select>`;
           }
@@ -97,9 +105,8 @@ export function initFieldsTable() {
         }
       }
     });
-    
+
     setupTableEvents();
-  });
 }
 
 /**
