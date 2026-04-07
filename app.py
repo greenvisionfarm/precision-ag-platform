@@ -48,9 +48,19 @@ logging.basicConfig(level=logging.INFO,
 
 class MainHandler(tornado.web.RequestHandler):
     """Обработчик главной страницы."""
-    
+
     def get(self) -> None:
         self.render("static/index.html")
+
+
+class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
+    """StaticFileHandler без кэширования JS/CSS файлов."""
+
+    def set_extra_headers(self, path: str) -> None:
+        if path.endswith(('.js', '.css')):
+            self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.set_header('Pragma', 'no-cache')
+            self.set_header('Expires', '0')
 
 
 def make_app() -> tornado.web.Application:
@@ -112,7 +122,7 @@ def make_app() -> tornado.web.Application:
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
         (r"/(manifest\.json)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
         (r"/(favicon\.ico)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
-        (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
+        (r"/static/(.*)", NoCacheStaticFileHandler, {"path": settings['static_path']}),
     ], **settings)
 
 
