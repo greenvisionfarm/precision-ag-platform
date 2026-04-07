@@ -5,7 +5,6 @@
 import logging
 import os
 import secrets
-from datetime import datetime
 from typing import Any, Dict
 
 import tornado.ioloop
@@ -57,16 +56,12 @@ class MainHandler(tornado.web.RequestHandler):
 class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
     """StaticFileHandler без кэширования JS/CSS файлов."""
 
-    def get_cache_time(self, path: str, modified: datetime, mime_type: str) -> None:
-        if path.endswith(('.js', '.css')):
-            return None  # Отключает кэширование
-        return super().get_cache_time(path, modified, mime_type)
-
-    def set_extra_headers(self, path: str) -> None:
+    async def get(self, path: str, include_body: bool = True) -> None:
         if path.endswith(('.js', '.css')):
             self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.set_header('Pragma', 'no-cache')
             self.set_header('Expires', '0')
+        await super().get(path, include_body)
 
 
 def make_app() -> tornado.web.Application:
