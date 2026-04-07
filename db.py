@@ -20,7 +20,6 @@ from peewee import (
 )
 
 # Константы для путей к базе данных
-DB_FILE = 'fields.db'
 TEST_DB_FILE = 'test_fields.db'
 
 # Выбор базы данных в зависимости от окружения
@@ -32,7 +31,7 @@ if os.environ.get('FIELD_MAPPER_ENV') == 'test':
         'synchronous': 'NORMAL',  # Для WAL режима
     })
 elif os.environ.get('FIELD_MAPPER_DB'):
-    # Используем путь из переменной окружения (для Docker)
+    # Используем путь из переменной окружения (для Docker и продакшена)
     database = SqliteDatabase(os.environ.get('FIELD_MAPPER_DB'), pragmas={
         'journal_mode': 'wal',
         'cache_size': -64000,
@@ -40,7 +39,8 @@ elif os.environ.get('FIELD_MAPPER_DB'):
         'synchronous': 'NORMAL',
     })
 else:
-    database = SqliteDatabase(DB_FILE, pragmas={
+    # Fallback для локальной разработки
+    database = SqliteDatabase('fields.db', pragmas={
         'journal_mode': 'wal',
         'cache_size': -64000,
         'foreign_keys': 1,
