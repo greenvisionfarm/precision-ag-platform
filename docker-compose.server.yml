@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: field-mapper-app
+    restart: unless-stopped
+    environment:
+      - SESSION_SECRET=field-mapper-server-secret-change-me-in-prod
+      - FIELD_MAPPER_DB=/app/data/fields.db
+    volumes:
+      - ./data:/app/data
+    networks:
+      - field-mapper-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: field-mapper-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - field-mapper-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: field-mapper-redis
+    restart: unless-stopped
+    networks:
+      - field-mapper-net
+
+networks:
+  field-mapper-net:
+    driver: bridge
