@@ -57,12 +57,13 @@ class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
     """StaticFileHandler без кэширования JS/CSS файлов."""
 
     def set_headers(self) -> None:
-        super().set_headers()
         path = self.request.path or ''
         if path.endswith(('.js', '.css')):
+            # Устанавливаем ДО super() — StaticFileHandler не перезаписывает Cache-Control
             self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.set_header('Pragma', 'no-cache')
             self.set_header('Expires', '0')
+        super().set_headers()
 
 
 def make_app() -> tornado.web.Application:
