@@ -95,25 +95,28 @@ def setup_field_with_scans(test_db, mock_ndvi_tif):
             filename="scan1.tif",
             uploaded_at=datetime(2026, 1, 1),
             ndvi_min=0.2, ndvi_max=0.8, ndvi_avg=0.5,
-            processed='true'
+            processed='true',
+            source='satellite'
         )
-        
+
         scan2 = FieldScan.create(
             field=field,
             file_path="/tmp/scan2.tif",
             filename="scan2.tif",
             uploaded_at=datetime(2026, 2, 1),
             ndvi_min=0.2, ndvi_max=0.8, ndvi_avg=0.5,
-            processed='false'  # Не обработан
+            processed='false',  # Не обработан
+            source='satellite'
         )
-        
+
         scan3 = FieldScan.create(
             field=field,
             file_path=mock_ndvi_tif,
             filename="scan3.tif",
             uploaded_at=datetime(2026, 3, 1),  # Последний
             ndvi_min=0.2, ndvi_max=0.8, ndvi_avg=0.5,
-            processed='true'
+            processed='true',
+            source='satellite'
         )
         
         # Создаём зоны для scan1 (старые)
@@ -121,10 +124,10 @@ def setup_field_with_scans(test_db, mock_ndvi_tif):
             FieldZone.create(field=field, scan=scan1, name="Старая зона 1",
                            geometry_wkt="POLYGON ((18.73 48.13, 18.74 48.13, 18.74 48.14, 18.73 48.14, 18.73 48.13))",
                            avg_ndvi=0.3, color="#ff0000")
-        
-        # Создаём зоны для scan3 (последний обработанный)
-        _process_geotiff_impl(mock_ndvi_tif, field.id, scan3.id)
-    
+
+    # Обрабатываем scan3 (вне транзакции fixture — у _process_geotiff_impl своя)
+    _process_geotiff_impl(mock_ndvi_tif, field.id, scan3.id)
+
     yield field
     
     # Очищаем
@@ -228,11 +231,12 @@ def test_field_get_handler_returns_zones_from_last_scan(setup_field_with_scans):
 
 def test_field_get_handler_excludes_unprocessed_scans(setup_field_with_scans):
     """Тест: FieldGetHandler игнорирует необработанные сканы."""
-    from db import FieldScan
+    from db import Field, FieldScan
     from datetime import datetime
-    
-    field = setup_field_with_scans
-    
+
+    # Перезагружаем field из БД чтобы избежать detached state
+    field = Field.get_by_id(setup_field_with_scans.id)
+
     # Создаём ещё один скан (необработанный, но более новый)
     with database.atomic():
         scan_unprocessed = FieldScan.create(
@@ -241,7 +245,8 @@ def test_field_get_handler_excludes_unprocessed_scans(setup_field_with_scans):
             filename="scan_unprocessed.tif",
             uploaded_at=datetime(2026, 4, 1),  # Ещё новее
             ndvi_min=0.2, ndvi_max=0.8, ndvi_avg=0.5,
-            processed='false'  # Не обработан!
+            processed='false',  # Не обработан!
+            source='file'
         )
     
     # Проверяем что выбирается последний ОБРАБОТАННЫЙ скан

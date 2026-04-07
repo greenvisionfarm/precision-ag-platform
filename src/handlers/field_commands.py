@@ -33,10 +33,11 @@ class RenameCommand(FieldCommand):
 
 class AssignOwnerCommand(FieldCommand):
     """Команда для назначения владельца полю."""
-    
+
     def execute(self, field: Field, data: Dict[str, Any]) -> None:
         owner_id = data.get('owner_id')
-        field.owner = Owner.get_or_none(Owner.id == owner_id) if owner_id else None
+        # Важно: сохраняем owner_id а не объект для корректной работы с Peewee
+        field.owner_id = owner_id if owner_id else None
 
 
 class UpdateDetailsCommand(FieldCommand):

@@ -82,6 +82,7 @@ class FieldScan(BaseModel):
     ndvi_avg = FloatField(null=True)  # Средний NDVI в скане
     processed = TextField(null=True)  # 'true'/'false' — обработан ли файл
     task_id = CharField(null=True)  # ID задачи обработки
+    source = CharField(default='satellite')  # Источник данных
 
 
 class FieldZone(BaseModel):

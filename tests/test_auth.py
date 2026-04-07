@@ -126,13 +126,14 @@ class TestSessionManager:
 
         manager.invalidate_token(token)
         # После инвалидации сессия удаляется из dict
-        # но HMAC подпись всё ещё валидна (stateless режим)
-        # verify_token попытается восстановить из БД
-        # Так как БД привязана, должен найти пользователя
-        session2 = manager.verify_token(token)
-        # В зависимости от реализации может вернуть или None или session
-        # Главное что в _sessions токена нет
         assert token not in manager._sessions
+
+        # verify_token в stateless режиме восстановит сессию из БД
+        # потому что HMAC подпись всё ещё валидна
+        session2 = manager.verify_token(token)
+        # Сессия восстановлена из БД — это ожидаемое поведение stateless
+        assert session2 is not None
+        assert token in manager._sessions  # восстановлена
 
 
 class TestGetCurrentUserFromToken:

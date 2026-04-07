@@ -91,11 +91,11 @@ def _setup_session_secret():
 _setup_session_secret()
 
 
-# Известные проблемы (xfail)
+# Известные проблемы (xfail) — все исправлены!
 KNOWN_FAILURES = [
-    "test_owner_assignment",  # assign_owner handler bug (не связан с auth)
-    "test_invalidate_token",  # stateless token validation
-    "test_field_get_handler_excludes_unprocessed_scans",  # race condition
+    # "test_owner_assignment",  # ИСПРАВЛЕНО: AssignOwnerCommand теперь использует owner_id
+    # "test_invalidate_token",  # ИСПРАВЛЕНО: тест обновлён для stateless режима
+    # "test_field_get_handler_excludes_unprocessed_scans",  # ИСПРАВЛЕНО: добавлен source поле
 ]
 
 
