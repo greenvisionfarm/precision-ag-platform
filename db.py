@@ -68,6 +68,7 @@ class Field(BaseModel):
     geometry_wkt = TextField()  # Храним как WKT (Well-Known Text)
     properties_json = TextField(null=True)  # Доп. свойства (площадь и т.д.)
     owner = ForeignKeyField(Owner, backref='fields', null=True)
+    company = ForeignKeyField('Company', backref='fields', null=True)
 
 
 class FieldScan(BaseModel):

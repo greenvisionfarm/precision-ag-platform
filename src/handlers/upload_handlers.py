@@ -2,6 +2,7 @@
 Handlers для загрузки файлов (Shapefile, GeoTIFF).
 """
 import json
+import logging
 import math
 import os
 import tempfile
@@ -18,6 +19,9 @@ from db import Field, FieldScan, database
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 from src.services.isoxml_service import export_isoxml
+from src.utils.auth import get_current_user_from_token
+
+logger = logging.getLogger(__name__)
 
 # Используем абсолютный путь для загрузок
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -57,11 +61,27 @@ class TaskStatusHandler(tornado.web.RequestHandler):
 
 class UploadHandler(tornado.web.RequestHandler):
     """Handler для загрузки файлов."""
-    
+
+    def get_current_user(self):
+        """Получает текущего пользователя из cookie."""
+        token = self.get_secure_cookie('session_token')
+        if not token:
+            return None
+        try:
+            return get_current_user_from_token(token.decode('utf-8'))
+        except Exception:
+            return None
+
     def post(self) -> None:
+        user = self.get_current_user()
+        if not user:
+            self.set_status(401)
+            self.write({"error": "Требуется авторизация"})
+            return
+
         # 1. Обработка Shapefile
         if 'shapefile_zip' in self.request.files:
-            return self.handle_shapefile()
+            return self.handle_shapefile(user.company_id)
 
         # 2. Обработка GeoTIFF (новая асинхронная логика)
         elif 'raster_file' in self.request.files:
@@ -71,20 +91,20 @@ class UploadHandler(tornado.web.RequestHandler):
             self.set_status(400)
             self.write({"error": "No file provided"})
 
-    def handle_shapefile(self) -> None:
+    def handle_shapefile(self, company_id: int) -> None:
         try:
             uploaded_file = self.request.files['shapefile_zip'][0]
             with tempfile.TemporaryDirectory() as tmpdir:
                 zip_path = os.path.join(tmpdir, "up.zip")
-                with open(zip_path, 'wb') as f: 
+                with open(zip_path, 'wb') as f:
                     f.write(uploaded_file['body'])
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref: 
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(tmpdir)
                 shp_file = next(
-                    (os.path.join(r, f) for r, _, fs in os.walk(tmpdir) for f in fs if f.endswith('.shp')), 
+                    (os.path.join(r, f) for r, _, fs in os.walk(tmpdir) for f in fs if f.endswith('.shp')),
                     None
                 )
-                if not shp_file: 
+                if not shp_file:
                     raise ValueError("No SHP")
                 gdf = gpd.read_file(shp_file).to_crs(epsg=4326)
                 gdf_proj = gdf.to_crs(epsg=3035)
@@ -95,21 +115,23 @@ class UploadHandler(tornado.web.RequestHandler):
                     for _, row in gdf.iterrows():
                         props = row.drop('geometry').to_dict()
                         cleaned: Dict[str, Any] = {
-                            k: (None if isinstance(v, float) and math.isnan(v) else v) 
+                            k: (None if isinstance(v, float) and math.isnan(v) else v)
                             for k, v in props.items()
                         }
                         field_name = (
-                            cleaned.get('Field_Name') or cleaned.get('name') or 
-                            cleaned.get('NAME') or cleaned.get('Name') or 
+                            cleaned.get('Field_Name') or cleaned.get('name') or
+                            cleaned.get('NAME') or cleaned.get('Name') or
                             cleaned.get('id') or cleaned.get('ID') or "Поле"
                         )
                         Field.create(
-                            name=str(field_name), 
-                            geometry_wkt=row.geometry.wkt, 
-                            properties_json=json.dumps(cleaned)
+                            name=str(field_name),
+                            geometry_wkt=row.geometry.wkt,
+                            properties_json=json.dumps(cleaned),
+                            company_id=company_id
                         )
             self.write({"message": "Shapefile uploaded and processed"})
         except Exception as e:
+            logger.error(f"Error processing shapefile: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
