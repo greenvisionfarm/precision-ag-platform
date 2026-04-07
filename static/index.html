@@ -290,10 +290,11 @@
     <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script src="/static/js/modules/auth.js"></script>
-    <script src="/static/js/modules/api.js" type="module"></script>
-    <script src="/static/js/modules/map_manager.js" type="module"></script>
-    <script src="/static/js/main.js" type="module"></script>
+    <!-- Cache bust: 2026-04-07-2 -->
+    <script src="/static/js/modules/auth.js?v=2"></script>
+    <script src="/static/js/modules/api.js?v=2" type="module"></script>
+    <script src="/static/js/modules/map_manager.js?v=2" type="module"></script>
+    <script src="/static/js/main.js?v=2" type="module"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
