@@ -105,6 +105,42 @@ seed-test-data: ## Создать тестовые данные
 	python seed_db.py
 	@echo "$(GREEN)✅ Готово!$(NC)"
 
+# Деплой на домашний сервер
+DEPLOY_SERVER ?= user@your-server-ip
+DEPLOY_DIR = ~/field_mapper
+DEPLOY_COMPOSE = docker-compose.server.yml
+
+deploy: ## Задеплоить на домашний сервер
+	@echo "$(YELLOW)Деплой на $(DEPLOY_SERVER)...$(NC)"
+	@echo "$(BLUE)1. Push в GitHub...$(NC)"
+	git push upstream master
+	@echo "$(BLUE)2. Git pull и restart на сервере...$(NC)"
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull && docker compose -f $(DEPLOY_COMPOSE) up -d"
+	@echo "$(GREEN)✅ Деплой завершён! http://$(shell echo $(DEPLOY_SERVER) | cut -d@ -f2):8080$(NC)"
+
+deploy-seed: ## Запустить seed данные на сервере
+	@echo "$(YELLOW)Запуск seed данных на сервере...$(NC)"
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && docker compose -f $(DEPLOY_COMPOSE) run --rm app /opt/venv/bin/python seed_auth.py"
+	@echo "$(GREEN)✅ Seed завершён!$(NC)"
+
+deploy-logs: ## Показать логи приложения на сервере
+	@echo "$(YELLOW)Логи приложения:$(NC)"
+	ssh $(DEPLOY_SERVER) "docker logs field-mapper-app --tail 50"
+
+deploy-status: ## Статус контейнеров на сервере
+	@echo "$(YELLOW)Статус контейнеров:$(NC)"
+	ssh $(DEPLOY_SERVER) "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+
+deploy-restart: ## Перезапустить приложение на сервере
+	@echo "$(YELLOW)Перезапуск...$(NC)"
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && docker compose -f $(DEPLOY_COMPOSE) restart"
+	@echo "$(GREEN)✅ Перезапуск завершён!$(NC)"
+
+deploy-rebuild: ## Пересобрать и перезапустить (после изменений Dockerfile)
+	@echo "$(YELLOW)Пересборка...$(NC)"
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull && docker compose -f $(DEPLOY_COMPOSE) up -d --build"
+	@echo "$(GREEN)✅ Пересборка завершён!$(NC)"
+
 # Быстрые алиасы
 t: test-e2e
 th: test-e2e-headed

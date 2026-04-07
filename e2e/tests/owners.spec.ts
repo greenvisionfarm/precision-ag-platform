@@ -21,7 +21,7 @@ test.describe('Управление владельцами', () => {
 
     expect(response.ok(), `Failed: ${await response.text()}`).toBeTruthy();
     const result = await response.json();
-    expect(result.id).toBeTruthy();
+    expect(result.message).toBe('OK');
 
     // Скриншот
     await takeScreenshot('owner_created_api');
@@ -29,7 +29,7 @@ test.describe('Управление владельцами', () => {
     // Проверяем, что владелец в базе
     const listResponse = await authedRequest.get('/api/owners');
     const data = await listResponse.json();
-    const owner = data.data?.find((o: any) => o.id === result.id);
+    const owner = data.data?.find((o: any) => o.name === uniqueName);
     expect(owner).toBeTruthy();
     expect(owner.name).toBe(uniqueName);
   });

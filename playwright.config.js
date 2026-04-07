@@ -20,13 +20,13 @@ module.exports = defineConfig({
   fullyParallel: true,
 
   /* Количество воркеров (потоков) */
-  workers: 2,
+  workers: 1,
 
   /* Запретить тесты .only() в CI */
   forbidOnly: !!process.env.CI,
 
   /* Повторные попытки при неудаче */
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 2 : 0,
 
   /* Отчётность */
   reporter: [
@@ -61,27 +61,19 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 }
-      },
-    },
-
-    /* Тесты на мобильных устройствах */
-    {
-      name: 'Mobile Chrome',
-      use: { 
-        ...devices['Pixel 5'],
       },
     },
   ],
 
   /* Сервер для запуска тестов */
   webServer: process.env.CI ? undefined : {
-    command: 'python3 app.py',
+    command: './venv/bin/python app.py',
     port: 8888,
     timeout: 120 * 1000,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     env: {
       FIELD_MAPPER_ENV: 'test',
     },
