@@ -16,6 +16,15 @@ from src.utils.validators import validate_email
 logger = logging.getLogger(__name__)
 
 
+def _to_iso(value) -> Optional[str]:
+    """Конвертирует значение в ISO формат строки."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.isoformat()
+
+
 class AuthHandler(tornado.web.RequestHandler):
     """Базовый класс для handlers аутентификации."""
     
@@ -339,8 +348,8 @@ class ProfileHandler(AuthHandler):
                 'role': user.role,
                 'language': user.language,
                 'is_verified': user.is_verified,
-                'created_at': user.created_at.isoformat() if user.created_at else None,
-                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'created_at': _to_iso(user.created_at),
+                'last_login': _to_iso(user.last_login),
                 'company': {
                     'id': user.company.id,
                     'name': user.company.name,
@@ -455,7 +464,7 @@ class CompanyHandler(AuthHandler):
                 'id': company.id,
                 'name': company.name,
                 'slug': company.slug,
-                'created_at': company.created_at.isoformat() if company.created_at else None,
+                'created_at': _to_iso(company.created_at),
                 'settings': settings,
                 'users': users_list,
             }
