@@ -242,6 +242,35 @@ class TestAuthAPI:
         # 302 redirect на login или 401
         assert res.code in (302, 401)
 
+    async def test_profile_returns_user_data(self, http_server_client, test_db):
+        """Тест что профиль возвращает данные пользователя (ловит .isoformat() на строках)."""
+        client, base_url = http_server_client
+
+        company = Company.create(name='Profile Co', slug='profile-co')
+        User.create_user(email='profile@test.com', password='pass123', company=company)
+
+        login_res = await client.fetch(
+            f"{base_url}/api/auth/login",
+            method='POST',
+            body=json.dumps({'email': 'profile@test.com', 'password': 'pass123'}),
+            raise_error=False
+        )
+        cookies = login_res.headers.get('Set-Cookie', '')
+        assert login_res.code == 200
+
+        res = await client.fetch(
+            f"{base_url}/api/auth/profile",
+            headers={'Cookie': cookies},
+            raise_error=False
+        )
+        assert res.code == 200
+        data = json.loads(res.body)
+        assert 'user' in data
+        assert data['user']['email'] == 'profile@test.com'
+        assert data['user']['company']['name'] == 'Profile Co'
+        # created_at может быть строкой (SQLite) или datetime — оба варианта должны работать
+        assert 'created_at' in data['user']
+
     async def test_logout(self, http_server_client, test_db):
         """Тест выхода."""
         client, base_url = http_server_client

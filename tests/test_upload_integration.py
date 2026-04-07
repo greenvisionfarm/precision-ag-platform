@@ -300,3 +300,71 @@ def test_field_get_handler_backward_compatibility(test_db, mock_ndvi_tif):
     with database.atomic():
         FieldZone.delete().where(FieldZone.field == field).execute()
         Field.delete().where(Field.id == field.id).execute()
+
+
+class TestUploadHandlerShapefile:
+    """Тесты загрузки Shapefile через UploadHandler."""
+
+    def test_shapefile_sets_company_id(self, test_db):
+        """Тест что uploaded поля получают company_id автора."""
+        import zipfile
+        import tempfile
+        import os
+        from unittest.mock import MagicMock
+        from db import Field, Owner, database
+        from src.models.auth import Company
+        from src.handlers.upload_handlers import UploadHandler
+
+        # Создаём компанию и владельца
+        company = Company.create(name='Upload Co', slug='upload-co')
+        owner = Owner.create(name='Test Owner', company=company)
+
+        # Создаём временный .zip с фейковым .shp (минимальный valid GeoJSON-like)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Создаём простой GeoJSON → конвертируем в GDF
+            import json as json_mod
+            geojson = {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "properties": {"Field_Name": "TestZipField"},
+                    "geometry": {"type": "Polygon", "coordinates": [[[19.0, 48.0], [19.01, 48.0], [19.01, 48.01], [19.0, 48.01], [19.0, 48.0]]]}
+                }]
+            }
+            # Используем geopandas для создания .shp
+            import geopandas as gpd
+            from shapely.geometry import shape
+            gdf = gpd.read_file(json_mod.dumps(geojson), driver='GeoJSON')
+            shp_dir = os.path.join(tmpdir, 'shp')
+            os.makedirs(shp_dir)
+            shp_path = os.path.join(shp_dir, 'test.shp')
+            gdf.to_file(shp_path)
+
+            # Пакуем в zip
+            zip_path = os.path.join(tmpdir, 'upload.zip')
+            with zipfile.ZipFile(zip_path, 'w') as zf:
+                for f in os.listdir(shp_dir):
+                    zf.write(os.path.join(shp_dir, f), f)
+
+            # Имитируем UploadHandler
+            handler = MagicMock()
+            handler.request = MagicMock()
+            with open(zip_path, 'rb') as f:
+                handler.request.files = {
+                    'shapefile_zip': [{'filename': 'upload.zip', 'body': f.read()}]
+                }
+
+            # Вызываем метод напрямую
+            upload_handler = UploadHandler.__new__(UploadHandler)
+            upload_handler.request = handler.request
+            upload_handler.write = MagicMock()
+            upload_handler.set_status = MagicMock()
+
+            upload_handler.handle_shapefile(company_id=company.id)
+
+            # Проверяем что поле создано с company_id
+            field = Field.get(Field.name == 'TestZipField')
+            assert field.company_id == company.id, f"company_id должен быть {company.id}, получен {field.company_id}"
+
+            # Чистим
+            field.delete_instance()
