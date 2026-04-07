@@ -56,12 +56,13 @@ class MainHandler(tornado.web.RequestHandler):
 class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
     """StaticFileHandler без кэширования JS/CSS файлов."""
 
-    async def get(self, path: str, include_body: bool = True) -> None:
+    def set_headers(self) -> None:
+        super().set_headers()
+        path = self.request.path or ''
         if path.endswith(('.js', '.css')):
             self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.set_header('Pragma', 'no-cache')
             self.set_header('Expires', '0')
-        await super().get(path, include_body)
 
 
 def make_app() -> tornado.web.Application:
