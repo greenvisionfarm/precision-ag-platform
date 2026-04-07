@@ -109,7 +109,21 @@ def seed_data():
             role=UserRole.OWNER,
             language='en'
         )
-        
+
+        # Универсальный admin (для быстрого доступа / тестирования)
+        default_company, _ = Company.get_or_create(
+            slug='default',
+            defaults={'name': 'Default Company'}
+        )
+        User.create_user(
+            email='admin@fieldmapper.test',
+            password='admin',
+            company=default_company,
+            first_name='Admin',
+            role=UserRole.OWNER,
+            language='ru'
+        )
+
         logger.info("✓ Seed данные успешно созданы!")
         logger.info("=" * 50)
         logger.info("Тестовые учётные данные:")
@@ -124,6 +138,9 @@ def seed_data():
         logger.info("")
         logger.info("Demo Farm (EN):")
         logger.info("  admin@demofarm.com / admin123 (Owner)")
+        logger.info("")
+        logger.info("Universal Admin (RU):")
+        logger.info("  admin@fieldmapper.test / admin (Owner)")
         logger.info("=" * 50)
         
     except Exception as e:
