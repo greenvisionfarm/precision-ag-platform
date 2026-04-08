@@ -7,6 +7,7 @@ import { initOwnersTable } from './tables.js';
 import { openFieldModal } from './modals.js';
 import { showFieldDetail } from './field-detail.js';
 import { initStatsView } from './stats.js';
+import { loadMapData } from './map-callbacks.js';
 
 /**
  * Обработчик изменения маршрута.
@@ -24,6 +25,8 @@ export function handleRoute(forcedHash) {
         $('#view-map').show();
         $('.nav-link[href="#map"]').addClass('active');
         window.MapManager?.instance?.invalidateSize();
+        // Загружаем данные полей на карту
+        loadMapData();
     } else if (hash === '#fields') {
         $('#view-fields').show();
         $('.nav-link[href="#fields"]').addClass('active');
