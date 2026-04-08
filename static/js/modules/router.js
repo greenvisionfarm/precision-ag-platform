@@ -1,43 +1,51 @@
 /**
  * Маршрутизация и навигация по приложению.
+ * Использует прямые импорты вместо window.* для надёжности.
  */
+import { initFieldsTable } from './tables.js';
+import { initOwnersTable } from './tables.js';
 import { openFieldModal } from './modals.js';
 import { showFieldDetail } from './field-detail.js';
+import { initStatsView } from './stats.js';
 
 /**
  * Обработчик изменения маршрута.
+ * @param {string} [forcedHash] - Принудительный hash для навигации.
  */
-export function handleRoute() {
-  const hash = window.location.hash || "#map";
-  $(".view-section").hide();
-  $(".nav-link").removeClass("active");
+export function handleRoute(forcedHash) {
+    const hash = forcedHash || window.location.hash || '#map';
+    document.body.setAttribute('data-route', hash);
 
-  if (hash === "#map") {
-    $("#view-map").show();
-    $(".nav-link[href=\"#map\"]").addClass("active");
-    window.MapManager?.instance?.invalidateSize();
-  } else if (hash === "#fields") {
-    $("#view-fields").show();
-    $(".nav-link[href=\"#fields\"]").addClass("active");
-    // Инициализация таблицы полей будет вызвана из main.js
-    window.initFieldsTable?.();
-  } else if (hash.startsWith("#field/")) {
-    const fieldId = hash.split("/")[1];
-    $("#view-field-detail").show();
-    $(".nav-link[href=\"#fields\"]").addClass("active");
-    showFieldDetail(fieldId);
-  } else if (hash === "#owners") {
-    $("#view-owners").show();
-    $(".nav-link[href=\"#owners\"]").addClass("active");
-    // Инициализация таблицы владельцев будет вызвана из main.js
-    window.initOwnersTable?.();
-  } else if (hash === "#stats") {
-    $("#view-stats").show();
-    $(".nav-link[href=\"#stats\"]").addClass("active");
-    // Инициализация статистики будет вызвана из main.js
-    window.initStatsView?.();
-  } else if (hash === "#uploads") {
-    $("#view-uploads").show();
-    $(".nav-link[href=\"#uploads\"]").addClass("active");
-  }
+    // Скрываем все секции и деактивируем навигацию
+    $('.view-section').hide();
+    $('.nav-link').removeClass('active');
+
+    if (hash === '#map') {
+        $('#view-map').show();
+        $('.nav-link[href="#map"]').addClass('active');
+        window.MapManager?.instance?.invalidateSize();
+    } else if (hash === '#fields') {
+        $('#view-fields').show();
+        $('.nav-link[href="#fields"]').addClass('active');
+        // Прямой вызов — не через window.*
+        initFieldsTable();
+    } else if (hash.startsWith('#field/')) {
+        const fieldId = hash.split('/')[1];
+        $('#view-field-detail').show();
+        $('.nav-link[href="#fields"]').addClass('active');
+        showFieldDetail(fieldId);
+    } else if (hash === '#owners') {
+        $('#view-owners').show();
+        $('.nav-link[href="#owners"]').addClass('active');
+        // Прямой вызов — не через window.*
+        initOwnersTable();
+    } else if (hash === '#stats') {
+        $('#view-stats').show();
+        $('.nav-link[href="#stats"]').addClass('active');
+        // Прямой вызов — не через window.*
+        initStatsView();
+    } else if (hash === '#uploads') {
+        $('#view-uploads').show();
+        $('.nav-link[href="#uploads"]').addClass('active');
+    }
 }

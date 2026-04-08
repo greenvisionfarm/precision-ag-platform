@@ -1,8 +1,8 @@
-const CACHE_NAME = "field-mapper-v1";
+const CACHE_NAME = "field-mapper-v2-20260407";
 const ASSETS_TO_CACHE = [
   "/",
   "/static/css/style.css",
-  "/static/js/main.js",
+  // JS модули НЕ кэшируем — они всегда загружаются из сети с ?v= cache bust
   "https://code.jquery.com/jquery-3.7.1.min.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
@@ -32,11 +32,17 @@ self.addEventListener("activate", event => {
   );
 });
 
-// Перехват запросов (Strategy: Cache First for assets, Network First for others)
+// Перехват запросов
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // Для API и страниц всегда идем в сеть, а если нет связи — пробуем кэш
+  // Запросы с query string (cache busting) — всегда из сети
+  if (url.search) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Для API и страниц всегда идем в сеть
   if (url.pathname.startsWith("/api/") || !ASSETS_TO_CACHE.includes(url.pathname)) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))

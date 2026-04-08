@@ -306,11 +306,15 @@
     <script src="/static/js/main.js?v=3" type="module"></script>
 
     <script>
+        // Service Worker отключён — вызывает проблемы с кэшированием JS модулей
+        // TODO: вернуть когда будет правильная стратегия cache-busting
+        /*
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW Error:', err));
             });
         }
+        */
     </script>
 </body>
 </html>

@@ -27,10 +27,7 @@ export function handleApiError(xhr, status, error) {
   return Promise.reject({ xhr, status, error });
 }
 
-// Настраиваем jQuery на отправку cookie со всеми запросами (для авторизации)
-$.ajaxSetup({
-  xhrFields: { withCredentials: true }
-});
+// NOTE: $.ajaxSetup({ xhrFields: { withCredentials: true } }) уже установлен в main.js
 
 const API = {
   getFields: () => $.getJSON("/api/fields").catch(handleApiError),
