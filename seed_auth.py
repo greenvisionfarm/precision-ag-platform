@@ -124,6 +124,21 @@ def seed_data():
             language='ru'
         )
 
+        # E2E тестовый пользователь (для Playwright тестов)
+        e2e_company, _ = Company.get_or_create(
+            slug='e2e-test-company',
+            defaults={'name': 'E2E Test Company'}
+        )
+        User.create_user(
+            email='test_e2e@example.com',
+            password='TestPassword123!',
+            company=e2e_company,
+            first_name='Test',
+            last_name='User',
+            role=UserRole.OWNER,
+            language='ru'
+        )
+
         logger.info("✓ Seed данные успешно созданы!")
         logger.info("=" * 50)
         logger.info("Тестовые учётные данные:")
