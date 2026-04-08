@@ -8,8 +8,14 @@ import API from './api.js';
  * Загружает данные полей на карту.
  */
 export function loadMapData() {
+  console.log('[map-callbacks] loadMapData вызвана');
   API.getFields().then(data => {
+    console.log('[map-callbacks] API.getFields ответ:', data?.type, 'features:', data?.features?.length);
+    console.log('[map-callbacks] MapManager:', !!window.MapManager, 'editableLayers:', !!window.MapManager?.editableLayers);
     window.MapManager.renderFields(data, window.downloadKmzWithSettings, window.openFieldModal);
+    console.log('[map-callbacks] renderFields вызвана, layers count:', window.MapManager.editableLayers?.getLayers?.().length);
+  }).catch(err => {
+    console.error('[map-callbacks] loadMapData ошибка:', err);
   });
 }
 
