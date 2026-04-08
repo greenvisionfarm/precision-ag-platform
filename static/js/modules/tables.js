@@ -30,14 +30,15 @@ export function initFieldsTable() {
     }
 
     // Загружаем owners (может вернуть 401 если не авторизован)
-    API.getOwners()
+    // NOTE: Обёртываем в Promise потому что jqXHR не поддерживает .finally()
+    Promise.resolve(API.getOwners())
         .then(res => {
             ownersList = res.data;
         })
         .catch(() => {
             ownersList = [];
         })
-        .finally(() => {
+        .then(() => {
             _createFieldsTable();
         });
 }
