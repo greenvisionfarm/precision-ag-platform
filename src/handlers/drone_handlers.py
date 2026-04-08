@@ -204,7 +204,7 @@ class CropClassificationHandler(tornado.web.RequestHandler):
                 if result.get("crop_type"):
                     scan.crop_type = result["crop_type"]
                     scan.crop_confidence = result["confidence"]
-                    save()
+                    scan.save()
 
                 self.write({
                     "scan_id": scan_id,

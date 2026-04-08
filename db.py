@@ -113,7 +113,8 @@ def initialize_db() -> None:
     # Защита от случайного вызова в production
     if os.environ.get('FIELD_MAPPER_ENV') != 'test':
         # Проверяем, существует ли уже база данных
-        if os.path.exists(DB_FILE):
+        db_path = os.environ.get('FIELD_MAPPER_DB', 'fields.db')
+        if os.path.exists(db_path):
             raise RuntimeError(
                 "База данных уже существует! Вызов initialize_db() удалит все данные. "
                 "Если вы хотите использовать существующую базу, не вызывайте эту функцию. "
