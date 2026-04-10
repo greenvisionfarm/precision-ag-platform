@@ -8,27 +8,10 @@ import API from './api.js';
  * Загружает данные полей на карту.
  */
 export function loadMapData() {
-  console.log('[map-callbacks] loadMapData вызвана');
-  // Отслеживаем вызовы через глобальный флаг для отладки
-  window._loadMapDataCalls = (window._loadMapDataCalls || 0) + 1;
-  const callNum = window._loadMapDataCalls;
-  console.log(`[map-callbacks] Вызов #${callNum}`);
-
-  const promise = API.getFields();
-  console.log(`[map-callbacks] Вызов #${callNum}: API.getFields вернул promise`);
-
-  promise.then(data => {
-    console.log(`[map-callbacks] Вызов #${callNum}: .then — data.type=${data?.type}, features=${data?.features?.length}`);
-    console.log(`[map-callbacks] Вызов #${callNum}: window.MapManager=${!!window.MapManager}, renderFields=${typeof window.MapManager?.renderFields}`);
-    console.log(`[map-callbacks] Вызов #${callNum}: editableLayers=${!!window.MapManager?.editableLayers}`);
-    try {
-      window.MapManager.renderFields(data, window.downloadKmzWithSettings, window.openFieldModal);
-      console.log(`[map-callbacks] Вызов #${callNum}: renderFields завершён, layers=${window.MapManager.editableLayers?.getLayers?.().length}`);
-    } catch (e) {
-      console.error(`[map-callbacks] Вызов #${callNum}: renderFields бросил ошибку:`, e);
-    }
+  API.getFields().then(data => {
+    window.MapManager.renderFields(data, window.downloadKmzWithSettings, window.openFieldModal);
   }).catch(err => {
-    console.error(`[map-callbacks] Вызов #${callNum}: loadMapData ошибка:`, err);
+    console.error('[map-callbacks] loadMapData ошибка:', err);
   });
 }
 

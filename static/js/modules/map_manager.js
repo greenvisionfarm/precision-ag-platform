@@ -38,12 +38,9 @@ const MapManager = {
   },
 
   renderFields: (geojsonData, onDownloadKmz, onFieldClick) => {
-    console.log('[MapManager.renderFields] вызвана');
-    console.log('[MapManager.renderFields] editableLayers:', !!MapManager.editableLayers);
-    if (!MapManager.editableLayers) { console.warn('[MapManager.renderFields] editableLayers не инициализирован'); return; }
+    if (!MapManager.editableLayers) return;
     MapManager.editableLayers.clearLayers();
-    console.log('[MapManager.renderFields] geojsonData:', geojsonData?.type, 'features:', geojsonData?.features?.length);
-    if (!geojsonData.features) { console.warn('[MapManager.renderFields] нет features'); return; }
+    if (!geojsonData.features) return;
 
     L.geoJSON(geojsonData, {
       style: { color: "#007BFF", weight: 2, fillOpacity: 0.3 },
@@ -62,7 +59,6 @@ const MapManager = {
         }
 
         MapManager.editableLayers.addLayer(layer);
-        console.log('[MapManager.renderFields] добавлен слой:', props.name || 'unnamed');
       }
     });
 
@@ -70,7 +66,6 @@ const MapManager = {
       onDownloadKmz($(this).data("id"));
     });
 
-    console.log('[MapManager.renderFields] итого слоев:', MapManager.editableLayers.getLayers().length);
     if (MapManager.editableLayers.getBounds().isValid()) {
       MapManager.instance.fitBounds(MapManager.editableLayers.getBounds());
     }
