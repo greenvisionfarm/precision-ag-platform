@@ -8,15 +8,44 @@ services:
     environment:
       - SESSION_SECRET=field-mapper-server-secret-change-me-in-prod
       - FIELD_MAPPER_DB=/app/data/fields.db
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./data:/app/data
+      - ./uploads:/app/uploads
     networks:
       - field-mapper-net
+    depends_on:
+      - redis
     deploy:
       resources:
         limits:
           memory: 2G
           cpus: '1.5'
+        reservations:
+          memory: 512M
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: field-mapper-worker
+    restart: unless-stopped
+    command: ["huey_consumer.py", "src.tasks.huey", "--workers=1", "--max-delay=60"]
+    environment:
+      - FIELD_MAPPER_DB=/app/data/fields.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    depends_on:
+      - redis
+    networks:
+      - field-mapper-net
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '2.0'
         reservations:
           memory: 512M
 
