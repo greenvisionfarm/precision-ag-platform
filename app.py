@@ -31,6 +31,7 @@ from src.handlers.owner_handlers import OwnerActionHandler, OwnersDataApiHandler
 from src.handlers.upload_handlers import (
     TaskStatusHandler,
     UploadHandler,
+    RasterUploadHandler,
     ISOXMLExportHandler,
     FieldScansHandler,
     FieldScanZonesHandler,
@@ -110,6 +111,7 @@ def make_app() -> tornado.web.Application:
 
         # Upload
         (r"/upload", UploadHandler),
+        (r"/api/raster/upload", RasterUploadHandler),
         (r"/api/task/(.*)", TaskStatusHandler),
         (r"/api/field/export/isoxml/([0-9]+)", ISOXMLExportHandler),
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),

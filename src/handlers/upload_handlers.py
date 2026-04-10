@@ -59,6 +59,119 @@ class TaskStatusHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 
+def process_geotiff_file(request_files, upload_dir: str) -> dict:
+    """
+    Общая логика обработки GeoTIFF файла.
+    Используется обоими handlers.
+    """
+    from datetime import datetime
+    from shapely import wkt
+    from shapely.geometry import box
+
+    uploaded_file = request_files['raster_file'][0]
+
+    # Сохраняем файл в папку uploads с уникальным именем
+    file_ext = os.path.splitext(uploaded_file['filename'])[1]
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    with open(file_path, 'wb') as f:
+        f.write(uploaded_file['body'])
+
+    try:
+        with rasterio.open(file_path) as src:
+            # Определяем границы растра
+            bounds = src.bounds
+            raster_box = box(bounds.left, bounds.bottom, bounds.right, bounds.top)
+
+            # Статистика NDVI
+            data = src.read(1)
+            valid_data = data[(data > -1.0) & (data <= 1.0) & (data != 0)]
+            ndvi_min = float(np.min(valid_data)) if len(valid_data) > 0 else None
+            ndvi_max = float(np.max(valid_data)) if len(valid_data) > 0 else None
+            ndvi_avg = float(np.mean(valid_data)) if len(valid_data) > 0 else None
+
+        # Ищем поле, которое пересекается с этим растром
+        with db_connection():
+            target_field: Optional[Field] = None
+            for field in Field.select():
+                field_geom = wkt.loads(field.geometry_wkt)
+                if field_geom.intersects(raster_box):
+                    target_field = field
+                    break
+
+            if not target_field:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                raise ValueError("Не найдено поле, соответствующее координатам этого растра")
+
+            # Создаём запись скана
+            scan = FieldScan.create(
+                field=target_field,
+                file_path=file_path,
+                filename=uploaded_file['filename'],
+                uploaded_at=datetime.now(),
+                ndvi_min=ndvi_min,
+                ndvi_max=ndvi_max,
+                ndvi_avg=ndvi_avg,
+                processed='false',
+                task_id=None
+            )
+
+            # Запускаем фоновую задачу
+            task = process_geotiff_task(file_path, target_field.id, scan.id)
+
+            # Обновляем task_id
+            scan.task_id = task.id
+            scan.save()
+
+        return {
+            "message": f"Файл принят. Обработка NDVI для поля '{target_field.name}' запущена в фоне.",
+            "task_id": task.id,
+            "field_id": target_field.id,
+            "scan_id": scan.id
+        }
+
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
+
+
+class RasterUploadHandler(tornado.web.RequestHandler):
+    """Handler для загрузки растровых файлов (GeoTIFF/NDVI) через API."""
+
+    def get_current_user(self):
+        """Получает текущий пользователь из cookie."""
+        token = self.get_secure_cookie('session_token')
+        if not token:
+            return None
+        try:
+            return get_current_user_from_token(token.decode('utf-8'))
+        except Exception:
+            return None
+
+    def post(self) -> None:
+        user = self.get_current_user()
+        if not user:
+            self.set_status(401)
+            self.write({"error": "Требуется авторизация"})
+            return
+
+        if 'raster_file' not in self.request.files:
+            self.set_status(400)
+            self.write({"error": "Отсутствует файл"})
+            return
+
+        try:
+            result = process_geotiff_file(self.request.files, UPLOAD_DIR)
+            self.write(result)
+        except Exception as e:
+            logger.error(f"Error processing raster upload: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
 class UploadHandler(tornado.web.RequestHandler):
     """Handler для загрузки файлов."""
 
@@ -137,80 +250,10 @@ class UploadHandler(tornado.web.RequestHandler):
 
     def handle_geotiff(self) -> None:
         try:
-            from datetime import datetime
-            from shapely import wkt
-            from shapely.geometry import box
-
-            uploaded_file = self.request.files['raster_file'][0]
-
-            # Сохраняем файл в папку uploads с уникальным именем
-            file_ext = os.path.splitext(uploaded_file['filename'])[1]
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
-            file_path = os.path.join(UPLOAD_DIR, unique_filename)
-
-            with open(file_path, 'wb') as f:
-                f.write(uploaded_file['body'])
-
-            try:
-                with rasterio.open(file_path) as src:
-                    # Определяем границы растра
-                    bounds = src.bounds
-                    raster_box = box(bounds.left, bounds.bottom, bounds.right, bounds.top)
-                    
-                    # Статистика NDVI
-                    data = src.read(1)
-                    valid_data = data[(data > -1.0) & (data <= 1.0) & (data != 0)]
-                    ndvi_min = float(np.min(valid_data)) if len(valid_data) > 0 else None
-                    ndvi_max = float(np.max(valid_data)) if len(valid_data) > 0 else None
-                    ndvi_avg = float(np.mean(valid_data)) if len(valid_data) > 0 else None
-
-                # Ищем поле, которое пересекается с этим растром
-                with db_connection():
-                    target_field: Optional[Field] = None
-                    for field in Field.select():
-                        field_geom = wkt.loads(field.geometry_wkt)
-                        if field_geom.intersects(raster_box):
-                            target_field = field
-                            break
-
-                    if not target_field:
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                        raise ValueError("Не найдено поле, соответствующее координатам этого растра")
-
-                    # Создаём запись скана
-                    scan = FieldScan.create(
-                        field=target_field,
-                        file_path=file_path,
-                        filename=uploaded_file['filename'],
-                        uploaded_at=datetime.now(),
-                        ndvi_min=ndvi_min,
-                        ndvi_max=ndvi_max,
-                        ndvi_avg=ndvi_avg,
-                        processed='false',
-                        task_id=None
-                    )
-
-                    # Запускаем фоновую задачу
-                    task = process_geotiff_task(file_path, target_field.id, scan.id)
-                    
-                    # Обновляем task_id
-                    scan.task_id = task.id
-                    scan.save()
-
-                self.write({
-                    "message": f"Файл принят. Обработка NDVI для поля '{target_field.name}' запущена в фоне.",
-                    "task_id": task.id,
-                    "field_id": target_field.id,
-                    "scan_id": scan.id
-                })
-
-            except Exception as e:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                raise
-
+            result = process_geotiff_file(self.request.files, UPLOAD_DIR)
+            self.write(result)
         except Exception as e:
+            logger.error(f"Error processing geotiff: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
