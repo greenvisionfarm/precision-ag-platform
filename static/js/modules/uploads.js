@@ -79,15 +79,25 @@ export function initRasterUpload() {
       processData: false,
       contentType: false,
       success: (res) => {
-        statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> NDVI загружен!");
+        statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> NDVI загружен! Обработка зон...");
         window.loadMapData?.();
+
+        // Если открыта детальная страница поля, обновляем сканы
+        if (window.loadFieldScans && res.field_id) {
+          setTimeout(() => {
+            window.loadFieldScans(res.field_id);
+          }, 2000); // Ждем 2 секунды чтобы worker успел обработать
+        }
+
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
         btn.hide();
         setTimeout(() => {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
-        }, 3000);
+        }, 5000);
+
+        showMessage(`NDVI файл загружен. Зоны появятся через несколько секунд.`, "success");
       },
       error: (xhr) => {
         const err = xhr.responseJSON?.error || "Ошибка загрузки";

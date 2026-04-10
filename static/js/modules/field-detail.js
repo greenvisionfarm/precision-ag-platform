@@ -313,3 +313,4 @@ function renderZonesStats(zones) {
 // Делаем функции глобальными для onclick handlers
 window.selectScan = selectScan;
 window.deleteScan = deleteScan;
+window.loadFieldScans = loadFieldScans;
