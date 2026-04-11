@@ -22,33 +22,33 @@ export function handleRoute(forcedHash) {
     $('.nav-link').removeClass('active');
 
     if (hash === '#map') {
-        $('#view-map').removeClass('hidden');
+        $('#view-map').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#map"]').addClass('active');
         window.MapManager?.instance?.invalidateSize();
         // Загружаем данные полей на карту
         loadMapData();
     } else if (hash === '#fields') {
-        $('#view-fields').removeClass('hidden');
+        $('#view-fields').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#fields"]').addClass('active');
         // Прямой вызов — не через window.*
         initFieldsTable();
     } else if (hash.startsWith('#field/')) {
         const fieldId = hash.split('/')[1];
-        $('#view-field-detail').removeClass('hidden');
+        $('#view-field-detail').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#fields"]').addClass('active');
         showFieldDetail(fieldId);
     } else if (hash === '#owners') {
-        $('#view-owners').removeClass('hidden');
+        $('#view-owners').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#owners"]').addClass('active');
         // Прямой вызов — не через window.*
         initOwnersTable();
     } else if (hash === '#stats') {
-        $('#view-stats').removeClass('hidden');
+        $('#view-stats').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#stats"]').addClass('active');
         // Прямой вызов — не через window.*
         initStatsView();
     } else if (hash === '#uploads') {
-        $('#view-uploads').removeClass('hidden');
+        $('#view-uploads').removeClass('hidden').css('display', 'flex');
         $('.nav-link[href="#uploads"]').addClass('active');
     }
 }
