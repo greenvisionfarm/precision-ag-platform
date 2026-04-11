@@ -126,14 +126,37 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         # Применяем медианный фильтр для удаления шума
         labels = ndimage.median_filter(labels, size=5)
 
-        # Заполняем мелкие отверстия в зонах
+        # Собираем маски всех зон после морфологической обработки
+        zone_masks = []
         for i in range(num_zones):
             zone_mask = (labels == i).astype(np.uint8)
             # Морфологическое закрытие для объединения близких областей
             zone_mask = ndimage.binary_closing(zone_mask, structure=np.ones((7,7)))
             # Заполняем отверстия
             zone_mask = ndimage.binary_fill_holes(zone_mask).astype(np.uint8)
-            labels[zone_mask == 1] = i
+            zone_masks.append(zone_mask)
+
+        # Рассчитываем расстояния до каждой зоны для разрешения перекрытий и заполнения пустот
+        from scipy.ndimage import distance_transform_edt
+
+        # Создаём массив расстояний до каждой зоны
+        distance_maps = []
+        for i in range(num_zones):
+            # distance_transform_edt возвращает расстояние до ближайшего ненулевого пикселя
+            dist = distance_transform_edt(zone_masks[i] == 0)
+            distance_maps.append(dist)
+
+        # Разрешаем перекрытия: для каждого пикселя выбираем зону с минимальным расстоянием
+        # Сначала создаём финальный массив с -1
+        final_labels = np.full(labels.shape, -1, dtype=np.int16)
+
+        # Для каждого пикселя выбираем ближайшую зону
+        distance_stack = np.stack(distance_maps, axis=0)  # (num_zones, H, W)
+        final_labels = np.argmin(distance_stack, axis=0).astype(np.int16)
+
+        logger.info("Морфологическая обработка завершена: перекрытия устранены, все пиксели распределены")
+
+        labels = final_labels
 
         # 5. Векторизация с агрегацией
         results = []

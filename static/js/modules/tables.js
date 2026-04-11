@@ -135,12 +135,12 @@ function _createFieldsTable() {
 function setupTableEvents() {
     const tb = $('#fields-table tbody');
 
-    // Клик по ячейке — открытие модалки
+    // Клик по ячейке — переход на страницу поля
     tb.on('click', 'td', function(e) {
         if ($(e.target).closest('.btn-group, select, input, .editable-name, .editable-parcel').length) return;
         const r = fieldsTable.row($(this).closest('tr')).data();
         if (r?.id) {
-            openFieldModal(r.id);
+            window.location.hash = `#field/${r.id}`;
         }
     });
 

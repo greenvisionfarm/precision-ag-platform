@@ -9,7 +9,11 @@ import API from './api.js';
  */
 export function loadMapData() {
   API.getFields().then(data => {
-    window.MapManager.renderFields(data, window.downloadKmzWithSettings, window.openFieldModal);
+    // При клике на поле сразу переходим на страницу поля
+    const onFieldClick = (fieldId) => {
+      window.location.hash = `#field/${fieldId}`;
+    };
+    window.MapManager.renderFields(data, window.downloadKmzWithSettings, onFieldClick);
   }).catch(err => {
     console.error('[map-callbacks] loadMapData ошибка:', err);
   });
