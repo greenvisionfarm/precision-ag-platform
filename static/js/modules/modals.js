@@ -70,28 +70,29 @@ export function downloadKmzWithSettings(fieldId) {
   Swal.fire({
     title: "Настройки DJI KMZ",
     html: `
-      <div class="text-left">
-        <div class="swal-form-group">
-          <label>Высота полета (м):</label>
+      <div class="kmz-settings-grid">
+        <div class="kmz-field">
+          <label for="swal-h">Высота полета (м):</label>
           <input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="150">
           <small>Высота над точкой взлета. Для NDVI оптимально 100-120м.</small>
         </div>
-        <div class="swal-form-group">
-          <label>Фронтальное перекрытие (%):</label>
+        <div class="kmz-field">
+          <label for="swal-oh">Фронтальное перекрытие (%):</label>
           <input type="number" id="swal-oh" class="swal2-input" value="80" min="40" max="90">
           <small>Наложение снимков по ходу движения. Нужно 75-80%.</small>
         </div>
-        <div class="swal-form-group">
-          <label>Боковое перекрытие (%):</label>
+        <div class="kmz-field">
+          <label for="swal-ow">Боковое перекрытие (%):</label>
           <input type="number" id="swal-ow" class="swal2-input" value="70" min="40" max="90">
           <small>Наложение между проходами (галсами). Обычно 70-75%.</small>
         </div>
-        <div class="swal-form-group">
-          <label>Угол курса (град):</label>
+        <div class="kmz-field">
+          <label for="swal-dir">Угол курса (град):</label>
           <input type="number" id="swal-dir" class="swal2-input" value="0" min="0" max="360">
           <small>Направление полета. 0 - север, 90 - восток.</small>
         </div>
       </div>`,
+    width: "700px",
     focusConfirm: false,
     preConfirm: () => {
       return {
@@ -104,10 +105,10 @@ export function downloadKmzWithSettings(fieldId) {
   }).then(res => {
     if (res.isConfirmed) {
       const p = res.value;
-      const url = "/api/field/export/kmz/" + fieldId + 
-        "?height=" + p.height + 
-        "&overlap_h=" + p.oh + 
-        "&overlap_w=" + p.ow + 
+      const url = "/api/field/export/kmz/" + fieldId +
+        "?height=" + p.height +
+        "&overlap_h=" + p.oh +
+        "&overlap_w=" + p.ow +
         "&direction=" + p.dir;
       window.location.href = url;
     }
