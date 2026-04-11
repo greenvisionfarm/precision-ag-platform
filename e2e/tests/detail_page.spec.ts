@@ -13,21 +13,16 @@ test.describe('Страница детали поля', () => {
   test('должна открывать страницу детали поля через хеш', async ({ authenticatedPage }) => {
     const page = authenticatedPage;
 
-    // Сначала переходим на страницу полей чтобы данные загрузились
     await page.goto('/#fields');
     await page.waitForTimeout(2000);
-
-    // Ждём пока таблица загрузится
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    // Кликаем по первой строке (переход на detail)
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    // Кликаем по TD (обработчик на td, не на tr)
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
 
-    // Ждём перехода на detail
     await page.waitForTimeout(2000);
 
-    // Проверяем что view-field-detail видим
     await expect(page.locator('#view-field-detail')).toBeVisible({ timeout: 5000 });
   });
 
@@ -38,14 +33,12 @@ test.describe('Страница детали поля', () => {
     await page.waitForTimeout(2000);
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
     await page.waitForTimeout(2000);
 
-    // Проверяем что back-link виден
     await expect(page.locator('.back-link')).toBeVisible();
 
-    // Проверяем что detail-header имеет flex-direction: column
     const headerContainer = page.locator('.detail-header');
     await expect(headerContainer).toBeVisible();
 
@@ -68,11 +61,10 @@ test.describe('Страница детали поля', () => {
     await page.waitForTimeout(2000);
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
     await page.waitForTimeout(3000);
 
-    // Проверяем что секция сканов существует
     const scansSelector = page.locator('#scans-selector');
     const exists = await scansSelector.count();
     expect(exists).toBeGreaterThan(0);
@@ -85,19 +77,16 @@ test.describe('Страница детали поля', () => {
     await page.waitForTimeout(2000);
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
     await page.waitForTimeout(2000);
 
-    // Проверяем что контейнер кнопок существует и видим
     const fieldActions = page.locator('.field-actions');
     await expect(fieldActions).toBeVisible();
 
-    // Проверяем display: flex
     const actionsStyle = await fieldActions.evaluate(el => window.getComputedStyle(el).display);
     expect(actionsStyle).toBe('flex');
 
-    // Должно быть 2 кнопки
     const buttons = fieldActions.locator('.btn');
     await expect(buttons).toHaveCount(2);
   });
@@ -109,11 +98,10 @@ test.describe('Страница детали поля', () => {
     await page.waitForTimeout(2000);
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
     await page.waitForTimeout(3000);
 
-    // zones-stats может быть виден или скрыт
     const zonesStats = page.locator('#zones-stats');
     const visible = await zonesStats.isVisible().catch(() => false);
 

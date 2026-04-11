@@ -40,11 +40,11 @@ test.describe('Страница загрузок', () => {
     await page.goto('/#uploads');
     await page.waitForTimeout(1000);
 
-    // Кнопка изначально скрыта
+    // Кнопка изначально скрыта (класс hidden)
     const uploadButton = page.locator('#upload-button');
-    await expect(uploadButton).toBeHidden();
+    await expect(uploadButton).toHaveClass(/hidden/);
 
-    // Выбираем файл и триггерим change event
+    // Выбираем файл
     const fileInput = page.locator('#shapefile-input');
     await fileInput.setInputFiles({
       name: 'test.zip',
@@ -52,9 +52,7 @@ test.describe('Страница загрузок', () => {
       buffer: Buffer.from('PK test')
     });
 
-    // Ждём что кнопка появится
-    await page.waitForTimeout(500);
-    // Кнопка должна появиться (force т.к. может быть hidden через class а не style)
+    // Кнопка должна потерять класс hidden
     await expect(uploadButton).not.toHaveClass(/hidden/);
   });
 
@@ -65,7 +63,7 @@ test.describe('Страница загрузок', () => {
     await page.waitForTimeout(1000);
 
     const uploadButton = page.locator('#raster-upload-button');
-    await expect(uploadButton).toBeHidden();
+    await expect(uploadButton).toHaveClass(/hidden/);
 
     // Выбираем файл
     const fileInput = page.locator('#raster-input');
@@ -75,7 +73,6 @@ test.describe('Страница загрузок', () => {
       buffer: Buffer.from('II\\x2a\\x00 test')
     });
 
-    await page.waitForTimeout(500);
     await expect(uploadButton).not.toHaveClass(/hidden/);
   });
 
@@ -86,7 +83,7 @@ test.describe('Страница загрузок', () => {
     await page.waitForTimeout(1000);
 
     const uploadButton = page.locator('#drone-upload-button');
-    await expect(uploadButton).toBeHidden();
+    await expect(uploadButton).toHaveClass(/hidden/);
 
     // Выбираем файл
     const fileInput = page.locator('#drone-input');
@@ -96,7 +93,6 @@ test.describe('Страница загрузок', () => {
       buffer: Buffer.from('PK drone')
     });
 
-    await page.waitForTimeout(500);
     await expect(uploadButton).not.toHaveClass(/hidden/);
   });
 

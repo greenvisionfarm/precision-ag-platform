@@ -41,20 +41,17 @@ test.describe('Модальные окна', () => {
   test('модалка поля должна содержать карту и кнопки при клике на строку таблицы', async ({ authenticatedPage }) => {
     const page = authenticatedPage;
 
-    // Переходим на страницу полей
     await page.goto('/#fields');
     await page.waitForTimeout(2000);
     await page.waitForSelector('#fields-table tbody tr', { timeout: 10000 });
 
-    // Кликаем по кнопке "Детали" или по строке (переход на detail)
-    const firstRow = page.locator('#fields-table tbody tr').first();
-    await firstRow.click();
+    // Кликаем по TD чтобы перейти на detail
+    const firstTD = page.locator('#fields-table tbody tr').first().locator('td').first();
+    await firstTD.click();
     await page.waitForTimeout(2000);
 
-    // Проверяем что detail открылся
     await expect(page.locator('#view-field-detail')).toBeVisible({ timeout: 5000 });
 
-    // Проверяем что кнопка экспорта KMZ есть
     await expect(page.locator('#detail-export-kmz')).toBeVisible();
     await expect(page.locator('#detail-export-isoxml')).toBeVisible();
   });

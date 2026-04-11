@@ -11,7 +11,8 @@ export function initShapefileUpload() {
   $("#shapefile-input").on("change", function() {
     const fileName = this.files[0]?.name || "Выберите ZIP файл";
     $(this).siblings(".file-input-label").html(`<i class="fas fa-file-archive"></i> ${fileName}`);
-    $("#upload-button").toggle(this.files.length > 0);
+    const hasFiles = this.files.length > 0;
+    $("#upload-button").toggleClass("hidden", !hasFiles).css("display", hasFiles ? "" : "");
   });
 
   $("#upload-form").on("submit", function(e) {
@@ -35,7 +36,7 @@ export function initShapefileUpload() {
         window.getFieldsTable?.()?.ajax.reload();
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP файл');
-        btn.hide();
+        btn.addClass("hidden");
         setTimeout(() => {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
@@ -57,7 +58,8 @@ export function initRasterUpload() {
   $("#raster-input").on("change", function() {
     const fileName = this.files[0]?.name || "Выберите TIF файл";
     $(this).siblings(".file-input-label").html(`<i class="fas fa-file-image"></i> ${fileName}`);
-    $("#raster-upload-button").toggle(this.files.length > 0);
+    const hasFiles = this.files.length > 0;
+    $("#raster-upload-button").toggleClass("hidden", !hasFiles).css("display", hasFiles ? "" : "");
   });
 
   $("#raster-upload-form").on("submit", function(e) {
@@ -91,7 +93,7 @@ export function initRasterUpload() {
 
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
-        btn.hide();
+        btn.addClass("hidden");
         setTimeout(() => {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
@@ -126,8 +128,9 @@ export function initDroneUpload() {
       fileName = "Выберите ZIP или снимки";
     }
     
+    const hasFiles = this.files.length > 0;
     $(this).siblings(".file-input-label").html(`<i class="fas fa-file-archive"></i> ${fileName}`);
-    $("#drone-upload-button").toggle(this.files.length > 0);
+    $("#drone-upload-button").toggleClass("hidden", !hasFiles).css("display", hasFiles ? "" : "");
   });
 
   // Заполняем список полей
@@ -170,7 +173,7 @@ export function initDroneUpload() {
         
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP или снимки');
-        btn.hide();
+        btn.addClass("hidden");
       },
       error: (xhr) => {
         const err = xhr.responseJSON?.error || "Ошибка загрузки";

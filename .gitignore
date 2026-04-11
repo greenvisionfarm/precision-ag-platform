@@ -79,3 +79,4 @@ playwright/.cache/
 # AI Contexts (temporary files)
 .qwen/*.tmp
 .ai-contexts/*.tmp
+debug-detail.png
