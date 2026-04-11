@@ -124,7 +124,7 @@ const AuthModule = (function() {
         settingsModal.className = 'modal-overlay';
         settingsModal.id = 'settings-modal';
         settingsModal.innerHTML = `
-            <div class="modal" style="max-width: 500px;">
+            <div class="modal">
                 <div class="modal-header">
                     <h2 data-i18n="settings.title">Настройки</h2>
                     <button class="modal-close" onclick="AuthModule.closeSettings()">&times;</button>
@@ -265,7 +265,7 @@ const AuthModule = (function() {
                     <i class="fas fa-language"></i>
                     <span data-i18n="settings.language">Язык</span>
                 </div>
-                <div style="border-top: 1px solid #e0e0e0; margin: 5px 0;"></div>
+                <div class="auth-divider"></div>
                 <div class="user-dropdown-item" onclick="AuthModule.logout()">
                     <i class="fas fa-sign-out-alt"></i>
                     <span data-i18n="nav.logout">Выйти</span>

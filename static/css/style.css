@@ -25,14 +25,41 @@
     --success-hover: #218838;
     --warning-color: #ffc107;
     --danger-color: #dc3545;
-    
+    --danger-hover: #c82333;
+    --info-color: #17a2b8;
+    --info-hover: #138496;
+
+    /* Цвета зон NDVI */
+    --zone-low: #ff4d4d;
+    --zone-medium: #ffcc00;
+    --zone-high: #2eb82e;
+    --zone-default: #808080;
+
     /* Размеры и отступы */
+    --radius-sm: 6px;
     --radius: 8px;
-    --spacing-xs: 5px;
-    --spacing-sm: 10px;
-    --spacing-md: 15px;
-    --spacing-lg: 20px;
-    --spacing-xl: 2rem;
+    --radius-lg: 12px;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    --spacing-2xl: 32px;
+
+    /* Типографика */
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.5rem;
+    --font-size-2xl: 1.875rem;
+
+    /* Кнопки */
+    --btn-padding-sm: 5px 10px;
+    --btn-padding: 10px 20px;
+    --btn-font-weight: 500;
+    --btn-transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
 }
 
 [data-theme="dark"] {
@@ -74,9 +101,14 @@ body.sidebar-open {
 
 h1, h2, h3 {
     margin-top: 0;
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
     font-weight: 600;
+    color: var(--text-color);
 }
+
+h1 { font-size: var(--font-size-2xl); margin-bottom: var(--spacing-lg); }
+h2 { font-size: var(--font-size-xl); }
+h3 { font-size: var(--font-size-lg); }
 
 /* Основной контент */
 .main-content {
@@ -249,13 +281,12 @@ body.sidebar-open #sidebar-toggle {
 }
 
 /* Карточки и контейнеры таблиц */
-#fields-table-container, 
-#owners-table-container, 
+#fields-table-container,
+#owners-table-container,
 #add-owner-section,
 #upload-section {
     background-color: var(--card-bg);
     padding: var(--spacing-xl);
-    width: 100%;
     border-radius: var(--radius);
     box-shadow: var(--card-shadow);
     margin-bottom: var(--spacing-lg);
@@ -264,33 +295,50 @@ body.sidebar-open #sidebar-toggle {
 
 /* Кнопки */
 .btn {
-    padding: 10px 20px;
+    padding: var(--btn-padding);
     border-radius: var(--radius);
     cursor: pointer;
-    font-weight: 500;
+    font-weight: var(--btn-font-weight);
+    font-size: var(--font-size-sm);
     border: none;
     text-decoration: none;
-    transition: background-color 0.2s, transform 0.1s;
+    transition: var(--btn-transition);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--spacing-sm);
+    line-height: 1.5;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
 }
 
 .btn-primary { background-color: var(--primary-color); color: white; }
+.btn-primary:hover { background-color: var(--primary-hover); color: white; }
 .btn-success { background-color: var(--success-color); color: white; }
+.btn-success:hover { background-color: var(--success-hover); color: white; }
 .btn-danger { background-color: var(--danger-color); color: white; }
-.btn-outline-primary { 
-    background-color: transparent; 
-    color: var(--primary-color); 
-    border: 1px solid var(--primary-color); 
+.btn-danger:hover { background-color: var(--danger-hover); color: white; }
+.btn-info { background-color: var(--info-color); color: white; }
+.btn-info:hover { background-color: var(--info-hover); color: white; }
+
+.btn-outline-primary {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
 }
-.btn-outline-primary:hover { 
-    background-color: var(--primary-color); 
-    color: white; 
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    color: white;
 }
 
-.btn-sm { padding: 5px 10px; font-size: 0.9rem; min-width: 32px; min-height: 32px; }
+.btn-sm { padding: var(--btn-padding-sm); font-size: var(--font-size-xs); min-width: 32px; min-height: 32px; }
 
 /* Кнопки в таблицах */
 .btn-group {
@@ -318,7 +366,7 @@ body.sidebar-open #sidebar-toggle {
     & .form-group {
         display: flex;
         flex-direction: column;
-        margin-bottom: 1rem;
+        margin-bottom: var(--spacing-md);
 
         & #owner-name {
             width: 30%;
@@ -365,11 +413,11 @@ table.dataTable.display tbody tr:hover td {
 
 .edit-input {
     width: 100%;
-    padding: 4px;
+    padding: var(--spacing-xs);
     background-color: var(--input-bg);
     color: var(--text-color);
     border: 1px solid var(--primary-color);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
 }
 
 /* Переключатель темы */
@@ -403,24 +451,24 @@ table.dataTable.display tbody tr:hover td {
 
 .stat-card {
     background-color: var(--card-bg);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl);
     border-radius: var(--radius);
     box-shadow: var(--card-shadow);
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--spacing-xs);
 }
 
 .stat-label {
-    font-size: 0.9rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .stat-value {
-    font-size: 1.8rem;
+    font-size: var(--font-size-xl);
     font-weight: bold;
     color: var(--primary-color);
 }
@@ -433,7 +481,7 @@ table.dataTable.display tbody tr:hover td {
 
 .chart-box {
     background-color: var(--card-bg);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl);
     border-radius: var(--radius);
     box-shadow: var(--card-shadow);
     max-height: 300px;
@@ -441,11 +489,46 @@ table.dataTable.display tbody tr:hover td {
 
 .chart-box h3 {
     margin-bottom: var(--spacing-md);
-    font-size: 1.1rem;
+    font-size: var(--font-size-base);
     text-align: center;
 }
 
-/* Мобильная адаптация статистики */
+/* ==========================================================================
+   Утилиты
+   ========================================================================== */
+
+.hidden { display: none !important; }
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+.gap-lg { gap: var(--spacing-lg); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
+.mb-lg { margin-bottom: var(--spacing-lg); }
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.w-full { width: 100%; }
+
+
+/* Заголовок страницы с кнопкой действия */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.page-header h1 {
+    margin-bottom: 0;
+}
+/* ==========================================================================
+   Мобильная адаптация статистики */
 @media (max-width: 768px) {
     .charts-container {
         grid-template-columns: 1fr;
@@ -548,29 +631,8 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .field-actions .btn {
-    padding: 10px 16px;
-    font-size: 14px;
-}
-
-.btn-action {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 12px 20px;
-    border-radius: var(--radius);
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
-    flex: 1;
-}
-
-.btn-danger {
-    background-color: var(--danger-color);
-    color: white;
-    padding: 12px 20px;
-    border-radius: var(--radius);
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
 }
 
 /* Статистика зон внесения */
@@ -634,13 +696,13 @@ table.dataTable.display tbody tr:hover td {
 .legend-color {
     width: 20px;
     height: 20px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     margin-right: var(--spacing-sm);
     border: 1px solid var(--border-color);
 }
 
 .legend-label {
-    font-size: 14px;
+    font-size: var(--font-size-sm);
     color: var(--text-color);
 }
 
@@ -692,7 +754,7 @@ table.dataTable.display tbody tr:hover td {
     align-items: center;
     gap: var(--spacing-sm);
     flex: 1;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
 }
 
 .scan-status {
@@ -705,13 +767,13 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .scan-zones {
-    color: var(--muted-text);
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
 }
 
 .scan-ndvi {
-    color: var(--muted-text);
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
 }
 
 .btn-delete-scan {
@@ -722,7 +784,7 @@ table.dataTable.display tbody tr:hover td {
     cursor: pointer;
     border-radius: var(--radius);
     transition: all 0.2s;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
 }
 
 .btn-delete-scan:hover {
@@ -755,7 +817,7 @@ table.dataTable.display tbody tr:hover td {
     padding: var(--spacing-xs);
     border-radius: var(--radius);
     transition: background-color 0.2s;
-    font-size: 18px;
+    font-size: var(--font-size-lg);
 }
 
 .btn-icon:hover {
@@ -842,7 +904,7 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .upload-icon {
-    font-size: 3rem;
+    font-size: var(--font-size-2xl);
     color: var(--primary-color);
     margin-bottom: var(--spacing-md);
 }
@@ -850,7 +912,7 @@ table.dataTable.display tbody tr:hover td {
 .upload-description {
     color: var(--text-muted);
     margin-bottom: var(--spacing-lg);
-    font-size: 0.9rem;
+    font-size: var(--font-size-sm);
 }
 
 .upload-form {
@@ -928,7 +990,7 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .drone-options label {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     font-weight: 500;
 }
@@ -974,7 +1036,7 @@ table.dataTable.display tbody tr:hover td {
 
 .progress-text {
     text-align: center;
-    font-size: 0.85rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     margin-top: var(--spacing-xs);
 }

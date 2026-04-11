@@ -95,7 +95,7 @@ function _createFieldsTable() {
                     data: null,
                     render: (d, t, r) => `<div class="btn-group">
                         <button onclick="window.downloadKmzWithSettings(${r.id})" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog"></i></button>
-                        <button class="btn-save-details btn-success btn-sm" data-id="${r.id}" style="display:none;"><i class="fas fa-save"></i></button>
+                        <button class="btn-save-details btn-success btn-sm hidden" data-id="${r.id}"><i class="fas fa-save"></i></button>
                         <button class="btn-delete btn-danger btn-sm" data-id="${r.id}"><i class="fas fa-trash"></i></button>
                     </div>`
                 }

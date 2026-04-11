@@ -48,15 +48,15 @@
         </div>
 
         <!-- View: Список полей -->
-        <div id="view-fields" class="view-section" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div id="view-fields" class="view-section hidden">
+            <div class="page-header">
                 <h1>Список Полей</h1>
                 <a href="/api/field/export/kmz/all" class="btn btn-primary" title="Скачать все поля в формате KMZ (ZIP архив)">
                     <i class="fas fa-file-export"></i> Экспортировать всё (.ZIP)
                 </a>
             </div>
             <div id="fields-table-container">
-                <table id="fields-table" class="display" style="width:100%">
+                <table id="fields-table" class="display w-full">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -74,7 +74,7 @@
         </div>
 
         <!-- View: Детали поля -->
-        <div id="view-field-detail" class="view-section" style="display: none;">
+        <div id="view-field-detail" class="view-section hidden">
             <div class="header-with-back">
                 <a href="#fields" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку</a>
                 <h1 id="field-detail-name">Детали поля</h1>
@@ -96,7 +96,7 @@
                             <i class="fas fa-expand"></i>
                         </button>
                     </div>
-                    <div id="scans-selector" class="scans-selector" style="display: none;">
+                    <div id="scans-selector" class="scans-selector hidden">
                         <label><i class="fas fa-satellite"></i> Снимки NDVI:</label>
                         <div id="scan-list" class="scan-list"></div>
                     </div>
@@ -133,7 +133,7 @@
         </div>
 
         <!-- View: Владельцы -->
-        <div id="view-owners" class="view-section" style="display: none;">
+        <div id="view-owners" class="view-section hidden">
             <h1>Управление Владельцами</h1>
             <div id="add-owner-section">
                 <h3>Добавить владельца</h3>
@@ -146,7 +146,7 @@
                 </form>
             </div>
             <div id="owners-table-container">
-                <table id="owners-table" class="display" style="width:100%">
+                <table id="owners-table" class="display w-full">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -160,7 +160,7 @@
         </div>
 
         <!-- View: Статистика -->
-        <div id="view-stats" class="view-section" style="display: none;">
+        <div id="view-stats" class="view-section hidden">
             <h1>Аналитика земельного банка</h1>
 
             <div class="stats-grid">
@@ -187,7 +187,7 @@
         </div>
 
         <!-- View: Загрузки -->
-        <div id="view-uploads" class="view-section" style="display: none;">
+        <div id="view-uploads" class="view-section hidden">
             <h1>Загрузка Данных</h1>
             
             <div class="uploads-container">
@@ -205,7 +205,7 @@
                                 <i class="fas fa-file-upload"></i> Выберите ZIP файл
                             </label>
                         </div>
-                        <button type="submit" id="upload-button" class="btn btn-primary" style="display: none;">
+                        <button type="submit" id="upload-button" class="btn btn-primary hidden">
                             <i class="fas fa-upload"></i> Загрузить
                         </button>
                     </form>
@@ -245,12 +245,12 @@
                                 <option value="grass">Трава</option>
                             </select>
                         </div>
-                        <button type="submit" id="drone-upload-button" class="btn btn-primary" style="display: none;">
+                        <button type="submit" id="drone-upload-button" class="btn btn-primary hidden">
                             <i class="fas fa-upload"></i> Загрузить и обработать
                         </button>
                     </form>
                     <div id="drone-upload-status" class="upload-status"></div>
-                    <div id="drone-progress" class="upload-progress" style="display: none;">
+                    <div id="drone-progress" class="upload-progress hidden">
                         <div class="progress-bar">
                             <div class="progress-fill"></div>
                         </div>
@@ -272,7 +272,7 @@
                                 <i class="fas fa-file-upload"></i> Выберите TIF файл
                             </label>
                         </div>
-                        <button type="submit" id="raster-upload-button" class="btn btn-primary" style="display: none;">
+                        <button type="submit" id="raster-upload-button" class="btn btn-primary hidden">
                             <i class="fas fa-upload"></i> Загрузить
                         </button>
                     </form>

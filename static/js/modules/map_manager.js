@@ -55,7 +55,7 @@ const MapManager = {
           });
         } else {
           const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + " га" : "N/A";
-          layer.bindPopup(`<b>${props.name || "Поле"}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz" data-id="${props.db_id}" style="width:100%"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
+          layer.bindPopup(`<b>${props.name || "Поле"}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz w-full" data-id="${props.db_id}"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
         }
 
         MapManager.editableLayers.addLayer(layer);
