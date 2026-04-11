@@ -18,37 +18,37 @@ export function handleRoute(forcedHash) {
     document.body.setAttribute('data-route', hash);
 
     // Скрываем все секции и деактивируем навигацию
-    $('.view-section').hide();
+    $('.view-section').addClass('hidden');
     $('.nav-link').removeClass('active');
 
     if (hash === '#map') {
-        $('#view-map').show();
+        $('#view-map').removeClass('hidden');
         $('.nav-link[href="#map"]').addClass('active');
         window.MapManager?.instance?.invalidateSize();
         // Загружаем данные полей на карту
         loadMapData();
     } else if (hash === '#fields') {
-        $('#view-fields').show();
+        $('#view-fields').removeClass('hidden');
         $('.nav-link[href="#fields"]').addClass('active');
         // Прямой вызов — не через window.*
         initFieldsTable();
     } else if (hash.startsWith('#field/')) {
         const fieldId = hash.split('/')[1];
-        $('#view-field-detail').show();
+        $('#view-field-detail').removeClass('hidden');
         $('.nav-link[href="#fields"]').addClass('active');
         showFieldDetail(fieldId);
     } else if (hash === '#owners') {
-        $('#view-owners').show();
+        $('#view-owners').removeClass('hidden');
         $('.nav-link[href="#owners"]').addClass('active');
         // Прямой вызов — не через window.*
         initOwnersTable();
     } else if (hash === '#stats') {
-        $('#view-stats').show();
+        $('#view-stats').removeClass('hidden');
         $('.nav-link[href="#stats"]').addClass('active');
         // Прямой вызов — не через window.*
         initStatsView();
     } else if (hash === '#uploads') {
-        $('#view-uploads').show();
+        $('#view-uploads').removeClass('hidden');
         $('.nav-link[href="#uploads"]').addClass('active');
     }
 }

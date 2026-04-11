@@ -16,7 +16,7 @@ test.describe('Таблица полей после авторизации', () 
       console.log(`[BROWSER ERROR] ${err.message}`);
     });
 
-    // Переходим на страницу полей
+    // Переходим на страницу полей — handleRoute по хешу должен показать view
     await page.goto('/#fields');
     await page.waitForTimeout(3000);
 
@@ -24,14 +24,7 @@ test.describe('Таблица полей после авторизации', () 
     const bodyRoute = await page.locator('body').getAttribute('data-route');
     console.log('body data-route:', bodyRoute);
 
-    // Если #fields не виден — кликаем на навигацию
-    const fieldsVisible = await page.locator('#view-fields').isVisible().catch(() => false);
-    if (!fieldsVisible) {
-      await page.locator('.nav-link[href="#fields"]').click();
-      await page.waitForTimeout(1000);
-    }
-
-    // Проверяем что #view-fields видим
+    // Проверяем что #view-fields видим (роутер должен показать его по хешу)
     await expect(page.locator('#view-fields')).toBeVisible({ timeout: 5000 });
 
     // Проверяем что таблица есть в DOM
