@@ -51,9 +51,11 @@
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-base: 1rem;
+    --font-size-md: 1.0625rem;
     --font-size-lg: 1.125rem;
     --font-size-xl: 1.5rem;
     --font-size-xxl: 1.875rem;
+    --font-size-2xl: 2.25rem;
 
     /* Доп цвета */
     --card-header-bg: #f8f9fa;
@@ -70,17 +72,18 @@
     --bg-color: #121212;
     --text-color: #e0e0e0;
     --text-muted: #a0a0a0;
-    
+
     --sidebar-bg: #1e1e1e;
     --sidebar-link: #4da3ff;
-    
+
     --card-bg: #1e1e1e;
     --card-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    
+    --card-header-bg: #2a2a2a;
+
     --border-color: #333333;
     --input-bg: #2d2d2d;
     --input-border: #444444;
-    
+
     --table-header-bg: #2d2d2d;
     --hover-bg: #2a2a2a;
 }
@@ -828,16 +831,19 @@ table.dataTable.display tbody tr:hover td {
     align-items: center;
     gap: var(--spacing-sm);
     flex: 1;
+    flex-wrap: wrap;
     font-size: var(--font-size-sm);
 }
 
 .scan-status {
     font-weight: bold;
     color: var(--success-color);
+    font-size: var(--font-size-base);
 }
 
 .scan-date {
     color: var(--text-color);
+    font-weight: 500;
 }
 
 .scan-zones {
@@ -846,8 +852,12 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .scan-ndvi {
-    color: var(--text-muted);
-    font-size: var(--font-size-xs);
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    background-color: rgba(13, 110, 253, 0.08);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
 }
 
 .btn-delete-scan {
