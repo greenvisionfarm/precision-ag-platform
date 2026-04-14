@@ -80,3 +80,6 @@ playwright/.cache/
 .qwen/*.tmp
 .ai-contexts/*.tmp
 debug-detail.png
+
+# Qwen Context
+.qwen/QWEN.md

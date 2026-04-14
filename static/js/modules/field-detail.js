@@ -8,6 +8,7 @@ import API from './api.js';
 // Текущий выбранный скан
 let currentScanId = null;
 let currentFieldId = null;
+let processingPollInterval = null;
 
 /**
  * Показывает детальную информацию о поле.
@@ -15,6 +16,12 @@ let currentFieldId = null;
  */
 export function showFieldDetail(id) {
   currentFieldId = id;
+
+  // Очищаем polling если был запущен
+  if (processingPollInterval) {
+    clearInterval(processingPollInterval);
+    processingPollInterval = null;
+  }
   
   API.getField(id).then(field => {
     $("#field-detail-name").text(field.name);
@@ -53,12 +60,10 @@ export function showFieldDetail(id) {
     });
 
     // Инициализация карты
-    window.MapManager.initDetailMap("field-detail-map", field.geometry, field.zones);
+    // Не рисуем зоны из getField() - они будут загружены из сканов
+    window.MapManager.initDetailMap("field-detail-map", field.geometry, []);
 
-    // Отображение статистики зон
-    renderZonesStats(field.zones);
-
-    // Загрузка списка сканов
+    // Загрузка списка сканов (зоны будут отрисованы оттуда)
     loadFieldScans(id);
 
     // Обработчик полноэкранного режима
@@ -133,12 +138,19 @@ function loadFieldScans(fieldId) {
 
     if (scans.length === 0) {
       $("#scans-selector").hide();
+      $("#ndvi-processing-msg").hide();
       return;
     }
 
     $("#scans-selector").show();
     const $list = $("#scan-list");
     $list.empty();
+
+    // Сбрасываем currentScanId
+    currentScanId = null;
+
+    // Проверяем есть ли необработанные сканы
+    const hasProcessingScans = scans.some(scan => !scan.processed);
 
     scans.forEach((scan, index) => {
       const date = new Date(scan.uploaded_at).toLocaleDateString('ru-RU', {
@@ -166,13 +178,29 @@ function loadFieldScans(fieldId) {
 
       $list.append($item);
 
-      // Выбираем первый (последний по дате) скан
-      if (index === 0) {
+      // Выбираем первый обработанный скан с зонами
+      if (!currentScanId && scan.processed && scan.has_zones) {
         currentScanId = scan.id;
+        // Отмечаем его как активный
+        $item.addClass('active').siblings().removeClass('active');
       }
     });
 
-    // Загружаем зоны последнего скана
+    // Если не нашли обработанный скан с зонами, берем первый доступный
+    if (!currentScanId && scans.length > 0) {
+      currentScanId = scans[0].id;
+    }
+
+    // Показываем сообщение о обработке если есть необработанные сканы
+    if (hasProcessingScans && !currentScanId) {
+      $("#ndvi-processing-msg").show();
+      // Запускаем polling для проверки готовности
+      startProcessingPoll(fieldId);
+    } else {
+      $("#ndvi-processing-msg").hide();
+    }
+
+    // Загружаем зоны выбранного скана
     if (currentScanId) {
       loadScanZones(currentScanId);
     }
@@ -180,6 +208,43 @@ function loadFieldScans(fieldId) {
   }).fail(err => {
     console.error("Ошибка загрузки сканов:", err);
   });
+}
+
+/**
+ * Запускает polling для проверки готовности NDVI
+ * @param {number} fieldId - ID поля.
+ */
+function startProcessingPoll(fieldId) {
+  // Очищаем предыдущий polling если есть
+  if (processingPollInterval) {
+    clearInterval(processingPollInterval);
+  }
+
+  // Проверяем каждые 10 секунд
+  processingPollInterval = setInterval(() => {
+    API.getFieldScans(fieldId).then(data => {
+      const scans = data.scans || [];
+      const hasProcessingScans = scans.some(scan => !scan.processed);
+      const hasProcessedWithZones = scans.some(scan => scan.processed && scan.has_zones);
+
+      // Если появился обработанный скан с зонами, перезагружаем
+      if (hasProcessedWithZones) {
+        clearInterval(processingPollInterval);
+        processingPollInterval = null;
+        loadFieldScans(fieldId);
+        showMessage("NDVI обработан! Данные обновлены", "success");
+      }
+
+      // Если все сканы обработаны но нет зон, останавливаем
+      if (!hasProcessingScans) {
+        clearInterval(processingPollInterval);
+        processingPollInterval = null;
+        $("#ndvi-processing-msg").hide();
+      }
+    }).fail(err => {
+      console.error("Ошибка polling:", err);
+    });
+  }, 10000);
 }
 
 /**
@@ -246,7 +311,13 @@ function loadScanZones(scanId) {
     window.MapManager.updateZones(zones);
 
     // Обновляем статистику
-    renderZonesStats(zones);
+    if (zones.length > 0) {
+      renderZonesStats(zones);
+      $("#ndvi-processing-msg").hide();
+    } else {
+      // Зоны ещё не готовы
+      renderZonesStats([]);
+    }
 
   }).fail(err => {
     console.error("Ошибка загрузки зон:", err);

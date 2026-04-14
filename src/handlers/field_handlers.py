@@ -137,6 +137,12 @@ class FieldGetHandler(FieldApiBaseHandler):
                     FieldScan.processed == 'true'
                 ).order_by(FieldScan.uploaded_at.desc()).first()
 
+                # Если нет обработанного скана, пробуем найти любой скан (даже необработанный)
+                if not last_scan:
+                    last_scan = FieldScan.select().where(
+                        FieldScan.field == field
+                    ).order_by(FieldScan.uploaded_at.desc()).first()
+
                 # Собираем зоны из последнего скана (или все если сканов нет)
                 zones: List[Dict[str, Any]] = []
                 if last_scan:
