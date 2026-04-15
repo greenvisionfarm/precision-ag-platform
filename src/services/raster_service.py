@@ -158,51 +158,71 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
 
         labels = final_labels
 
-        # 5. Векторизация с агрегацией
+        # 5. Векторизация и топологическая очистка
         results = []
         colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
         names = ["Низкая", "Средняя", "Высокая"]
 
-        # Увеличенное упрощение для более гладких геометрий
-        simplify_tolerance = 0.0001  # Было 0.00002
+        # Увеличенное упрощение для более гладких геометрий (важно для техники)
+        simplify_tolerance = 0.0001 
 
+        # Создаем словарь для хранения геометрий каждой зоны
+        zone_geoms = {}
+        
+        # Сначала векторизуем все зоны "как есть"
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
+            shapes_gen = features.shapes(mask, mask=mask, transform=out_transform)
+            
+            polys = []
+            for s, v in shapes_gen:
+                poly = shape(s)
+                if poly.is_valid and poly.area > 0:
+                    polys.append(poly)
+            
+            if polys:
+                # Объединяем и упрощаем
+                merged = unary_union(polys)
+                simplified = merged.simplify(simplify_tolerance, preserve_topology=True)
+                zone_geoms[i] = simplified
+            else:
+                zone_geoms[i] = Polygon()
 
-            # Находим связные компоненты
-            labeled_array, num_features = ndimage.label(mask)
+        # ГАРАНТИЯ ПОКРЫТИЯ И ОТСУТСТВИЯ ПЕРЕСЕЧЕНИЙ (Layer Cake Method)
+        # Мы идем от самой важной зоны к наименее важной, вырезая части из общей площади поля
+        
+        final_zones = {}
+        # Начинаем с полной геометрии поля (упрощенной для соответствия зонам)
+        remaining_field = field_geom.simplify(simplify_tolerance, preserve_topology=True)
+        # Исправляем возможные ошибки самопересечения
+        remaining_field = remaining_field.buffer(0)
+        
+        # Обрабатываем зоны в обратном порядке: Высокая -> Средняя -> Низкая
+        # Высокая зона получает приоритет на свою форму, остальные забирают остатки
+        for i in reversed(range(num_zones)):
+            if i == 0:
+                # Последняя (Низкая) зона просто забирает всё, что осталось от поля
+                final_zones[i] = remaining_field
+            else:
+                # Текущая зона - это её геометрия, ограниченная остатком поля
+                current_zone = zone_geoms[i].intersection(remaining_field)
+                # Исправляем геометрию
+                current_zone = current_zone.buffer(0)
+                final_zones[i] = current_zone
+                # Вычитаем эту зону из остатка поля
+                remaining_field = remaining_field.difference(current_zone).buffer(0)
 
-            if num_features == 0:
-                logger.debug(f"Зона {i}: нет связных компонент")
+        # Формируем финальный результат
+        for i in range(num_zones):
+            geom = final_zones.get(i, Polygon())
+            
+            # Пропускаем пустые зоны (если вдруг такие возникли)
+            if geom.is_empty or geom.area < 1e-9:
                 continue
-
-            # Собираем все полигоны
-            all_polygons = []
-            for j in range(1, num_features + 1):
-                component_mask = (labeled_array == j).astype(np.uint8)
-                shapes_gen = features.shapes(component_mask, mask=component_mask, transform=out_transform)
-                for s, v in shapes_gen:
-                    poly = shape(s)
-                    # Фильтруем слишком мелкие полигоны
-                    # После ресемплинга площадь в градусах очень мала, поэтому используем адаптивный порог
-                    min_area = 0.00005 / (adaptive_scale * adaptive_scale)  # Адаптируем под adaptive_scale
-                    if poly.area > min_area:
-                        all_polygons.append(poly)
-
-            logger.debug(f"Зона {i}: {num_features} компонент, {len(all_polygons)} полигонов после фильтрации")
-
-            if not all_polygons:
-                continue
-
-            # Объединяем все полигоны зоны в один
-            merged = unary_union(all_polygons)
-
-            # Упрощаем геометрию для гладкости
-            simplified = merged.simplify(simplify_tolerance, preserve_topology=True)
 
             results.append({
                 "name": names[i] if i < len(names) else f"Зона {i+1}",
-                "geometry_wkt": simplified.wkt,
+                "geometry_wkt": geom.wkt,
                 "avg_ndvi": round(float(centers[sorted_indices[i]]), 3),
                 "color": colors[i] if i < len(colors) else "#808080"
             })

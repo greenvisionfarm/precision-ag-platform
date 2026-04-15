@@ -1,85 +1,71 @@
-# Python
-__pycache__/
-*.py[cod]
+
+*~
 *$py.class
-*.so
-.Python
-venv/
+# AI Contexts (temporary files)
+.ai-contexts/*.tmp
+.coverage
+# Database
+*.db
+debug-detail.png
+.deploy.env
+.docker/
+# Docker
+docs/_build/
+docs/.mkdocs/
+# Documentation build
+.DS_Store
+e2e-results/
+# E2E Results
+e2e/results/*.mp4
+e2e/results/*.png
+.env
 env/
 ENV/
-.venv
-
+.env.example
+.env.local
+GEMINI.md
+htmlcov/
+# IDE
+.idea/
+*.kmz
+# KMZ exports
+# Local config
+.local.env
+*.log
+# Logs
 # Node
 node_modules/
 npm-debug.log*
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
 # OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Uploads
-uploads/*
-!uploads/.gitkeep
-
-# Test files (GeoTIFF, KML, etc.)
-test_files/
-
-# KMZ exports
-*.kmz
-*.zip
-
-# Temporary files
-tmp/
-temp/
-.tmp/
-
-# Docker
-.docker/
-
-# Documentation build
-docs/_build/
-docs/.mkdocs/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# E2E Results
-e2e-results/
-e2e/results/*.png
-e2e/results/*.mp4
-test-results/
-playwright-report/
 playwright/.cache/
-
-# Local config
-.env
-.local.env
-.env.local
-.env.example
-.deploy.env
-
-# AI Contexts (temporary files)
-.qwen/*.tmp
-.ai-contexts/*.tmp
-debug-detail.png
-
+playwright-report/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Python
+.Python
 # Qwen Context
 .qwen/QWEN.md
+.qwen/*.tmp
+*.so
+*.sqlite
+*.sqlite3
+*.swo
+*.swp
+temp/
+# Temporary files
+test_files/
+# Test files (GeoTIFF, KML, etc.)
+# Testing
+test-results/
+Thumbs.db
+.tmp/
+tmp/
+.tox/
+uploads/*
+# Uploads
+!uploads/.gitkeep
+.venv
+venv/
+.vscode/
+*.zip
