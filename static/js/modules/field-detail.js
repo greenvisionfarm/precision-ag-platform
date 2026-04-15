@@ -58,6 +58,7 @@ export function showFieldDetail(id) {
 }
 
 /**
+ * Загружает список сканов поля.
  * @param {number} fieldId - ID поля.
  */
 function loadFieldScans(fieldId) {
@@ -74,9 +75,11 @@ function loadFieldScans(fieldId) {
     const $list = $("#scan-list");
     $list.empty();
 
+    // Сбрасываем currentScanId
     currentScanId = null;
     currentScan = null;
 
+    // Проверяем есть ли необработанные сканы
     const hasProcessingScans = allScans.some(scan => !scan.processed);
 
     allScans.forEach((scan, index) => {
@@ -105,25 +108,31 @@ function loadFieldScans(fieldId) {
 
       $list.append($item);
 
+      // Выбираем первый обработанный скан с зонами
       if (!currentScanId && scan.processed && scan.has_zones) {
         currentScanId = scan.id;
         currentScan = scan;
+        // Отмечаем его как активный
         $item.addClass('active').siblings().removeClass('active');
       }
     });
 
+    // Если не нашли обработанный скан с зонами, берем первый доступный
     if (!currentScanId && allScans.length > 0) {
       currentScanId = allScans[0].id;
       currentScan = allScans[0];
     }
 
+    // Показываем сообщение о обработке если есть необработанные сканы
     if (hasProcessingScans && !currentScanId) {
       $("#ndvi-processing-msg").show();
+      // Запускаем polling для проверки готовности
       startProcessingPoll(fieldId);
     } else {
       $("#ndvi-processing-msg").hide();
     }
 
+    // Загружаем зоны выбранного скана
     if (currentScanId) {
       loadScanZones(currentScanId);
     }
@@ -137,16 +146,19 @@ function loadFieldScans(fieldId) {
  * @param {number} fieldId - ID поля.
  */
 function startProcessingPoll(fieldId) {
+  // Очищаем предыдущий polling если есть
   if (processingPollInterval) {
     clearInterval(processingPollInterval);
   }
 
+  // Проверяем каждые 10 секунд
   processingPollInterval = setInterval(() => {
     API.getFieldScans(fieldId).then(data => {
       const scans = data.scans || [];
       const hasProcessingScans = scans.some(scan => !scan.processed);
       const hasProcessedWithZones = scans.some(scan => scan.processed && scan.has_zones);
 
+      // Если появился обработанный скан с зонами, перезагружаем
       if (hasProcessedWithZones) {
         clearInterval(processingPollInterval);
         processingPollInterval = null;
@@ -154,6 +166,7 @@ function startProcessingPoll(fieldId) {
         showMessage("NDVI обработан! Данные обновлены", "success");
       }
 
+      // Если все сканы обработаны но нет зон, останавливаем
       if (!hasProcessingScans) {
         clearInterval(processingPollInterval);
         processingPollInterval = null;
@@ -165,14 +178,26 @@ function startProcessingPoll(fieldId) {
   }, 10000);
 }
 
+/**
+ * Выбирает скан для отображения.
+ * @param {number} scanId - ID скана.
+ */
 function selectScan(scanId) {
   currentScanId = scanId;
   currentScan = allScans.find(s => s.id === scanId);
+
+  // Обновляем активный элемент в списке
   $(".scan-item").removeClass("active");
   $(`.scan-item[data-scan-id="${scanId}"]`).addClass("active");
+
   loadScanZones(scanId);
 }
 
+/**
+ * Удаляет скан.
+ * @param {number} fieldId - ID поля.
+ * @param {number} scanId - ID скана.
+ */
 function deleteScan(fieldId, scanId) {
   Swal.fire({
     title: "Удалить снимок?",
@@ -185,7 +210,9 @@ function deleteScan(fieldId, scanId) {
     if (result.isConfirmed) {
       API.deleteScan(fieldId, scanId).then(data => {
         showMessage(data.message || "Скан удалён", "success");
+        // Перезагружаем список сканов
         loadFieldScans(fieldId);
+        // Если удалили текущий скан, очищаем карту
         if (currentScanId === scanId) {
           window.MapManager.updateZones([]);
           renderZonesStats([]);
@@ -200,9 +227,14 @@ function deleteScan(fieldId, scanId) {
   });
 }
 
+/**
+ * Загружает зоны выбранного скана.
+ * @param {number} scanId - ID скана.
+ */
 function loadScanZones(scanId) {
   API.getScanZones(scanId).then(data => {
     const zones = data.zones || [];
+    // Перерисовываем зоны на карте
     window.MapManager.updateZones(zones);
     renderZonesStats(zones);
   }).fail(err => {
@@ -225,11 +257,13 @@ function renderZonesStats(zones) {
   $("#zones-stats").show();
   $("#zones-legend").show();
 
+  // Показываем предсказание культуры
   const $prediction = $("#crop-prediction");
   const $select = $("#crop-type-select");
   const $badge = $("#prediction-badge");
   const $confidence = $("#prediction-confidence");
 
+  // Заполняем выпадающий список если он пуст
   if ($select.children().length === 0) {
     availableCrops.forEach(crop => {
       $select.append(`<option value="${crop.id}">${crop.name}</option>`);
@@ -239,6 +273,7 @@ function renderZonesStats(zones) {
   if (currentScan) {
     $select.val(currentScan.crop_type || 'unknown');
     
+    // Если уверенность < 1.0, значит это предсказание системы
     if (currentScan.crop_type && currentScan.crop_confidence < 1.0) {
       $badge.show();
       $confidence.text(`${Math.round(currentScan.crop_confidence * 100)}%`).show();
@@ -249,13 +284,17 @@ function renderZonesStats(zones) {
     
     $prediction.show();
 
+    // Обработчик изменения культуры
     $select.off('change').on('change', function() {
       const newCrop = $(this).val();
       API.updateScanCrop(currentScanId, newCrop).then(res => {
         showMessage("Культура обновлена", 'success');
+        // Обновляем текущий скан локально
         currentScan.crop_type = newCrop;
         currentScan.crop_confidence = 1.0;
         currentScan.default_rates = res.default_rates;
+        
+        // Перерисовываем статистику с новыми нормами
         renderZonesStats(zones);
       });
     });
