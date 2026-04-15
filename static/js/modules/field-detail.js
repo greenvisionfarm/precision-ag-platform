@@ -358,13 +358,56 @@ function renderZonesStats(zones) {
 
   // Показываем предсказание культуры
   const $prediction = $("#crop-prediction");
-  if (currentScan && currentScan.crop_type) {
-    const cropName = CROP_NAMES[currentScan.crop_type] || currentScan.crop_type;
-    const confidence = Math.round(currentScan.crop_confidence * 100);
+  const $select = $("#crop-type-select");
+  const $badge = $("#prediction-badge");
+  const $confidence = $("#prediction-confidence");
 
-    $("#predicted-crop-name").text(cropName);
-    $("#prediction-confidence").text(`${confidence}%`);
+  if (currentScan && currentScan.crop_type) {
+    $select.val(currentScan.crop_type);
+    
+    // Если уверенность < 1.0, значит это предсказание системы
+    if (currentScan.crop_confidence < 1.0) {
+      const confPercent = Math.round(currentScan.crop_confidence * 100);
+      $badge.show();
+      $confidence.text(`${confPercent}%`).show();
+    } else {
+      $badge.hide();
+      $confidence.hide();
+    }
+    
     $prediction.show();
+
+    // Обработчик изменения культуры (только один раз вешаем)
+    $select.off('change').on('change', function() {
+      const newCrop = $(this).val();
+      API.updateScanCrop(currentScanId, newCrop).then(res => {
+        showMessage(`Культура обновлена на "${CROP_NAMES[newCrop]}"`, 'success');
+        // Обновляем текущий скан локально
+        currentScan.crop_type = newCrop;
+        currentScan.crop_confidence = 1.0;
+        currentScan.default_rates = res.default_rates;
+        
+        // Перерисовываем статистику с новыми нормами
+        renderZonesStats(zones);
+      });
+    });
+  } else if (currentScan) {
+    // Если культура еще не определена, даем выбрать
+    $select.val('unknown');
+    $badge.hide();
+    $confidence.hide();
+    $prediction.show();
+    
+    $select.off('change').on('change', function() {
+      const newCrop = $(this).val();
+      API.updateScanCrop(currentScanId, newCrop).then(res => {
+        showMessage(`Культура установлена: "${CROP_NAMES[newCrop]}"`, 'success');
+        currentScan.crop_type = newCrop;
+        currentScan.crop_confidence = 1.0;
+        currentScan.default_rates = res.default_rates;
+        renderZonesStats(zones);
+      });
+    });
   } else {
     $prediction.hide();
   }

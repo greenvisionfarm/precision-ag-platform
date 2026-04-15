@@ -428,3 +428,50 @@ class FieldScanZonesHandler(tornado.web.RequestHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+
+
+class ScanCropUpdateHandler(tornado.web.RequestHandler):
+    """Handler для обновления типа культуры скана вручную."""
+
+    def post(self, scan_id: int) -> None:
+        try:
+            from db import FieldScan
+            import json
+
+            data = json.loads(self.request.body)
+            crop_type = data.get("crop_type")
+
+            if not crop_type:
+                self.set_status(400)
+                self.write({"error": "Тип культуры не указан"})
+                return
+
+            from src.utils.db_utils import db_connection
+            with db_connection():
+                scan = FieldScan.get_by_id(scan_id)
+                scan.crop_type = crop_type
+                scan.crop_confidence = 1.0  # Устанавливаем 100% уверенность при ручном вводе
+                scan.save()
+
+            # Получаем новые дефолтные нормы
+            from src.services.crop_classifier import CROP_PROFILES, CropType
+            default_rates = []
+            try:
+                crop_enum = CropType(crop_type)
+                if crop_enum in CROP_PROFILES:
+                    default_rates = CROP_PROFILES[crop_enum].default_rates
+            except:
+                pass
+
+            self.write({
+                "success": True,
+                "message": f"Культура обновлена на {crop_type}",
+                "default_rates": default_rates
+            })
+
+        except FieldScan.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Скан не найден"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})

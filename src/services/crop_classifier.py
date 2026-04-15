@@ -453,32 +453,46 @@ def classify_from_raster(
             results["error"] = f"Файл не найден: {raster_path}"
             return results
 
-        # Читаем растр
+        # Читаем растр с использованием даунсемплинга для экономии памяти
+        import rasterio
+        from rasterio.enums import Resampling
+        
         with rasterio.open(raster_path) as src:
             num_channels = src.count
             
-            # Читаем данные для NDVI анализа
+            # Определяем размер для анализа (не более 1024 пикселей по большой стороне)
+            scale_factor = max(src.width, src.height) / 1024.0
+            if scale_factor < 1.0:
+                scale_factor = 1.0
+                
+            out_width = int(src.width / scale_factor)
+            out_height = int(src.height / scale_factor)
+            out_shape = (out_height, out_width)
+
+            # Читаем данные для NDVI анализа (уменьшенная копия)
             if num_channels == 1:
                 # Обычный NDVI растр
-                data = src.read(1)
+                data = src.read(
+                    1, 
+                    out_shape=out_shape, 
+                    resampling=Resampling.average
+                )
                 ndvi_values = data.flatten()
                 texture_img = data
             elif num_channels >= 4:
-                # RGBN ортомозаика (4-й канал - NIR)
+                # RGBN ортомозаика
                 try:
-                    nir = src.read(4)
-                    red = src.read(1)
+                    nir = src.read(4, out_shape=out_shape, resampling=Resampling.average)
+                    red = src.read(1, out_shape=out_shape, resampling=Resampling.average)
                     ndvi = (nir.astype(float) - red.astype(float)) / (nir + red + 1e-6)
                     ndvi_values = ndvi.flatten()
-                    texture_img = src.read([1, 2, 3]).transpose(1, 2, 0)
+                    texture_img = src.read([1, 2, 3], out_shape=(3, out_height, out_width), resampling=Resampling.average).transpose(1, 2, 0)
                 except:
-                    # Fallback на RGB
-                    rgb = src.read([1, 2, 3]).transpose(1, 2, 0)
+                    rgb = src.read([1, 2, 3], out_shape=(3, out_height, out_width), resampling=Resampling.average).transpose(1, 2, 0)
                     ndvi_values = rgb[:, :, 1].flatten() / 255.0
                     texture_img = rgb
             else:
-                # Просто RGB или что-то другое
-                rgb = src.read([1, 2, 3]).transpose(1, 2, 0)
+                rgb = src.read([1, 2, 3], out_shape=(3, out_height, out_width), resampling=Resampling.average).transpose(1, 2, 0)
                 ndvi_values = rgb[:, :, 1].flatten() / 255.0
                 texture_img = rgb
 

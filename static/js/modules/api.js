@@ -127,6 +127,19 @@ const API = {
    * @returns {Promise} Promise с зонами.
    */
   getScanZones: (scanId) => $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError),
+
+  /**
+   * Обновление типа культуры скана.
+   * @param {number} scanId - ID скана.
+   * @param {string} cropType - Тип культуры.
+   * @returns {Promise} Promise с результатом обновления.
+   */
+  updateScanCrop: (scanId, cropType) => $.ajax({
+    url: `/api/scan/${scanId}/update_crop`,
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify({ crop_type: cropType })
+  }).catch(handleApiError),
 };
 
 export default API;
