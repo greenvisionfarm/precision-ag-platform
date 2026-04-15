@@ -315,7 +315,19 @@ class FieldScansHandler(tornado.web.RequestHandler):
             ).order_by(FieldScan.uploaded_at.desc())
 
             result = []
+            from src.services.crop_classifier import CROP_PROFILES, CropType
+
             for scan in scans:
+                # Получаем дефолтные нормы для культуры, если она определена
+                default_rates = []
+                if scan.crop_type:
+                    try:
+                        crop_enum = CropType(scan.crop_type)
+                        if crop_enum in CROP_PROFILES:
+                            default_rates = CROP_PROFILES[crop_enum].default_rates
+                    except (ValueError, KeyError):
+                        pass
+
                 result.append({
                     "id": scan.id,
                     "filename": scan.filename,
@@ -325,7 +337,10 @@ class FieldScansHandler(tornado.web.RequestHandler):
                     "ndvi_avg": scan.ndvi_avg,
                     "processed": scan.processed == 'true',
                     "has_zones": scan.zones.count() > 0,
-                    "zones_count": scan.zones.count()
+                    "zones_count": scan.zones.count(),
+                    "crop_type": scan.crop_type,
+                    "crop_confidence": getattr(scan, 'crop_confidence', 0),
+                    "default_rates": default_rates
                 })
 
             self.write({"scans": result})

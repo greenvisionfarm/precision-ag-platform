@@ -4,6 +4,7 @@
 import os
 import tempfile
 import xml.etree.ElementTree as ET
+from datetime import datetime
 
 import pytest
 
@@ -112,11 +113,53 @@ def test_isoxml_export_includes_prescription_rates(setup_field_with_zones):
             assert rate is not None
             rates.append(int(rate))
         
-        # Проверяем что нормы разные для разных зон
-        # Низкая (0.25) -> 150, Средняя (0.55) -> 250, Высокая (0.78) -> 350
+        # Проверяем что нормы разные для разных зон (fallback)
         assert 150 in rates, "Низкая зона должна иметь норму 150 кг/га"
         assert 250 in rates, "Средняя зона должна иметь норму 250 кг/га"
         assert 350 in rates, "Высокая зона должна иметь норму 350 кг/га"
+        
+    finally:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
+
+def test_isoxml_export_with_crop_specific_rates(setup_field_with_zones):
+    """Тест: ISOXML экспортирует нормы, специфичные для культуры (Пшеница)."""
+    from db import FieldScan, FieldZone
+    
+    # 1. Создаем скан с культурой "wheat"
+    scan = FieldScan.create(
+        field=setup_field_with_zones.id,
+        filename="wheat_scan.tif",
+        file_path="uploads/wheat_scan.tif",
+        uploaded_at=datetime.now(),
+        crop_type="wheat",
+        crop_confidence=0.9,
+        processed='true'
+    )
+    
+    # 2. Привязываем зоны к этому скану
+    FieldZone.update(scan=scan).where(FieldZone.field == setup_field_with_zones).execute()
+    
+    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as tmp:
+        output_path = tmp.name
+    
+    try:
+        export_isoxml(setup_field_with_zones.id, output_path)
+        
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        zones = root.findall(f'.//{ISOXML_NS}ZONE')
+        
+        rates = []
+        for zone in zones:
+            prescription = zone.find(f'{ISOXML_NS}PRESCRIPTION')
+            rates.append(int(prescription.get('Rate')))
+        
+        # Для пшеницы мы задали [120, 180, 240]
+        assert 120 in rates, "Низкая зона пшеницы должна быть 120 кг/га"
+        assert 180 in rates, "Средняя зона пшеницы должна быть 180 кг/га"
+        assert 240 in rates, "Высокая зона пшеницы должна быть 240 кг/га"
         
     finally:
         if os.path.exists(output_path):

@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from typing import List
 from xml.dom import minidom
 
-from db import Field, FieldZone
+from src.models.field import Field, FieldZone
 
 
 def prettify_xml(elem: ET.Element) -> str:
@@ -70,17 +70,28 @@ def export_isoxml(field_id: int, output_path: str) -> str:
             prescription = ET.SubElement(zone_elem, 'PRESCRIPTION')
             prescription.set('ProductType', '1')  # 1 = Fertilizer
             
+            # Получаем дефолтные нормы для культуры, если она определена
+            from src.services.crop_classifier import CROP_PROFILES, CropType
+            default_rates = [150, 250, 350]  # Fallback
+            
+            if zone.scan and getattr(zone.scan, 'crop_type', None):
+                try:
+                    crop_enum = CropType(zone.scan.crop_type)
+                    if crop_enum in CROP_PROFILES:
+                        default_rates = CROP_PROFILES[crop_enum].default_rates
+                except (ValueError, KeyError):
+                    pass
+
             # Рассчитываем норму внесения на основе NDVI
-            # Низкая зона: 150 кг/га, Средняя: 250 кг/га, Высокая: 350 кг/га
             if zone.avg_ndvi:
                 if zone.avg_ndvi < 0.4:
-                    rate = 150  # Низкая зона
+                    rate = default_rates[0]
                 elif zone.avg_ndvi < 0.6:
-                    rate = 250  # Средняя зона
+                    rate = default_rates[1]
                 else:
-                    rate = 350  # Высокая зона
+                    rate = default_rates[2]
             else:
-                rate = 250  # По умолчанию
+                rate = default_rates[1]  # Medium по умолчанию
             
             prescription.set('Rate', str(rate))
             prescription.set('RateUnit', '3')  # 3 = kg/ha

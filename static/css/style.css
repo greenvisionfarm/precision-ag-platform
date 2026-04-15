@@ -715,6 +715,59 @@ table.dataTable.display tbody tr:hover td {
     border-top: 1px solid var(--border-color);
 }
 
+/* Прогноз культуры */
+.crop-prediction-box {
+    display: flex;
+    align-items: center;
+    background-color: var(--table-header-bg);
+    border-radius: var(--radius);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    border: 1px solid var(--border-color);
+}
+
+.prediction-icon {
+    font-size: 1.5rem;
+    color: var(--success-color);
+    margin-right: var(--spacing-md);
+    background: rgba(40, 167, 69, 0.1);
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.prediction-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.prediction-main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.prediction-value {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.prediction-confidence {
+    font-size: var(--font-size-sm);
+    color: var(--success-color);
+    font-weight: 600;
+    background: rgba(40, 167, 69, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
 .zones-stats h4 {
     margin-bottom: var(--spacing-md);
     color: var(--text-color);

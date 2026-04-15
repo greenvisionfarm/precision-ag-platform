@@ -86,6 +86,8 @@ class FieldScan(BaseModel):
     processed = TextField(null=True)  # 'true'/'false' — обработан ли файл
     task_id = CharField(null=True)  # ID задачи обработки
     source = CharField(default='satellite')  # Источник данных
+    crop_type = CharField(null=True)  # Тип культуры
+    crop_confidence = FloatField(null=True)  # Уверенность классификации
 
 
 class FieldZone(BaseModel):

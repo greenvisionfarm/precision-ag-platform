@@ -44,6 +44,7 @@ class CropSignature:
     texture_pattern: str  # "uniform", "rows", "patchy"
     planting_months: List[int]  # Месяцы посадки
     harvest_months: List[int]  # Месяцы уборки
+    default_rates: List[int]  # Дефолтные нормы внесения [Low, Medium, High] в кг/га
 
 
 # Профили культур (усреднённые данные)
@@ -56,7 +57,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=6,
         texture_pattern="uniform",
         planting_months=[9, 10],  # Озимая
-        harvest_months=[6, 7]
+        harvest_months=[6, 7],
+        default_rates=[120, 180, 240]
     ),
     CropType.CORN: CropSignature(
         crop_type=CropType.CORN,
@@ -66,7 +68,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=7,
         texture_pattern="rows",  # Рядная посадка
         planting_months=[4, 5],
-        harvest_months=[9, 10]
+        harvest_months=[9, 10],
+        default_rates=[150, 250, 350]
     ),
     CropType.SUNFLOWER: CropSignature(
         crop_type=CropType.SUNFLOWER,
@@ -76,7 +79,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=7,
         texture_pattern="rows",
         planting_months=[4, 5],
-        harvest_months=[8, 9]
+        harvest_months=[8, 9],
+        default_rates=[80, 120, 160]
     ),
     CropType.SOYBEAN: CropSignature(
         crop_type=CropType.SOYBEAN,
@@ -86,7 +90,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=8,
         texture_pattern="rows",
         planting_months=[5, 6],
-        harvest_months=[9, 10]
+        harvest_months=[9, 10],
+        default_rates=[40, 60, 80]  # Соя сама фиксирует азот, нормы ниже
     ),
     CropType.RAPESEED: CropSignature(
         crop_type=CropType.RAPESEED,
@@ -96,7 +101,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=5,
         texture_pattern="uniform",
         planting_months=[8, 9],
-        harvest_months=[6, 7]
+        harvest_months=[6, 7],
+        default_rates=[140, 200, 260]
     ),
     CropType.BARLEY: CropSignature(
         crop_type=CropType.BARLEY,
@@ -106,7 +112,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=6,
         texture_pattern="uniform",
         planting_months=[3, 4],
-        harvest_months=[7, 8]
+        harvest_months=[7, 8],
+        default_rates=[100, 150, 200]
     ),
     CropType.OATS: CropSignature(
         crop_type=CropType.OATS,
@@ -116,7 +123,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=6,
         texture_pattern="uniform",
         planting_months=[3, 4],
-        harvest_months=[7, 8]
+        harvest_months=[7, 8],
+        default_rates=[80, 120, 160]
     ),
     CropType.SUGAR_BEET: CropSignature(
         crop_type=CropType.SUGAR_BEET,
@@ -126,7 +134,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=8,
         texture_pattern="rows",
         planting_months=[4, 5],
-        harvest_months=[9, 10]
+        harvest_months=[9, 10],
+        default_rates=[120, 180, 240]
     ),
     CropType.POTATO: CropSignature(
         crop_type=CropType.POTATO,
@@ -136,7 +145,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=7,
         texture_pattern="rows",
         planting_months=[4, 5],
-        harvest_months=[8, 9]
+        harvest_months=[8, 9],
+        default_rates=[150, 220, 300]
     ),
     CropType.VEGETABLES: CropSignature(
         crop_type=CropType.VEGETABLES,
@@ -146,7 +156,8 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=7,
         texture_pattern="patchy",  # Разнородное
         planting_months=[4, 5, 6],
-        harvest_months=[7, 8, 9]
+        harvest_months=[7, 8, 9],
+        default_rates=[100, 150, 200]
     ),
     CropType.GRASS: CropSignature(
         crop_type=CropType.GRASS,
@@ -156,9 +167,11 @@ CROP_PROFILES: Dict[CropType, CropSignature] = {
         peak_month=6,
         texture_pattern="uniform",
         planting_months=[],  # Многолетняя
-        harvest_months=[6, 7, 8]
+        harvest_months=[6, 7, 8],
+        default_rates=[60, 100, 140]
     ),
 }
+
 
 
 def analyze_ndvi_histogram(
@@ -396,6 +409,9 @@ def classify_crop(
     # Выбираем лучший
     best_crop = max(scores, key=scores.get)
     confidence = scores[best_crop]
+    
+    # Добавляем дефолтные нормы для лучшей культуры
+    details["default_rates"] = CROP_PROFILES[best_crop].default_rates
     
     # Топ-3 кандидатов
     sorted_crops = sorted(scores.items(), key=lambda x: x[1], reverse=True)

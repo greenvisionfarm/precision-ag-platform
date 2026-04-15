@@ -8,7 +8,24 @@ import API from './api.js';
 // Текущий выбранный скан
 let currentScanId = null;
 let currentFieldId = null;
+let currentScan = null;
+let allScans = [];
 let processingPollInterval = null;
+
+const CROP_NAMES = {
+    'wheat': 'Пшеница',
+    'corn': 'Кукуруза',
+    'sunflower': 'Подсолнечник',
+    'soybean': 'Соя',
+    'rapeseed': 'Рапс',
+    'barley': 'Ячмень',
+    'oats': 'Овес',
+    'sugar_beet': 'Сахарная свекла',
+    'potato': 'Картофель',
+    'vegetables': 'Овощи',
+    'grass': 'Трава/Сено',
+    'unknown': 'Не определено'
+};
 
 /**
  * Показывает детальную информацию о поле.
@@ -134,9 +151,9 @@ function initFullscreenMode() {
  */
 function loadFieldScans(fieldId) {
   API.getFieldScans(fieldId).then(data => {
-    const scans = data.scans || [];
+    allScans = data.scans || [];
 
-    if (scans.length === 0) {
+    if (allScans.length === 0) {
       $("#scans-selector").hide();
       $("#ndvi-processing-msg").hide();
       return;
@@ -148,11 +165,12 @@ function loadFieldScans(fieldId) {
 
     // Сбрасываем currentScanId
     currentScanId = null;
+    currentScan = null;
 
     // Проверяем есть ли необработанные сканы
-    const hasProcessingScans = scans.some(scan => !scan.processed);
+    const hasProcessingScans = allScans.some(scan => !scan.processed);
 
-    scans.forEach((scan, index) => {
+    allScans.forEach((scan, index) => {
       const date = new Date(scan.uploaded_at).toLocaleDateString('ru-RU', {
         day: 'numeric',
         month: 'long',
@@ -181,14 +199,16 @@ function loadFieldScans(fieldId) {
       // Выбираем первый обработанный скан с зонами
       if (!currentScanId && scan.processed && scan.has_zones) {
         currentScanId = scan.id;
+        currentScan = scan;
         // Отмечаем его как активный
         $item.addClass('active').siblings().removeClass('active');
       }
     });
 
     // Если не нашли обработанный скан с зонами, берем первый доступный
-    if (!currentScanId && scans.length > 0) {
-      currentScanId = scans[0].id;
+    if (!currentScanId && allScans.length > 0) {
+      currentScanId = allScans[0].id;
+      currentScan = allScans[0];
     }
 
     // Показываем сообщение о обработке если есть необработанные сканы
@@ -253,11 +273,12 @@ function startProcessingPoll(fieldId) {
  */
 function selectScan(scanId) {
   currentScanId = scanId;
-  
+  currentScan = allScans.find(s => s.id === scanId);
+
   // Обновляем активный элемент в списке
   $(".scan-item").removeClass("active");
   $(`.scan-item[data-scan-id="${scanId}"]`).addClass("active");
-  
+
   loadScanZones(scanId);
 }
 
@@ -285,6 +306,7 @@ function deleteScan(fieldId, scanId) {
           window.MapManager.updateZones([]);
           renderZonesStats([]);
           currentScanId = null;
+          currentScan = null;
         }
       }).fail(err => {
         console.error("Ошибка удаления скана:", err);
@@ -301,11 +323,6 @@ function deleteScan(fieldId, scanId) {
 function loadScanZones(scanId) {
   API.getScanZones(scanId).then(data => {
     const zones = data.zones || [];
-
-    console.log(`[DEBUG] Загружено зон для скана ${scanId}:`, zones.length);
-    if (zones.length > 0) {
-      console.log(`[DEBUG] Первая зона:`, zones[0]);
-    }
 
     // Перерисовываем зоны на карте
     window.MapManager.updateZones(zones);
@@ -339,19 +356,45 @@ function renderZonesStats(zones) {
   $("#zones-stats").show();
   $("#zones-legend").show();
 
+  // Показываем предсказание культуры
+  const $prediction = $("#crop-prediction");
+  if (currentScan && currentScan.crop_type) {
+    const cropName = CROP_NAMES[currentScan.crop_type] || currentScan.crop_type;
+    const confidence = Math.round(currentScan.crop_confidence * 100);
+
+    $("#predicted-crop-name").text(cropName);
+    $("#prediction-confidence").text(`${confidence}%`);
+    $prediction.show();
+  } else {
+    $prediction.hide();
+  }
+
   // Таблица зон
   const tbody = $("#zones-table-body");
   tbody.empty();
 
-  zones.forEach(zone => {
-    // Определяем норму внесения на основе NDVI
-    let rate;
-    if (zone.avg_ndvi < 0.4) {
-      rate = 150; // Низкая зона
-    } else if (zone.avg_ndvi < 0.6) {
-      rate = 250; // Средняя зона
+  zones.forEach((zone, index) => {
+    // Определяем норму внесения на основе NDVI или из справочника
+    let rate = 0;
+
+    if (currentScan && currentScan.default_rates && currentScan.default_rates.length >= 3) {
+      // Используем справочные нормы [Low, Medium, High]
+      if (zone.avg_ndvi < 0.4) {
+        rate = currentScan.default_rates[0];
+      } else if (zone.avg_ndvi < 0.6) {
+        rate = currentScan.default_rates[1];
+      } else {
+        rate = currentScan.default_rates[2];
+      }
     } else {
-      rate = 350; // Высокая зона
+      // Fallback на старые захардкоженные нормы
+      if (zone.avg_ndvi < 0.4) {
+        rate = 150;
+      } else if (zone.avg_ndvi < 0.6) {
+        rate = 250;
+      } else {
+        rate = 350;
+      }
     }
 
     const row = `
@@ -366,7 +409,6 @@ function renderZonesStats(zones) {
     `;
     tbody.append(row);
   });
-
   // Легенда для карты
   const legend = $("#zones-legend");
   legend.empty();

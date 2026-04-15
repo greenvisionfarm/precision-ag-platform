@@ -123,8 +123,8 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         adaptive_scale = max(1, max(src.width, src.height) // target_size)
 
         # 4. МОРФОЛОГИЧЕСКАЯ ОБРАБОТКА для укрупнения зон
-        # Применяем медианный фильтр для удаления шума
-        labels = ndimage.median_filter(labels, size=5)
+        # ОПТИМИЗАЦИЯ: Увеличиваем размер фильтра (был 5, стал 11) для более агрессивного сглаживания "шума"
+        labels = ndimage.median_filter(labels, size=11)
 
         # Собираем маски всех зон после морфологической обработки
         zone_masks = []
@@ -169,7 +169,10 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         # Создаем словарь для хранения геометрий каждой зоны
         zone_geoms = {}
         
-        # Сначала векторизуем все зоны "как есть"
+        # Сначала векторизуем все зоны "как есть", фильтруя мелкие "острова"
+        # ПОРОГ ГЕНЕРАЛИЗАЦИИ: 0.5% от площади поля (типично для техники)
+        island_threshold = field_geom.area * 0.005 
+
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
             shapes_gen = features.shapes(mask, mask=mask, transform=out_transform)
@@ -177,7 +180,8 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             polys = []
             for s, v in shapes_gen:
                 poly = shape(s)
-                if poly.is_valid and poly.area > 0:
+                # Фильтруем слишком мелкие пятна внутри зон (фрагментацию)
+                if poly.is_valid and poly.area > island_threshold:
                     polys.append(poly)
             
             if polys:
