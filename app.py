@@ -29,12 +29,14 @@ from src.handlers.field_handlers import (
 )
 from src.handlers.owner_handlers import OwnerActionHandler, OwnersDataApiHandler
 from src.handlers.upload_handlers import (
-    TaskStatusHandler,
-    UploadHandler,
-    RasterUploadHandler,
-    ISOXMLExportHandler,
+    CropsMetadataHandler,
     FieldScansHandler,
     FieldScanZonesHandler,
+    ISOXMLExportHandler,
+    RasterUploadHandler,
+    ScanCropUpdateHandler,
+    TaskStatusHandler,
+    UploadHandler,
 )
 from src.handlers.drone_handlers import (
     DroneUploadHandler,
@@ -117,6 +119,7 @@ def make_app() -> tornado.web.Application:
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),
         (r"/api/field/([0-9]+)/scans/([0-9]+)", FieldScansHandler),  # DELETE /api/field/{id}/scans/{scan_id}
         (r"/api/scan/([0-9]+)/update_crop", ScanCropUpdateHandler),
+        (r"/api/crops", CropsMetadataHandler),
         (r"/api/scan/([0-9]+)/zones", FieldScanZonesHandler),
 
         # Drone imagery processing

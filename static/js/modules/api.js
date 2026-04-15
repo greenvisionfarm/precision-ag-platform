@@ -129,6 +129,12 @@ const API = {
   getScanZones: (scanId) => $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError),
 
   /**
+   * Получение списка всех доступных культур.
+   * @returns {Promise} Promise со списком культур.
+   */
+  getCrops: () => $.getJSON("/api/crops").catch(handleApiError),
+
+  /**
    * Обновление типа культуры скана.
    * @param {number} scanId - ID скана.
    * @param {string} cropType - Тип культуры.

@@ -11,6 +11,12 @@ let currentFieldId = null;
 let currentScan = null;
 let allScans = [];
 let processingPollInterval = null;
+let availableCrops = [];
+
+// Инициализация списка культур
+API.getCrops().then(data => {
+  availableCrops = data.crops || [];
+});
 
 const CROP_NAMES = {
     'wheat': 'Пшеница',
@@ -47,106 +53,11 @@ export function showFieldDetail(id) {
     $("#field-detail-status").text(field.land_status);
     $("#field-detail-parcel").text(field.parcel_number);
 
-    // Экспорт ISOXML
-    $("#detail-export-isoxml").off("click").on("click", (e) => {
-      e.preventDefault();
-      if (!field.zones || field.zones.length === 0) {
-        showMessage("Нет зон для экспорта. Сначала загрузите TIFF файл.", "warning");
-        return;
-      }
-      window.open(`/api/field/export/isoxml/${id}`, '_blank');
-      showMessage("ISOXML файл загружен", "success");
-    });
-
-    // Экспорт KMZ
-    $("#detail-export-kmz").off("click").on("click", () => downloadKmzWithSettings(id));
-
-    // Удаление поля
-    $("#detail-delete-field").off("click").on("click", () => {
-      Swal.fire({
-        title: "Удалить поле?",
-        icon: "warning",
-        showCancelButton: true
-      }).then(r => {
-        if (r.isConfirmed) {
-          API.deleteField(id).then(() => {
-            window.location.hash = "#fields";
-          });
-        }
-      });
-    });
-
-    // Инициализация карты
-    // Не рисуем зоны из getField() - они будут загружены из сканов
-    window.MapManager.initDetailMap("field-detail-map", field.geometry, []);
-
-    // Загрузка списка сканов (зоны будут отрисованы оттуда)
     loadFieldScans(id);
-
-    // Обработчик полноэкранного режима
-    initFullscreenMode();
-
-  }).fail(() => {
-    showMessage("Данные не найдены", "error");
-    window.location.hash = "#fields";
   });
 }
 
 /**
- * Инициализирует полноэкранный режим карты.
- */
-function initFullscreenMode() {
-  const $btn = $("#map-fullscreen-btn");
-  const $mapCard = $(".map-card");
-  const $icon = $btn.find("i");
-  
-  $btn.off("click").on("click", () => {
-    const isFullscreen = $mapCard.hasClass("fullscreen");
-    
-    if (isFullscreen) {
-      // Выход из полноэкранного режима
-      $mapCard.removeClass("fullscreen");
-      $icon.removeClass("fa-compress").addClass("fa-expand");
-      $btn.attr("title", "На весь экран");
-      
-      // Включаем подложку
-      window.MapManager.toggleBaseLayer(false);
-    } else {
-      // Вход в полноэкранный режим
-      $mapCard.addClass("fullscreen");
-      $icon.removeClass("fa-expand").addClass("fa-compress");
-      $btn.attr("title", "Выйти из полноэкранного");
-      
-      // Выключаем подложку - показываем только поле
-      window.MapManager.toggleBaseLayer(true);
-    }
-    
-    // Перерисовываем карту для корректного отображения
-    setTimeout(() => {
-      if (window.MapManager.detailInstance) {
-        window.MapManager.detailInstance.invalidateSize();
-      }
-    }, 100);
-  });
-  
-  // Выход по ESC
-  $(document).off("keydown.fullscreen").on("keydown.fullscreen", (e) => {
-    if (e.key === "Escape" && $mapCard.hasClass("fullscreen")) {
-      $mapCard.removeClass("fullscreen");
-      $icon.removeClass("fa-compress").addClass("fa-expand");
-      $btn.attr("title", "На весь экран");
-      window.MapManager.toggleBaseLayer(false);
-      setTimeout(() => {
-        if (window.MapManager.detailInstance) {
-          window.MapManager.detailInstance.invalidateSize();
-        }
-      }, 100);
-    }
-  });
-}
-
-/**
- * Загружает список сканов поля.
  * @param {number} fieldId - ID поля.
  */
 function loadFieldScans(fieldId) {
@@ -163,11 +74,9 @@ function loadFieldScans(fieldId) {
     const $list = $("#scan-list");
     $list.empty();
 
-    // Сбрасываем currentScanId
     currentScanId = null;
     currentScan = null;
 
-    // Проверяем есть ли необработанные сканы
     const hasProcessingScans = allScans.some(scan => !scan.processed);
 
     allScans.forEach((scan, index) => {
@@ -196,35 +105,28 @@ function loadFieldScans(fieldId) {
 
       $list.append($item);
 
-      // Выбираем первый обработанный скан с зонами
       if (!currentScanId && scan.processed && scan.has_zones) {
         currentScanId = scan.id;
         currentScan = scan;
-        // Отмечаем его как активный
         $item.addClass('active').siblings().removeClass('active');
       }
     });
 
-    // Если не нашли обработанный скан с зонами, берем первый доступный
     if (!currentScanId && allScans.length > 0) {
       currentScanId = allScans[0].id;
       currentScan = allScans[0];
     }
 
-    // Показываем сообщение о обработке если есть необработанные сканы
     if (hasProcessingScans && !currentScanId) {
       $("#ndvi-processing-msg").show();
-      // Запускаем polling для проверки готовности
       startProcessingPoll(fieldId);
     } else {
       $("#ndvi-processing-msg").hide();
     }
 
-    // Загружаем зоны выбранного скана
     if (currentScanId) {
       loadScanZones(currentScanId);
     }
-
   }).fail(err => {
     console.error("Ошибка загрузки сканов:", err);
   });
@@ -235,19 +137,16 @@ function loadFieldScans(fieldId) {
  * @param {number} fieldId - ID поля.
  */
 function startProcessingPoll(fieldId) {
-  // Очищаем предыдущий polling если есть
   if (processingPollInterval) {
     clearInterval(processingPollInterval);
   }
 
-  // Проверяем каждые 10 секунд
   processingPollInterval = setInterval(() => {
     API.getFieldScans(fieldId).then(data => {
       const scans = data.scans || [];
       const hasProcessingScans = scans.some(scan => !scan.processed);
       const hasProcessedWithZones = scans.some(scan => scan.processed && scan.has_zones);
 
-      // Если появился обработанный скан с зонами, перезагружаем
       if (hasProcessedWithZones) {
         clearInterval(processingPollInterval);
         processingPollInterval = null;
@@ -255,7 +154,6 @@ function startProcessingPoll(fieldId) {
         showMessage("NDVI обработан! Данные обновлены", "success");
       }
 
-      // Если все сканы обработаны но нет зон, останавливаем
       if (!hasProcessingScans) {
         clearInterval(processingPollInterval);
         processingPollInterval = null;
@@ -267,26 +165,14 @@ function startProcessingPoll(fieldId) {
   }, 10000);
 }
 
-/**
- * Выбирает скан для отображения.
- * @param {number} scanId - ID скана.
- */
 function selectScan(scanId) {
   currentScanId = scanId;
   currentScan = allScans.find(s => s.id === scanId);
-
-  // Обновляем активный элемент в списке
   $(".scan-item").removeClass("active");
   $(`.scan-item[data-scan-id="${scanId}"]`).addClass("active");
-
   loadScanZones(scanId);
 }
 
-/**
- * Удаляет скан.
- * @param {number} fieldId - ID поля.
- * @param {number} scanId - ID скана.
- */
 function deleteScan(fieldId, scanId) {
   Swal.fire({
     title: "Удалить снимок?",
@@ -299,9 +185,7 @@ function deleteScan(fieldId, scanId) {
     if (result.isConfirmed) {
       API.deleteScan(fieldId, scanId).then(data => {
         showMessage(data.message || "Скан удалён", "success");
-        // Перезагружаем список сканов
         loadFieldScans(fieldId);
-        // Если удалили текущий скан, очищаем карту
         if (currentScanId === scanId) {
           window.MapManager.updateZones([]);
           renderZonesStats([]);
@@ -316,26 +200,11 @@ function deleteScan(fieldId, scanId) {
   });
 }
 
-/**
- * Загружает зоны выбранного скана.
- * @param {number} scanId - ID скана.
- */
 function loadScanZones(scanId) {
   API.getScanZones(scanId).then(data => {
     const zones = data.zones || [];
-
-    // Перерисовываем зоны на карте
     window.MapManager.updateZones(zones);
-
-    // Обновляем статистику
-    if (zones.length > 0) {
-      renderZonesStats(zones);
-      $("#ndvi-processing-msg").hide();
-    } else {
-      // Зоны ещё не готовы
-      renderZonesStats([]);
-    }
-
+    renderZonesStats(zones);
   }).fail(err => {
     console.error("Ошибка загрузки зон:", err);
     showMessage("Не удалось загрузить зоны для этого скана", "error");
@@ -356,20 +225,23 @@ function renderZonesStats(zones) {
   $("#zones-stats").show();
   $("#zones-legend").show();
 
-  // Показываем предсказание культуры
   const $prediction = $("#crop-prediction");
   const $select = $("#crop-type-select");
   const $badge = $("#prediction-badge");
   const $confidence = $("#prediction-confidence");
 
-  if (currentScan && currentScan.crop_type) {
-    $select.val(currentScan.crop_type);
+  if ($select.children().length === 0) {
+    availableCrops.forEach(crop => {
+      $select.append(`<option value="${crop.id}">${crop.name}</option>`);
+    });
+  }
+
+  if (currentScan) {
+    $select.val(currentScan.crop_type || 'unknown');
     
-    // Если уверенность < 1.0, значит это предсказание системы
-    if (currentScan.crop_confidence < 1.0) {
-      const confPercent = Math.round(currentScan.crop_confidence * 100);
+    if (currentScan.crop_type && currentScan.crop_confidence < 1.0) {
       $badge.show();
-      $confidence.text(`${confPercent}%`).show();
+      $confidence.text(`${Math.round(currentScan.crop_confidence * 100)}%`).show();
     } else {
       $badge.hide();
       $confidence.hide();
@@ -377,31 +249,10 @@ function renderZonesStats(zones) {
     
     $prediction.show();
 
-    // Обработчик изменения культуры (только один раз вешаем)
     $select.off('change').on('change', function() {
       const newCrop = $(this).val();
       API.updateScanCrop(currentScanId, newCrop).then(res => {
-        showMessage(`Культура обновлена на "${CROP_NAMES[newCrop]}"`, 'success');
-        // Обновляем текущий скан локально
-        currentScan.crop_type = newCrop;
-        currentScan.crop_confidence = 1.0;
-        currentScan.default_rates = res.default_rates;
-        
-        // Перерисовываем статистику с новыми нормами
-        renderZonesStats(zones);
-      });
-    });
-  } else if (currentScan) {
-    // Если культура еще не определена, даем выбрать
-    $select.val('unknown');
-    $badge.hide();
-    $confidence.hide();
-    $prediction.show();
-    
-    $select.off('change').on('change', function() {
-      const newCrop = $(this).val();
-      API.updateScanCrop(currentScanId, newCrop).then(res => {
-        showMessage(`Культура установлена: "${CROP_NAMES[newCrop]}"`, 'success');
+        showMessage("Культура обновлена", 'success');
         currentScan.crop_type = newCrop;
         currentScan.crop_confidence = 1.0;
         currentScan.default_rates = res.default_rates;
@@ -412,35 +263,22 @@ function renderZonesStats(zones) {
     $prediction.hide();
   }
 
-  // Таблица зон
   const tbody = $("#zones-table-body");
   tbody.empty();
 
-  zones.forEach((zone, index) => {
-    // Определяем норму внесения на основе NDVI или из справочника
+  zones.forEach((zone) => {
     let rate = 0;
-
     if (currentScan && currentScan.default_rates && currentScan.default_rates.length >= 3) {
-      // Используем справочные нормы [Low, Medium, High]
-      if (zone.avg_ndvi < 0.4) {
-        rate = currentScan.default_rates[0];
-      } else if (zone.avg_ndvi < 0.6) {
-        rate = currentScan.default_rates[1];
-      } else {
-        rate = currentScan.default_rates[2];
-      }
+      if (zone.avg_ndvi < 0.4) rate = currentScan.default_rates[0];
+      else if (zone.avg_ndvi < 0.6) rate = currentScan.default_rates[1];
+      else rate = currentScan.default_rates[2];
     } else {
-      // Fallback на старые захардкоженные нормы
-      if (zone.avg_ndvi < 0.4) {
-        rate = 150;
-      } else if (zone.avg_ndvi < 0.6) {
-        rate = 250;
-      } else {
-        rate = 350;
-      }
+      if (zone.avg_ndvi < 0.4) rate = 150;
+      else if (zone.avg_ndvi < 0.6) rate = 250;
+      else rate = 350;
     }
 
-    const row = `
+    tbody.append(`
       <tr>
         <td>
           <span class="zone-color-dot" style="background-color: ${zone.color}"></span>
@@ -449,24 +287,10 @@ function renderZonesStats(zones) {
         <td>${zone.avg_ndvi?.toFixed(2) || 'N/A'}</td>
         <td><strong>${rate} кг/га</strong></td>
       </tr>
-    `;
-    tbody.append(row);
-  });
-  // Легенда для карты
-  const legend = $("#zones-legend");
-  legend.empty();
-  legend.append('<div class="legend-title">Зоны</div>');
-  zones.forEach(zone => {
-    legend.append(`
-      <div class="legend-item">
-        <span class="legend-color" style="background-color: ${zone.color}"></span>
-        <span class="legend-label">${zone.name} (${zone.avg_ndvi?.toFixed(2) || 'N/A'})</span>
-      </div>
     `);
   });
 }
 
-// Делаем функции глобальными для onclick handlers
 window.selectScan = selectScan;
 window.deleteScan = deleteScan;
 window.loadFieldScans = loadFieldScans;

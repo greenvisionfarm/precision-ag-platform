@@ -727,26 +727,28 @@ table.dataTable.display tbody tr:hover td {
 }
 
 .crop-select {
-    background: transparent;
+    background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     color: var(--text-color);
-    padding: 2px 8px;
+    padding: 4px 8px;
     border-radius: var(--radius-sm);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     outline: none;
     transition: all 0.2s;
+    appearance: none; /* Убираем стандартную стрелочку */
 }
 
 .crop-select:hover, .crop-select:focus {
-    background: rgba(255, 255, 255, 0.05);
+    background-color: var(--table-header-bg);
     border-color: var(--primary-color);
 }
 
 .crop-select option {
     background-color: var(--bg-card);
     color: var(--text-color);
+    padding: 8px;
 }
 
 .prediction-badge {
