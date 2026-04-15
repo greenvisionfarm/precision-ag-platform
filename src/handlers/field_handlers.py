@@ -225,7 +225,7 @@ class FieldActionHandler(FieldApiBaseHandler):
 
     @require_auth
     def post(self) -> None:
-        """Добавление поля в компанию текущего пользователя."""
+        """Добавление поля в компанию текущего пользователя с проверкой на дубликаты."""
         try:
             data = json.loads(self.request.body)
 
@@ -237,8 +237,35 @@ class FieldActionHandler(FieldApiBaseHandler):
                 return
 
             poly = shape(data['geometry'])
-            area = calculate_accurate_area(poly)
+            
+            # ПРОВЕРКА НА ДУБЛИКАТЫ (наложение на существующие поля)
+            # Если новое поле на 90% и более совпадает с существующим, не даем создать
             with db_connection():
+                existing_fields = Field.select().where(Field.company == self.current_user.company)
+                for field in existing_fields:
+                    existing_poly = wkt_loads(field.geometry_wkt)
+                    
+                    # Быстрая проверка через bounding box
+                    if not poly.bounds[0] > existing_poly.bounds[2] and \
+                       not poly.bounds[2] < existing_poly.bounds[0] and \
+                       not poly.bounds[1] > existing_poly.bounds[3] and \
+                       not poly.bounds[3] < existing_poly.bounds[1]:
+                        
+                        # Точная проверка через пересечение
+                        if poly.intersects(existing_poly):
+                            intersection_area = poly.intersection(existing_poly).area
+                            union_area = poly.union(existing_poly).area
+                            iou = intersection_area / union_area if union_area > 0 else 0
+                            
+                            # Если IoU > 0.9 (90% совпадение), это дубликат
+                            if iou > 0.9:
+                                self.set_status(400)
+                                self.write({
+                                    "error": f"Поле с такими координатами уже существует (ID: {field.id}, '{field.name}')."
+                                })
+                                return
+
+                area = calculate_accurate_area(poly)
                 new_f = Field.create(
                     name=data.get('name', 'Поле'),
                     geometry_wkt=poly.wkt,
