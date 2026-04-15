@@ -118,7 +118,7 @@ deploy: ## Задеплоить на домашний сервер
 	@echo "$(BLUE)1. Push в GitHub...$(NC)"
 	git push upstream master
 	@echo "$(BLUE)2. Git pull и restart на сервере...$(NC)"
-	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull --rebase && docker compose -f $(DEPLOY_COMPOSE) up -d --build"
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull --rebase && docker compose -f $(DEPLOY_COMPOSE) up -d --build && docker exec field-mapper-nginx nginx -s reload"
 	@echo "$(GREEN)✅ Деплой завершён! http://$(shell echo $(DEPLOY_SERVER) | cut -d@ -f2):8080$(NC)"
 
 deploy-seed: ## Запустить seed данные на сервере

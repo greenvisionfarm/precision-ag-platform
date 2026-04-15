@@ -5,6 +5,12 @@ services:
       dockerfile: Dockerfile
     container_name: field-mapper-app
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
       - SESSION_SECRET=field-mapper-server-secret-change-me-in-prod
       - FIELD_MAPPER_DB=/app/data/fields.db
@@ -58,7 +64,8 @@ services:
     volumes:
       - ./nginx.server.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - field-mapper-net
     deploy:
