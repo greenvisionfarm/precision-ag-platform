@@ -422,77 +422,111 @@ def classify_crop(
     return best_crop, confidence, details
 
 
-def classify_from_orthomosaic(
-    orthomosaic_path: str,
+def classify_from_raster(
+    raster_path: str,
     acquisition_date: Optional[datetime] = None,
-    region_lat: float = 48.0  # Украина по умолчанию
+    region_lat: float = 48.0
 ) -> Dict[str, Any]:
     """
-    Классифицирует культуру по ортомозаике.
-    
+    Классифицирует культуру по растровому файлу (NDVI или ортомозаика).
+
     Args:
-        orthomosaic_path: Путь к ортомозаике
+        raster_path: Путь к файлу растра (.tif)
         acquisition_date: Дата съёмки
         region_lat: Широта региона
-        
+
     Returns:
         Результаты классификации
     """
     import rasterio
-    import cv2
-    
+    import os
+
     results = {
         "crop_type": None,
         "confidence": 0.0,
         "details": {},
         "error": None
     }
-    
+
     try:
+        if not os.path.exists(raster_path):
+            results["error"] = f"Файл не найден: {raster_path}"
+            return results
+
         # Читаем растр
-        with rasterio.open(orthomosaic_path) as src:
-            # Читаем RGB каналы
-            rgb = src.read([1, 2, 3]).transpose(1, 2, 0)
+        with rasterio.open(raster_path) as src:
+            num_channels = src.count
             
-            # Вычисляем NDVI если есть NIR канал
-            try:
-                nir = src.read(4)  # 4-й канал - NIR
-                red = src.read(1)
-                ndvi = (nir.astype(float) - red.astype(float)) / (nir + red + 1e-6)
-                ndvi_values = ndvi.flatten()
-            except:
-                # Приблизительный NDVI из RGB
-                ndvi_values = rgb[:, :, 1].flatten() / 255.0  # Green channel as proxy
-        
-        # Анализируем NDVI
+            # Читаем данные для NDVI анализа
+            if num_channels == 1:
+                # Обычный NDVI растр
+                data = src.read(1)
+                ndvi_values = data.flatten()
+                texture_img = data
+            elif num_channels >= 4:
+                # RGBN ортомозаика (4-й канал - NIR)
+                try:
+                    nir = src.read(4)
+                    red = src.read(1)
+                    ndvi = (nir.astype(float) - red.astype(float)) / (nir + red + 1e-6)
+                    ndvi_values = ndvi.flatten()
+                    texture_img = src.read([1, 2, 3]).transpose(1, 2, 0)
+                except:
+                    # Fallback на RGB
+                    rgb = src.read([1, 2, 3]).transpose(1, 2, 0)
+                    ndvi_values = rgb[:, :, 1].flatten() / 255.0
+                    texture_img = rgb
+            else:
+                # Просто RGB или что-то другое
+                rgb = src.read([1, 2, 3]).transpose(1, 2, 0)
+                ndvi_values = rgb[:, :, 1].flatten() / 255.0
+                texture_img = rgb
+
+        # 1. Анализируем гистограмму NDVI
         ndvi_stats = analyze_ndvi_histogram(ndvi_values)
-        
-        # Анализируем текстуру
-        texture_stats = analyze_texture(rgb, method="simple")
-        
-        # Классифицируем
+        if "error" in ndvi_stats:
+            results["error"] = ndvi_stats["error"]
+            return results
+
+        # 2. Анализируем текстуру
+        texture_stats = analyze_texture(texture_img, method="simple")
+
+        # 3. Классифицируем
         crop_type, confidence, details = classify_crop(
             ndvi_stats,
             texture_stats,
             acquisition_date,
             region_lat
         )
+
+        results.update({
+            "crop_type": crop_type.value,
+            "confidence": float(confidence),
+            "details": details,
+            "ndvi_stats": {
+                k: v for k, v in ndvi_stats.items()
+                if k not in ["histogram", "bin_edges"]
+            }
+        })
         
-        results["crop_type"] = crop_type.value
-        results["confidence"] = confidence
-        results["details"] = details
-        results["ndvi_stats"] = {
-            k: v for k, v in ndvi_stats.items()
-            if k not in ["histogram", "bin_edges"]
-        }
-        
-        logger.info(f"Классификация: {crop_type.value} (уверенность: {confidence:.2%})")
-        
+        logger.info(f"Классификация растра: {crop_type.value} (уверенность: {confidence:.2%})")
+
     except Exception as e:
-        logger.error(f"Ошибка классификации: {e}", exc_info=True)
+        logger.error(f"Ошибка классификации растра {raster_path}: {e}", exc_info=True)
         results["error"] = str(e)
-    
+
     return results
+
+
+def classify_from_orthomosaic(
+    orthomosaic_path: str,
+    acquisition_date: Optional[datetime] = None,
+    region_lat: float = 48.0
+) -> Dict[str, Any]:
+    """
+    Классифицирует культуру по ортомозаике (алиас для classify_from_raster).
+    """
+    return classify_from_raster(orthomosaic_path, acquisition_date, region_lat)
 
 
 # Импорт для texture analysis

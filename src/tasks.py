@@ -66,7 +66,33 @@ def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] 
 
                 # Обновляем статус скана
                 if scan_id:
-                    FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
+                    # Загружаем объект скана для получения даты
+                    scan = FieldScan.get_or_none(FieldScan.id == scan_id)
+                    
+                    # Классифицируем культуру перед завершением
+                    from src.services.crop_classifier import classify_from_raster
+                    
+                    try:
+                        crop_result = classify_from_raster(
+                            file_path, 
+                            acquisition_date=scan.uploaded_at if scan else None
+                        )
+                        
+                        if crop_result.get("crop_type"):
+                            FieldScan.update(
+                                processed='true',
+                                crop_type=crop_result["crop_type"],
+                                crop_confidence=crop_result["confidence"]
+                            ).where(FieldScan.id == scan_id).execute()
+                        else:
+                            FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
+                            
+                    except Exception as e:
+                        logging.error(f"Ошибка классификации при обработке GeoTIFF: {e}")
+                        FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
+                else:
+                    # Для обратной совместимости
+                    pass
 
             logging.info(f"Обработка завершена. Зон создано: {len(zones_data)}")
 
