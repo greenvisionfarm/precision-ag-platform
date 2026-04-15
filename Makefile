@@ -109,8 +109,8 @@ seed-test-data: ## Создать тестовые данные
 # Конфигурация загружается из .deploy.env (не коммитится в git!)
 -include .deploy.env
 
-DEPLOY_SERVER ?= user@localhost
-DEPLOY_DIR ?= ~/field_mapper
+DEPLOY_SERVER ?= vbuianov@192.168.31.196
+DEPLOY_DIR ?= /home/vbuianov/field_mapper
 DEPLOY_COMPOSE ?= docker-compose.server.yml
 
 deploy: ## Задеплоить на домашний сервер
