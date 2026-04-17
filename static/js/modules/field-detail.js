@@ -53,6 +53,11 @@ export function showFieldDetail(id) {
     $("#field-detail-status").text(field.land_status);
     $("#field-detail-parcel").text(field.parcel_number);
 
+    // Инициализируем карту деталей поля
+    if (window.MapManager) {
+      window.MapManager.initDetailMap("field-detail-map", field.geometry);
+    }
+
     loadFieldScans(id);
   });
 }
