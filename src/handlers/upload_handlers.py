@@ -449,8 +449,6 @@ class CropsMetadataHandler(tornado.web.RequestHandler):
                 "name": signature.crop_type.value.capitalize() # Можно добавить нормальные имена в CropSignature
             })
             
-        # Используем наш локальный словарь имен (или можно расширить CropSignature)
-        from src.js.modules.field_detail import CROP_NAMES # Ой, это JS. 
         # Лучше определим имена прямо здесь для API
         
         names = {
