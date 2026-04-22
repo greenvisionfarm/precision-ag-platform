@@ -18,7 +18,7 @@ import tornado.web
 from db import Field, FieldScan
 from src.tasks import process_drone_fast_task
 from src.utils.db_utils import db_connection
-from src.handlers.upload_handlers import UPLOAD_DIR
+from src.constants import UPLOAD_DIR
 
 import logging
 logger = logging.getLogger(__name__)

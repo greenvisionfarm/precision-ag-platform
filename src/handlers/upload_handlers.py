@@ -20,14 +20,9 @@ from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 from src.services.isoxml_service import export_isoxml
 from src.utils.auth import get_current_user_from_token
+from src.constants import UPLOAD_DIR
 
 logger = logging.getLogger(__name__)
-
-# Используем абсолютный путь для загрузок
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
 
 
 class TaskStatusHandler(tornado.web.RequestHandler):
