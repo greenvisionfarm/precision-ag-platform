@@ -3,176 +3,91 @@ import numpy as np
 import rasterio
 import rasterio.mask
 from rasterio import features
-from shapely.geometry import shape, Polygon
+from shapely.geometry import shape, Polygon, MultiPolygon
 from shapely.ops import unary_union
 from sklearn.cluster import KMeans
 from scipy import ndimage
+import logging
+from shapely import wkt
+from rasterio.transform import Affine
+from rasterio.windows import from_bounds
+from rasterio.mask import mask as raster_mask
+import pyproj
+from shapely.ops import transform as shapely_transform
 
+logger = logging.getLogger(__name__)
 
 def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
     """
-    Анализирует NDVI растр и разбивает его на крупные агрегированные зоны.
-
-    Оптимизировано для создания карт-заданий для техники:
-    - Минимум мелких фрагментов
-    - Крупные сплошные зоны
-    - Упрощённые геометрии
-    - Windowed reading для экономии RAM
-
-    Args:
-        tif_path: Путь к TIFF файлу с NDVI.
-        field_geometry_wkt: WKT геометрии поля.
-        num_zones: Количество зон для кластеризации.
-
-    Returns:
-        Список зон с геометрией, средним NDVI и цветом.
+    Анализирует NDVI растр и разбивает его на агрегированные зоны.
+    Поддерживает KMeans (3 зоны) и Percentiles (4 зоны для VRA).
     """
-    import logging
-    from shapely import wkt
-    from rasterio.transform import Affine
-    from rasterio.windows import from_bounds
-    logger = logging.getLogger(__name__)
-
     field_geom = wkt.loads(field_geometry_wkt)
 
     with rasterio.open(tif_path) as src:
-        # ОПТИМИЗАЦИЯ: читаем с ресемплингом (уменьшаем до разумного размера)
-        target_size = 500
-        scale = max(1, max(src.width, src.height) // target_size)
-
-        logger.info(f"Обработка растра: scale={scale}, original_size=({src.width}x{src.height})")
-
-        # ОПТИМИЗАЦИЯ: windowed reading вместо чтения всего растра
-        # Сначала определяем bounding box геометрии
-        minx, miny, maxx, maxy = field_geom.bounds
-        logger.debug(f"Bounds поля: ({minx:.6f}, {miny:.6f}, {maxx:.6f}, {maxy:.6f})")
-
-        # Преобразуем bounds в window
-        window = from_bounds(minx, miny, maxx, maxy, src.transform)
+        raster_crs = src.crs.to_string()
         
-        # Рассчитываем размер окна с учетом scale
-        window_scaled = rasterio.windows.Window(
-            col_off=window.col_off / scale,
-            row_off=window.row_off / scale,
-            width=max(1, window.width / scale),
-            height=max(1, window.height / scale)
-        )
-        
-        # Читаем только нужную область с нужным разрешением
-        out_image = src.read(
-            1,  # Первый канал (NDVI)
-            window=window_scaled,
-            out_shape=(
-                int(window_scaled.height),
-                int(window_scaled.width)
-            )
-        )
-        
-        # Создаем трансформ для обрезанной области
-        out_transform = src.window_transform(window_scaled)
-        
-        # Маскируем по точной геометрии поля
-        from rasterio.mask import mask as raster_mask
-        try:
-            out_image, out_transform = raster_mask(
-                src, [field_geom], crop=True
-            )
-            out_image = out_image[0]  # Берем первый канал
-        except ValueError:
-            # Если маска не применилась, используем уже прочитанные данные
-            logger.warning("Не удалось применить маску, используем windowed данные")
-            out_image = out_image
-
-        # Если после обрезки он все еще слишком большой, дополнительно уменьшаем
-        if max(out_image.shape) > target_size * 1.5:
-            actual_scale = max(out_image.shape) / target_size
-            data = out_image[::int(actual_scale), ::int(actual_scale)]
-            out_transform = out_transform * Affine.scale(actual_scale, actual_scale)
+        # Если растр в EPSG:3035, а геометрия в 4326 - трансформируем геометрию
+        if raster_crs == "EPSG:3035":
+            project = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3035", always_xy=True).transform
+            field_geom_proj = shapely_transform(project, field_geom)
         else:
-            data = out_image
+            field_geom_proj = field_geom
 
-        # 2. Фильтруем данные (убираем NoData и значения вне диапазона NDVI)
-        valid_mask = (data > -1.0) & (data <= 1.0) & (data != 0)
-        valid_data = data[valid_mask].reshape(-1, 1)
+        # 1. Чтение и маскирование
+        try:
+            out_image, out_transform = raster_mask(src, [field_geom_proj], crop=True)
+            data = out_image[0]
+        except Exception as e:
+            logger.warning(f"Raster mask failed: {e}. Falling back to full read.")
+            data = src.read(1)
+            out_transform = src.transform
 
-        logger.info(f"Обрезано: {data.shape}, валидных пикселей: {len(valid_data)}")
+        # 2. Фильтрация данных
+        # Для DJI Mavic 3M почва обычно < 0.2
+        valid_mask = (data > 0.1) & (data <= 1.0)
+        valid_data = data[valid_mask]
 
-        if len(valid_data) < 10:
-            logger.warning("Недостаточно валидных данных для кластеризации")
+        if len(valid_data) < 100:
+            logger.error("Not enough valid data for zoning")
             return []
 
-        # 3. Кластеризация
-        train_size = min(len(valid_data), 50000)
-        rng = np.random.default_rng(42)
-        train_indices = rng.choice(len(valid_data), size=train_size, replace=False)
-        train_data = valid_data[train_indices]
-
-        kmeans = KMeans(n_clusters=num_zones, random_state=42, n_init=10).fit(train_data)
-        centers = kmeans.cluster_centers_.flatten()
-        sorted_indices = np.argsort(centers)
-        rank_map = {old: new for new, old in enumerate(sorted_indices)}
-
+        # 3. Классификация
         labels = np.full(data.shape, -1, dtype=np.int16)
-        all_labels = kmeans.predict(valid_data)
-        ranked_labels = np.array([rank_map[l] for l in all_labels])
-        labels[valid_mask] = ranked_labels
-
-        logger.info(f"Кластеризация завершена, центры: {[round(c, 3) for c in centers]}")
-
-        # Рассчитываем адаптивный scale для фильтрации
-        adaptive_scale = max(1, max(src.width, src.height) // target_size)
-
-        # 4. МОРФОЛОГИЧЕСКАЯ ОБРАБОТКА для укрупнения зон
-        # ОПТИМИЗАЦИЯ: Увеличиваем размер фильтра (был 5, стал 11) для более агрессивного сглаживания "шума"
-        labels = ndimage.median_filter(labels, size=11)
-
-        # Собираем маски всех зон после морфологической обработки
-        zone_masks = []
-        for i in range(num_zones):
-            zone_mask = (labels == i).astype(np.uint8)
-            # Морфологическое закрытие для объединения близких областей
-            zone_mask = ndimage.binary_closing(zone_mask, structure=np.ones((7,7)))
-            # Заполняем отверстия
-            zone_mask = ndimage.binary_fill_holes(zone_mask).astype(np.uint8)
-            zone_masks.append(zone_mask)
-
-        # Рассчитываем расстояния до каждой зоны для разрешения перекрытий и заполнения пустот
-        from scipy.ndimage import distance_transform_edt
-
-        # Создаём массив расстояний до каждой зоны
-        distance_maps = []
-        for i in range(num_zones):
-            # distance_transform_edt возвращает расстояние до ближайшего ненулевого пикселя
-            dist = distance_transform_edt(zone_masks[i] == 0)
-            distance_maps.append(dist)
-
-        # Разрешаем перекрытия: для каждого пикселя выбираем зону с минимальным расстоянием
-        # Сначала создаём финальный массив с -1
-        final_labels = np.full(labels.shape, -1, dtype=np.int16)
-
-        # Для каждого пикселя выбираем ближайшую зону
-        distance_stack = np.stack(distance_maps, axis=0)  # (num_zones, H, W)
-        final_labels = np.argmin(distance_stack, axis=0).astype(np.int16)
-
-        logger.info("Морфологическая обработка завершена: перекрытия устранены, все пиксели распределены")
-
-        labels = final_labels
-
-        # 5. Векторизация и топологическая очистка
-        results = []
-        colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
-        names = ["Низкая", "Средняя", "Высокая"]
-
-        # Увеличенное упрощение для более гладких геометрий (важно для техники)
-        simplify_tolerance = 0.0001 
-
-        # Создаем словарь для хранения геометрий каждой зоны
-        zone_geoms = {}
         
-        # Сначала векторизуем все зоны "как есть", фильтруя мелкие "острова"
-        # ПОРОГ ГЕНЕРАЛИЗАЦИИ: 0.5% от площади поля (типично для техники)
-        island_threshold = field_geom.area * 0.005 
+        if num_zones == 4:
+            # VRA Strategy: 4 зоны по перцентилям (P20, P50, P80)
+            p20 = np.percentile(valid_data, 20)
+            p50 = np.percentile(valid_data, 50)
+            p80 = np.percentile(valid_data, 80)
+            
+            labels[valid_mask] = 0
+            labels[valid_mask & (data > p20)] = 1
+            labels[valid_mask & (data > p50)] = 2
+            labels[valid_mask & (data > p80)] = 3
+            
+            names = ["Очень низкая", "Низкая", "Средняя", "Высокая"]
+            colors = ["#ff0000", "#ffa500", "#ffff00", "#008000"]
+        else:
+            # Стандартная стратегия: KMeans (3 зоны)
+            kmeans = KMeans(n_clusters=num_zones, random_state=42, n_init=10).fit(valid_data.reshape(-1, 1))
+            centers = kmeans.cluster_centers_.flatten()
+            rank_map = {old: new for new, old in enumerate(np.argsort(centers))}
+            labels[valid_mask] = np.array([rank_map[l] for l in kmeans.predict(valid_data.reshape(-1, 1))])
+            
+            names = ["Низкая", "Средняя", "Высокая"]
+            colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
 
+        # 4. Генерализация (сглаживание шума)
+        # Убираем "соль и перец" через медианный фильтр
+        labels = ndimage.median_filter(labels, size=9)
+
+        # 5. Векторизация
+        simplify_tolerance = 2.0 if raster_crs == "EPSG:3035" else 0.00005
+        island_threshold = field_geom_proj.area * 0.01 
+        
+        results = []
+        # Собираем зоны по порядку от худшей к лучшей
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
             shapes_gen = features.shapes(mask, mask=mask, transform=out_transform)
@@ -180,56 +95,30 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             polys = []
             for s, v in shapes_gen:
                 poly = shape(s)
-                # Фильтруем слишком мелкие пятна внутри зон (фрагментацию)
                 if poly.is_valid and poly.area > island_threshold:
                     polys.append(poly)
             
-            if polys:
-                # Объединяем и упрощаем
-                merged = unary_union(polys)
-                simplified = merged.simplify(simplify_tolerance, preserve_topology=True)
-                zone_geoms[i] = simplified
-            else:
-                zone_geoms[i] = Polygon()
-
-        # ГАРАНТИЯ ПОКРЫТИЯ И ОТСУТСТВИЯ ПЕРЕСЕЧЕНИЙ (Layer Cake Method)
-        # Мы идем от самой важной зоны к наименее важной, вырезая части из общей площади поля
-        
-        final_zones = {}
-        # Начинаем с полной геометрии поля (упрощенной для соответствия зонам)
-        remaining_field = field_geom.simplify(simplify_tolerance, preserve_topology=True)
-        # Исправляем возможные ошибки самопересечения
-        remaining_field = remaining_field.buffer(0)
-        
-        # Обрабатываем зоны в обратном порядке: Высокая -> Средняя -> Низкая
-        # Высокая зона получает приоритет на свою форму, остальные забирают остатки
-        for i in reversed(range(num_zones)):
-            if i == 0:
-                # Последняя (Низкая) зона просто забирает всё, что осталось от поля
-                final_zones[i] = remaining_field
-            else:
-                # Текущая зона - это её геометрия, ограниченная остатком поля
-                current_zone = zone_geoms[i].intersection(remaining_field)
-                # Исправляем геометрию
-                current_zone = current_zone.buffer(0)
-                final_zones[i] = current_zone
-                # Вычитаем эту зону из остатка поля
-                remaining_field = remaining_field.difference(current_zone).buffer(0)
-
-        # Формируем финальный результат
-        for i in range(num_zones):
-            geom = final_zones.get(i, Polygon())
+            if not polys: continue
             
-            # Пропускаем пустые зоны (если вдруг такие возникли)
-            if geom.is_empty or geom.area < 1e-9:
-                continue
+            zone_union = unary_union(polys).intersection(field_geom_proj)
+            if zone_union.is_empty or zone_union.area < island_threshold: continue
+            
+            # Считаем среднее значение индекса в зоне
+            zone_idx_mask = (labels == i) & valid_mask
+            avg_val = float(np.mean(data[zone_idx_mask])) if np.any(zone_idx_mask) else 0.0
+            
+            # Обратная трансформация в 4326 для БД
+            if raster_crs == "EPSG:3035":
+                back_project = pyproj.Transformer.from_crs("EPSG:3035", "EPSG:4326", always_xy=True).transform
+                final_geom = shapely_transform(back_project, zone_union)
+            else:
+                final_geom = zone_union
 
             results.append({
-                "name": names[i] if i < len(names) else f"Зона {i+1}",
-                "geometry_wkt": geom.wkt,
-                "avg_ndvi": round(float(centers[sorted_indices[i]]), 3),
-                "color": colors[i] if i < len(colors) else "#808080"
+                "name": names[i],
+                "geometry_wkt": final_geom.simplify(0.00001).wkt,
+                "avg_ndvi": avg_val,
+                "color": colors[i]
             })
 
-    logger.info(f"Создано зон: {len(results)}")
-    return results
+        return results

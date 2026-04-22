@@ -17,26 +17,12 @@ from shapely.wkt import loads as wkt_loads
 from db import database
 from src.models.auth import User
 from src.models.field import Field, FieldScan, FieldZone, Owner
+from src.services.analysis_service import compare_scans
 from src.middleware.auth import AuthenticatedRequestHandler, require_auth
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
 from src.utils.db_utils import db_connection
 from src.utils.validators import validate_field_data
-
-
-def slugify(text: Optional[str]) -> str:
-    """Очистка строки для использования в имени файла.
-
-    Args:
-        text: Исходная строка.
-
-    Returns:
-        Очищенная строка для имени файла.
-    """
-    if not text:
-        return "Field"
-    return "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in text]).strip().replace(' ', '_')
-
 
 class FieldApiBaseHandler(AuthenticatedRequestHandler):
     """Базовый класс для API handlers полей с авторизацией."""
@@ -50,6 +36,37 @@ class FieldApiBaseHandler(AuthenticatedRequestHandler):
         if not user:
             return Field.select().where(Field.id == -1)
         return Field.select().where(Field.company == user.company)
+
+
+class FieldComparisonHandler(FieldApiBaseHandler):
+    """Handler для сравнения двух сканов поля."""
+
+    def get(self, field_id: int) -> None:
+        try:
+            scan1_id = self.get_argument("scan1")
+            scan2_id = self.get_argument("scan2")
+
+            with db_connection():
+                field = Field.get_by_id(field_id)
+                scan1 = FieldScan.get_by_id(scan1_id)
+                scan2 = FieldScan.get_by_id(scan2_id)
+
+                if scan1.field_id != field.id or scan2.field_id != field.id:
+                    self.set_status(400)
+                    self.write({"error": "Сканы не принадлежат этому полю"})
+                    return
+
+                result = compare_scans(
+                    scan1.file_path,
+                    scan2.file_path,
+                    field.geometry_wkt
+                )
+
+                self.write(result)
+
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
 
 
 class FieldsApiHandler(FieldApiBaseHandler):

@@ -10,208 +10,122 @@ from huey import RedisHuey
 
 from src.utils.db_utils import db_connection
 
+from src.services.drone_processing_service import DroneProcessingService
+
 # Настройка Huey
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 huey = RedisHuey('field-mapper', url=redis_url)
 
 
-def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
-    """Реализация обработки GeoTIFF (без декоратора huey).
-
-    Args:
-        file_path: Путь к файлу GeoTIFF.
-        field_id: ID поля для обработки.
-        scan_id: ID скана для обновления статуса (опционально).
-
-    Returns:
-        True если обработка успешна, False иначе.
+@huey.task()
+def process_drone_fast_task(
+    zip_path: str,
+    field_id: int,
+    total_fertilizer_kg: Optional[float] = None,
+    scan_id: Optional[int] = None
+) -> dict:
     """
-    # Импортируем database внутри функции чтобы использовать правильный путь
-    from db import Field, FieldZone, FieldScan, database
-    from src.services.raster_service import process_ndvi_zones
-
-    logging.info(f"Запуск обработки растра: {file_path} для поля ID {field_id}")
-
+    Быстрая обработка снимков с дрона без создания ортомозаики.
+    """
+    import tempfile
+    import zipfile
+    import shutil
+    import numpy as np
+    from db import Field, FieldScan, FieldZone, database
+    from src.handlers.upload_handlers import UPLOAD_DIR
+    
+    logging.info(f"Запуск БЫСТРОЙ обработки дрона: {zip_path} для поля ID {field_id}")
+    
+    results = {"success": False, "error": None}
+    service = DroneProcessingService()
+    
     try:
-        with db_connection():
-            field = Field.get_by_id(field_id)
-
-            # Запускаем тяжелое зонирование
-            zones_data = process_ndvi_zones(file_path, field.geometry_wkt)
-
-            if not zones_data:
-                logging.error("Не удалось выделить зоны")
-                if scan_id:
-                    FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
-                return False
-
-            # Сохраняем зоны в БД в транзакции
-            with database.atomic():
-                # Если есть scan_id, привязываем зоны к скану и удаляем старые зоны этого скана
-                if scan_id:
-                    FieldZone.delete().where(FieldZone.field == field, FieldZone.scan == scan_id).execute()
-                else:
-                    # Для обратной совместимости - удаляем все старые зоны поля
-                    FieldZone.delete().where(FieldZone.field == field).execute()
-
-                for z in zones_data:
-                    FieldZone.create(
-                        field=field,
-                        scan=scan_id if scan_id else None,
-                        name=z['name'],
-                        geometry_wkt=z['geometry_wkt'],
-                        avg_ndvi=z['avg_ndvi'],
-                        color=z['color']
-                    )
-
-                # Обновляем статус скана
-                if scan_id:
-                    # Загружаем объект скана для получения даты
-                    scan = FieldScan.get_or_none(FieldScan.id == scan_id)
-                    
-                    # Классифицируем культуру перед завершением
-                    from src.services.crop_classifier import classify_from_raster
-                    
-                    try:
-                        crop_result = classify_from_raster(
-                            file_path, 
-                            acquisition_date=scan.uploaded_at if scan else None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 1. Распаковка
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir)
+            
+            # 2. Сбор точек (NDVI/NDRE)
+            points = service.process_directory(tmpdir)
+            if not points:
+                raise ValueError("Не удалось найти валидные снимки с GPS и мультиспектром")
+            
+            with db_connection():
+                field = Field.get_by_id(field_id)
+                field_wkt = field.geometry_wkt
+            
+            # 3. Создание сетки и зонирование
+            temp_tif = os.path.join(tmpdir, "grid_temp.tif")
+            zones = service.create_grid_and_zone(points, field_wkt, temp_tif)
+            
+            # 4. Расчет VRA если нужно
+            if total_fertilizer_kg:
+                zones = service.calculate_vra_rates(zones, total_fertilizer_kg)
+            
+            # 5. Сохранение результатов
+            final_tif_name = f"fast_drone_{field_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tif"
+            final_tif_path = os.path.join(UPLOAD_DIR, final_tif_name)
+            os.makedirs(os.path.dirname(final_tif_path), exist_ok=True)
+            shutil.copy2(temp_tif, final_tif_path)
+            
+            with db_connection():
+                with database.atomic():
+                    # Создаем/обновляем скан
+                    scan = FieldScan.get_by_id(scan_id) if scan_id else None
+                    if not scan:
+                        scan = FieldScan.create(
+                            field=field,
+                            file_path=final_tif_path,
+                            filename=final_tif_name,
+                            uploaded_at=datetime.now(),
+                            processed='true',
+                            source='drone_fast'
                         )
-                        
-                        if crop_result.get("crop_type"):
-                            FieldScan.update(
-                                processed='true',
-                                crop_type=crop_result["crop_type"],
-                                crop_confidence=crop_result["confidence"]
-                            ).where(FieldScan.id == scan_id).execute()
-                        else:
-                            FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
-                            
-                    except Exception as e:
-                        logging.error(f"Ошибка классификации при обработке GeoTIFF: {e}")
-                        FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
-                else:
-                    # Для обратной совместимости
-                    pass
+                    else:
+                        scan.file_path = final_tif_path
+                        scan.filename = final_tif_name
+                        scan.processed = 'true'
+                        scan.source = 'drone_fast'
 
-            logging.info(f"Обработка завершена. Зон создано: {len(zones_data)}")
-
-            # Удаляем временный файл после успешной обработки
-            if os.path.exists(file_path):
-                os.remove(file_path)
-
-            return True
-
-    except Exception as e:
-        logging.error(f"Ошибка в фоновой задаче: {str(e)}")
-        if scan_id:
-            FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
-        return False
-
-
-@huey.task()
-def process_geotiff_task(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
-    """Фоновая задача по обработке GeoTIFF и созданию зон.
-
-    Args:
-        file_path: Путь к файлу GeoTIFF.
-        field_id: ID поля для обработки.
-        scan_id: ID скана для обновления статуса (опционально).
-
-    Returns:
-        True если обработка успешна, False иначе.
-    """
-    return _process_geotiff_impl(file_path, field_id, scan_id)
-
-
-def _process_orthomosaic_impl(
-    zip_path: str,
-    field_id: int,
-    crop_type: Optional[str] = None
-) -> dict:
-    """
-    Реализация обработки снимков с дрона (ортомозаика).
-    
-    Args:
-        zip_path: Путь к ZIP архиву со снимками
-        field_id: ID поля
-        crop_type: Тип культуры (опционально)
-        
-    Returns:
-        Результаты обработки
-    """
-    from db import Field, FieldScan, database
-    from src.services.orthomosaic_service import process_drone_imagery
-    from src.services.crop_classifier import classify_from_orthomosaic
-    
-    logging.info(f"Запуск обработки ортомозаики: {zip_path} для поля ID {field_id}")
-    
-    try:
-        # 1. Создаём ортомозаику и обрабатываем NDVI
-        results = process_drone_imagery(zip_path, field_id, crop_type)
-        
-        if results.get("error"):
-            logging.error(f"Ошибка обработки ортомозаики: {results['error']}")
-            return {"error": results["error"]}
-        
-        # 2. Если crop_type='auto', классифицируем культуру
-        if crop_type == 'auto' and results.get("orthomosaic", {}).get("output_path"):
-            ortho_path = results["orthomosaic"]["output_path"]
-            
-            # Получаем дату съёмки из первого снимка
-            acquisition_date = None
-            with db_connection():
-                scan = FieldScan.get_by_id(results.get("scan_id"))
-                if scan and scan.uploaded_at:
-                    acquisition_date = scan.uploaded_at
-            
-            # Классифицируем
-            crop_result = classify_from_orthomosaic(
-                ortho_path,
-                acquisition_date=acquisition_date
-            )
-            
-            results["crop_classification"] = crop_result
-            
-            # Сохраняем в БД
-            with db_connection():
-                if results.get("scan_id"):
-                    scan = FieldScan.get_by_id(results["scan_id"])
-                    scan.crop_type = crop_result.get("crop_type")
-                    scan.crop_confidence = crop_result.get("confidence", 0)
+                    # Расчет общих метрик для скана
+                    if points:
+                        ndvi_vals = [p.ndvi for p in points]
+                        scan.ndvi_min = float(np.min(ndvi_vals))
+                        scan.ndvi_max = float(np.max(ndvi_vals))
+                        scan.ndvi_avg = float(np.mean(ndvi_vals))
+                    
                     scan.save()
-        
-        logging.info(f"Обработка ортомозаики завершена: {results}")
-        
-        # Удаляем временный ZIP
-        if os.path.exists(zip_path):
-            os.remove(zip_path)
-        
-        return results
-        
+                    
+                    # Удаляем старые зоны этого скана
+                    FieldZone.delete().where(FieldZone.scan == scan).execute()
+                    
+                    for z in zones:
+                        zone_name = z['name']
+                        if total_fertilizer_kg and 'rate_kg_ha' in z:
+                            zone_name = f"{z['name']} ({z['rate_kg_ha']:.1f} кг/га)"
+
+                        FieldZone.create(
+                            field=field,
+                            scan=scan,
+                            name=zone_name,
+                            geometry_wkt=z['geometry_wkt'],
+                            avg_ndvi=z['avg_ndvi'],
+                            color=z['color']
+                        )
+            
+            results["success"] = True
+            results["zones_count"] = len(zones)
+            results["scan_id"] = scan.id
+            
     except Exception as e:
-        logging.error(f"Ошибка в задаче ортомозаики: {str(e)}", exc_info=True)
-        return {"error": str(e)}
-
-
-@huey.task()
-def process_orthomosaic_task(
-    zip_path: str,
-    field_id: int,
-    crop_type: Optional[str] = None
-) -> dict:
-    """
-    Фоновая задача по обработке снимков с дрона.
+        logging.error(f"Ошибка в задаче fast_drone: {str(e)}", exc_info=True)
+        results["error"] = str(e)
+        if scan_id:
+            with db_connection():
+                FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
     
-    Создаёт ортомозаику из ZIP архива со снимками,
-    обрабатывает NDVI и классифицирует культуру.
-    
-    Args:
-        zip_path: Путь к ZIP архиву со снимками
-        field_id: ID поля
-        crop_type: Тип культуры (опционально)
+    # Удаляем временный ZIP
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
         
-    Returns:
-        Результаты обработки
-    """
-    return _process_orthomosaic_impl(zip_path, field_id, crop_type)
+    return results

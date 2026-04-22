@@ -42,6 +42,21 @@ class TaskStatusHandler(tornado.web.RequestHandler):
                     "status": "pending",
                     "message": "Задача обрабатывается"
                 })
+            elif isinstance(result, dict):
+                if result.get("success", True):
+                    self.write({
+                        "task_id": task_id,
+                        "status": "completed",
+                        "message": "Обработка завершена успешно",
+                        "result": result
+                    })
+                else:
+                    self.write({
+                        "task_id": task_id,
+                        "status": "error",
+                        "message": result.get("error", "Ошибка при обработке"),
+                        "result": result
+                    })
             elif result is False:
                 self.write({
                     "task_id": task_id,
@@ -431,10 +446,48 @@ class FieldScanZonesHandler(tornado.web.RequestHandler):
 
 
 class ScanCropUpdateHandler(tornado.web.RequestHandler):
-    # ... существующий код ...
+    """Handler для ручного обновления типа культуры скана."""
+
     def post(self, scan_id: int) -> None:
-        # (код метода остается прежним, я просто добавляю новый класс ниже)
-        pass
+        try:
+            import json
+            from db import FieldScan
+            from src.services.crop_classifier import CROP_PROFILES, CropType
+
+            body = json.loads(self.request.body)
+            new_crop = body.get('crop_type')
+
+            if not new_crop:
+                self.set_status(400)
+                self.write({"error": "crop_type is required"})
+                return
+
+            scan = FieldScan.get_by_id(scan_id)
+            scan.crop_type = new_crop
+            scan.crop_confidence = 1.0  # Ручная установка - 100% уверенность
+            scan.save()
+
+            # Получаем дефолтные нормы для этой культуры
+            default_rates = [150, 250, 350]
+            try:
+                crop_enum = CropType(new_crop)
+                if crop_enum in CROP_PROFILES:
+                    default_rates = CROP_PROFILES[crop_enum].default_rates
+            except Exception:
+                pass
+
+            self.write({
+                "success": True,
+                "crop_type": new_crop,
+                "default_rates": default_rates
+            })
+
+        except FieldScan.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Скан не найден"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
 
 class CropsMetadataHandler(tornado.web.RequestHandler):
     """Handler для получения списка доступных культур и их названий."""
