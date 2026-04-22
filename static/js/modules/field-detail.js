@@ -12,11 +12,108 @@ let currentScan = null;
 let allScans = [];
 let processingPollInterval = null;
 let availableCrops = [];
+let ndviHistoryChart = null;
 
 // Инициализация списка культур
 API.getCrops().then(data => {
   availableCrops = data.crops || [];
 });
+
+/**
+ * Инициализирует и обновляет график истории NDVI.
+ * @param {Array} scans - Список всех сканов поля.
+ */
+function initNDVIChart(scans) {
+    const ctx = document.getElementById('ndvi-history-chart');
+    if (!ctx) return;
+
+    // Фильтруем только обработанные сканы и сортируем по дате
+    const chartData = scans
+        .filter(s => s.processed && s.ndvi_avg)
+        .sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
+
+    if (chartData.length === 0) {
+        if (ndviHistoryChart) ndviHistoryChart.destroy();
+        return;
+    }
+
+    const labels = chartData.map(s => new Date(s.uploaded_at).toLocaleDateString('ru-RU'));
+    const values = chartData.map(s => s.ndvi_avg);
+
+    if (ndviHistoryChart) {
+        ndviHistoryChart.data.labels = labels;
+        ndviHistoryChart.data.datasets[0].data = values;
+        ndviHistoryChart.update();
+    } else {
+        ndviHistoryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Средний NDVI',
+                    data: values,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 1,
+                        title: { display: true, text: 'NDVI' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+}
+
+/**
+ * Выполняет сравнение двух выбранных сканов.
+ */
+function compareSelectedScans() {
+    const selected = $(".scan-checkbox:checked");
+    if (selected.length !== 2) {
+        showMessage("Выберите ровно 2 снимка для сравнения", "warning");
+        return;
+    }
+
+    const scanIds = selected.map((_, el) => $(el).val()).get();
+    // Сортируем по ID (или дате), чтобы старый был первым
+    const sortedScans = allScans
+        .filter(s => scanIds.includes(s.id.toString()))
+        .sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
+
+    const scan1Id = sortedScans[0].id;
+    const scan2Id = sortedScans[1].id;
+
+    API.compareScans(currentFieldId, scan1Id, scan2Id).then(result => {
+        $("#comparison-result").show();
+        const delta = result.delta_avg;
+        const deltaText = (delta > 0 ? "+" : "") + (delta * 100).toFixed(1) + "%";
+        
+        const $val = $("#compare-delta-value");
+        $val.text(deltaText);
+        $val.css("color", delta > 0 ? "#4CAF50" : "#f44336");
+
+        const trendIcon = delta > 0.05 ? "📈 Улучшение" : (delta < -0.05 ? "📉 Ухудшение" : "➡️ Стабильно");
+        $("#compare-trend-icon").text(trendIcon);
+
+        showMessage(`Сравнение завершено. Изменение NDVI: ${deltaText}`, "info");
+    }).fail(err => {
+        console.error("Ошибка сравнения:", err);
+        showMessage("Не удалось выполнить сравнение", "error");
+    });
+}
 
 const CROP_NAMES = {
     'wheat': 'Пшеница',
@@ -73,16 +170,27 @@ function loadFieldScans(fieldId) {
     if (allScans.length === 0) {
       $("#scans-selector").hide();
       $("#ndvi-processing-msg").hide();
+      $("#comparison-result").hide();
       return;
     }
 
     $("#scans-selector").show();
     const $list = $("#scan-list");
     $list.empty();
+    
+    // Добавляем кнопку сравнения если её нет
+    if ($("#btn-compare-scans").length === 0) {
+        $("#scans-selector label").after(`
+            <button id="btn-compare-scans" class="btn btn-sm btn-outline-primary" style="float: right; margin-top: -5px;" onclick="compareSelectedScans()">
+                <i class="fas fa-columns"></i> Сравнить
+            </button>
+        `);
+    }
 
     // Сбрасываем currentScanId
     currentScanId = null;
     currentScan = null;
+    $("#comparison-result").hide();
 
     // Проверяем есть ли необработанные сканы
     const hasProcessingScans = allScans.some(scan => !scan.processed);
@@ -99,6 +207,9 @@ function loadFieldScans(fieldId) {
 
       const $item = $(`
         <div class="scan-item ${index === 0 ? 'active' : ''}" data-scan-id="${scan.id}">
+          <div class="scan-checkbox-wrapper">
+             <input type="checkbox" class="scan-checkbox" value="${scan.id}" onclick="event.stopPropagation()">
+          </div>
           <div class="scan-info" onclick="selectScan(${scan.id})">
             <span class="scan-status">${status}</span>
             <span class="scan-date">${date}</span>
@@ -121,6 +232,9 @@ function loadFieldScans(fieldId) {
         $item.addClass('active').siblings().removeClass('active');
       }
     });
+
+    // Инициализируем график
+    initNDVIChart(allScans);
 
     // Если не нашли обработанный скан с зонами, берем первый доступный
     if (!currentScanId && allScans.length > 0) {

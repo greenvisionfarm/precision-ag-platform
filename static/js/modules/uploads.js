@@ -145,6 +145,7 @@ export function initDroneUpload() {
     const btn = $("#drone-upload-button");
     const fieldId = $("#drone-field-select").val();
     const cropType = $("#drone-crop-type").val();
+    const fertilizer = $("#drone-fertilizer").val();
 
     statusDiv.removeClass("text-success text-danger").html("");
     progressDiv.show();
@@ -155,7 +156,9 @@ export function initDroneUpload() {
     formData.append("drone_images", $("#drone-input")[0].files[0]);
     formData.append("data", JSON.stringify({
       field_id: fieldId || null,
-      crop_type: cropType
+      crop_type: cropType,
+      processing_mode: "fast",
+      total_fertilizer_kg: fertilizer ? parseFloat(fertilizer) : null
     }));
 
     $.ajax({
@@ -202,7 +205,7 @@ function loadFieldsForDropdown() {
 }
 
 /**
- * Опрашивает статус задачи обработки ортомозаики.
+ * Опрашивает статус задачи обработки снимков с дрона.
  * @param {string} taskId - ID задачи.
  * @param {string|number} fieldId - ID поля.
  */
@@ -215,43 +218,38 @@ function pollDroneTaskStatus(taskId, fieldId) {
   let progress = 0;
   
   const interval = setInterval(() => {
-    $.ajax({
-      url: `/api/drone/orthomosaic/status/${taskId}`,
-      method: "GET",
-      success: (res) => {
-        if (res.status === "completed") {
-          clearInterval(interval);
-          progressDiv.hide();
-          statusDiv.removeClass("text-danger").addClass("text-success")
-            .html("<i class=\"fas fa-check\"></i> Обработка завершена!");
-          
-          setTimeout(() => {
-            statusDiv.hide();
-            if (fieldId) {
-              window.location.hash = `#field/${fieldId}`;
-              window.showFieldDetail?.(fieldId);
-            }
-            window.loadMapData?.();
-          }, 2000);
-          
-        } else if (res.status === "error") {
-          clearInterval(interval);
-          progressDiv.hide();
-          statusDiv.removeClass("text-success").addClass("text-danger")
-            .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.error}`);
-          $("#drone-upload-button").prop("disabled", false);
-          showMessage(res.error, "error");
-          
-        } else if (res.status === "processing") {
-          // Обновляем прогресс
-          progress = Math.min(progress + 10, 90);
-          progressFill.css("width", `${progress}%`);
-          progressText.text(res.progress || "Обработка снимков...");
-        }
-      },
-      error: () => {
-        // Игнорируем ошибки сети
+    API.getTaskStatus(taskId).then(res => {
+      if (res.status === "completed") {
+        clearInterval(interval);
+        progressDiv.hide();
+        statusDiv.removeClass("text-danger").addClass("text-success")
+          .html("<i class=\"fas fa-check\"></i> Обработка завершена!");
+        
+        setTimeout(() => {
+          statusDiv.hide();
+          if (fieldId) {
+            window.location.hash = `#field/${fieldId}`;
+            window.showFieldDetail?.(fieldId);
+          }
+          window.loadMapData?.();
+        }, 2000);
+        
+      } else if (res.status === "error") {
+        clearInterval(interval);
+        progressDiv.hide();
+        statusDiv.removeClass("text-success").addClass("text-danger")
+          .html(`<i class=\"fas fa-exclamation-triangle\"></i> Ошибка: ${res.message || "Ошибка обработки"}`);
+        $("#drone-upload-button").prop("disabled", false);
+        showMessage(res.message || "Ошибка обработки", "error");
+        
+      } else {
+        // Статус pending или processing
+        progress = Math.min(progress + 5, 95);
+        progressFill.css("width", `${progress}%`);
+        progressText.text(res.message || "Обработка снимков...");
       }
+    }).catch(() => {
+      // Игнорируем ошибки сети, продолжаем опрос
     });
   }, 3000);
 }

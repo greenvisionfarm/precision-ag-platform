@@ -109,8 +109,29 @@
                     </div>
                     <div id="field-detail-map"></div>
                     <div id="zones-legend" class="zones-legend"></div>
-                </div>
-                <div class="detail-card info-card">
+                    </div>
+
+                    <div class="detail-card info-card">
+                    <h3>Аналитика NDVI</h3>
+                    <div class="analytics-container" style="height: 250px; position: relative; margin-bottom: 20px;">
+                        <canvas id="ndvi-history-chart"></canvas>
+                    </div>
+                    <div id="comparison-result" class="comparison-result" style="display: none; border-top: 1px solid #eee; padding-top: 15px;">
+                        <h4>Результат сравнения</h4>
+                        <div class="comparison-stats" style="display: flex; gap: 20px; margin-top: 10px;">
+                            <div class="stat-item">
+                                <span class="stat-label" style="color: #666; font-size: 0.9em;">Изменение NDVI:</span>
+                                <div id="compare-delta-value" style="font-size: 1.2em; font-weight: bold;">--</div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label" style="color: #666; font-size: 0.9em;">Тренд:</span>
+                                <div id="compare-trend-icon" style="font-size: 1.2em;">--</div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div class="detail-card info-card">
                     <h3>Информация</h3>
                     <table id="field-detail-info-table" class="info-table">
                         <tr><th>Площадь</th><td id="field-detail-area"></td></tr>
@@ -263,6 +284,16 @@
                                 <option value="potato">Картофель</option>
                                 <option value="grass">Трава</option>
                             </select>
+
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="drone-fast-mode" checked>
+                                <label for="drone-fast-mode">Быстрый режим (без ортомозаики)</label>
+                            </div>
+
+                            <div id="vra-container" style="margin-top: 10px;">
+                                <label for="drone-fertilizer">Удобрений на поле (кг):</label>
+                                <input type="number" id="drone-fertilizer" placeholder="Напр: 2000">
+                            </div>
                         </div>
                         <button type="submit" id="drone-upload-button" class="btn btn-primary hidden">
                             <i class="fas fa-upload"></i> Загрузить и обработать

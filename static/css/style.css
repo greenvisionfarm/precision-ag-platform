@@ -1263,3 +1263,28 @@ table.dataTable.display tbody tr:hover td {
         grid-template-columns: 1fr;
     }
 }
+
+/* NDVI Аналитика и Сравнение */
+.scan-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    padding-right: 10px;
+}
+.scan-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.analytics-container {
+    background: var(--input-bg);
+    border-radius: var(--radius);
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+}
+.comparison-stats .stat-item {
+    background: var(--input-bg);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    flex: 1;
+}

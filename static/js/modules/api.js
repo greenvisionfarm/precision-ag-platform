@@ -111,6 +111,16 @@ const API = {
   getFieldScans: (fieldId) => $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError),
 
   /**
+   * Сравнение двух сканов поля.
+   * @param {number} fieldId - ID поля.
+   * @param {number} scan1Id - ID первого скана.
+   * @param {number} scan2Id - ID второго скана.
+   * @returns {Promise} Promise с результатом сравнения.
+   */
+  compareScans: (fieldId, scan1Id, scan2Id) => 
+    $.getJSON(`/api/field/${fieldId}/compare?scan1=${scan1Id}&scan2=${scan2Id}`).catch(handleApiError),
+
+  /**
    * Удаление скана.
    * @param {number} fieldId - ID поля.
    * @param {number} scanId - ID скана.
