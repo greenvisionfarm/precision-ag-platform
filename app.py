@@ -21,6 +21,7 @@ from src.handlers.auth_handlers import (
 from src.handlers.field_handlers import (
     BulkKMZExportHandler,
     FieldActionHandler,
+    FieldComparisonHandler,
     FieldExportKmzHandler,
     FieldGetHandler,
     FieldsApiHandler,
@@ -40,8 +41,6 @@ from src.handlers.upload_handlers import (
 )
 from src.handlers.drone_handlers import (
     DroneUploadHandler,
-    CropClassificationHandler,
-    OrthomosaicStatusHandler,
 )
 
 # Настройка логирования
@@ -99,6 +98,7 @@ def make_app() -> tornado.web.Application:
         (r"/api/fields", FieldsApiHandler),
         (r"/api/fields_data", FieldsDataApiHandler),
         (r"/api/field/([0-9]+)", FieldGetHandler),
+        (r"/api/field/([0-9]+)/compare", FieldComparisonHandler),
         (r"/api/field/add", FieldActionHandler),
         (r"/api/field/delete/([0-9]+)", FieldActionHandler),
         (r"/api/field/export/kmz/all", BulkKMZExportHandler),
@@ -124,8 +124,6 @@ def make_app() -> tornado.web.Application:
 
         # Drone imagery processing
         (r"/api/drone/upload", DroneUploadHandler),
-        (r"/api/drone/orthomosaic/status/(.*)", OrthomosaicStatusHandler),
-        (r"/api/scan/([0-9]+)/classify", CropClassificationHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),
