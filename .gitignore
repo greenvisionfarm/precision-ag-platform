@@ -69,3 +69,4 @@ uploads/*
 venv/
 .vscode/
 *.zip
+libs/**/*.egg-info

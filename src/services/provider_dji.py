@@ -1,10 +1,10 @@
 import os
-import re
 import logging
 import rasterio
 import numpy as np
-from PIL import Image
-from typing import List, Dict, Optional, Any
+from typing import Dict, Any
+
+from dji_drone_meta import DJIMetadataExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -14,66 +14,23 @@ class DJIProvider:
     @staticmethod
     def extract_dji_meta(image_path: str) -> Dict[str, Any]:
         """
-        Извлекает расширенные метаданные DJI из XMP (тег 700) и EXIF.
-        Включает GPS, BlackLevel, ExposureTime, SensorGain и др.
+        Использует внешнюю библиотеку dji-drone-meta для извлечения метаданных DJI.
         """
-        meta = {
-            "lat": 0.0, "lon": 0.0, "alt": 0.0,
-            "BlackLevel": 3200, "ExposureTime": 1.0, "SensorGain": 1.0,
-            "SensorSunlight": 0.0, "DroneSensorRadiationCalibrated": False
-        }
+        # Преобразуем ключи из библиотеки в формат, ожидаемый приложением, если нужно.
+        # В данном случае библиотека возвращает: black_level, sensor_gain, exposure_time.
+        # Приложение ожидало: BlackLevel, SensorGain, ExposureTime.
+        raw_meta = DJIMetadataExtractor.extract(image_path)
         
-        try:
-            # 1. Читаем начало файла как текст для поиска XMP (быстрее чем полноценный парсинг)
-            with open(image_path, 'rb') as f:
-                header = f.read(256000).decode('latin-1', errors='ignore')
-                
-                # Поиск GPS (DJI XMP формат)
-                gps_m = re.search(r'GpsLatitude="([^"]+)"', header)
-                if gps_m: meta["lat"] = float(gps_m.group(1))
-                
-                gps_m = re.search(r'GpsLongitude="([^"]+)"', header)
-                if gps_m: meta["lon"] = float(gps_m.group(1))
-                
-                gps_m = re.search(r'RelativeAltitude="([^"]+)"', header)
-                if gps_m: meta["alt"] = float(gps_m.group(1))
-
-                # Калибровочные теги DJI Mavic 3M
-                for tag in ['BlackLevel', 'SensorGain', 'ExposureTime', 'SensorSunlight', 'DroneSensorRadiationCalibrated']:
-                    m = re.search(f'{tag}="([^"]+)"', header)
-                    if m: 
-                        val = m.group(1)
-                        if tag == 'DroneSensorRadiationCalibrated':
-                            meta[tag] = val.lower() == 'true'
-                        else:
-                            meta[tag] = float(val)
-
-            # 2. Если XMP пуст, пробуем стандартный EXIF (через PIL)
-            if meta["lat"] == 0.0:
-                img = Image.open(image_path)
-                exif = img._getexif()
-                if exif:
-                    from PIL.ExifTags import TAGS, GPSTAGS
-                    gps_info = {}
-                    for tag, value in exif.items():
-                        decoded = TAGS.get(tag, tag)
-                        if decoded == "GPSInfo":
-                            for t in value:
-                                sub_decoded = GPSTAGS.get(t, t)
-                                gps_info[sub_decoded] = value[t]
-                    
-                    if gps_info:
-                        def _to_deg(v): return float(v[0]) + (float(v[1]) / 60.0) + (float(v[2]) / 3600.0)
-                        meta["lat"] = _to_deg(gps_info['GPSLatitude'])
-                        if gps_info.get('GPSLatitudeRef') != 'N': meta["lat"] = -meta["lat"]
-                        meta["lon"] = _to_deg(gps_info['GPSLongitude'])
-                        if gps_info.get('GPSLongitudeRef') != 'E': meta["lon"] = -meta["lon"]
-                        meta["alt"] = float(gps_info.get('GPSAltitude', 0.0))
-
-        except Exception as e:
-            logger.error(f"Error extracting metadata from {image_path}: {e}")
-            
-        return meta
+        return {
+            "lat": raw_meta["lat"],
+            "lon": raw_meta["lon"],
+            "alt": raw_meta["alt"],
+            "BlackLevel": raw_meta["black_level"],
+            "ExposureTime": raw_meta["exposure_time"],
+            "SensorGain": raw_meta["sensor_gain"],
+            "SensorSunlight": raw_meta["sensor_sunlight"],
+            "DroneSensorRadiationCalibrated": raw_meta["calibrated"]
+        }
 
     def group_files_by_prefix(self, dir_path: str) -> Dict[str, Dict[str, str]]:
         """

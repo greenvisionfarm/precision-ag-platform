@@ -17,18 +17,8 @@ redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 huey = RedisHuey('field-mapper', url=redis_url)
 
 
-@huey.task()
-def process_geotiff_task(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
-    """Фоновая задача по обработке GeoTIFF и созданию зон.
-
-    Args:
-        file_path: Путь к файлу GeoTIFF.
-        field_id: ID поля для обработки.
-        scan_id: ID скана для обновления статуса (опционально).
-
-    Returns:
-        True если обработка успешна, False иначе.
-    """
+def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
+    """Внутренняя реализация обработки GeoTIFF, вызываемая из задачи и тестов."""
     # Импортируем database внутри функции чтобы использовать правильный путь
     from db import Field, FieldZone, FieldScan, database
     from src.services.raster_service import process_ndvi_zones
@@ -80,10 +70,16 @@ def process_geotiff_task(file_path: str, field_id: int, scan_id: Optional[int] =
             return True
 
     except Exception as e:
-        logging.error(f"Ошибка в фоновой задаче: {str(e)}")
+        logging.error(f"Ошибка в реализации обработки: {str(e)}")
         if scan_id:
             FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
         return False
+
+
+@huey.task()
+def process_geotiff_task(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
+    """Фоновая задача по обработке GeoTIFF и созданию зон."""
+    return _process_geotiff_impl(file_path, field_id, scan_id)
 
 
 @huey.task()

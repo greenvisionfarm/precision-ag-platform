@@ -13,17 +13,23 @@
 - [Управление полями](user-guide/fields.md) — создание, редактирование, экспорт
 - [NDVI анализ](user-guide/ndvi.md) — загрузка и зонирование
 - [Экспорт KMZ](user-guide/kmz-export.md) — создание заданий для DJI
-
 ### 👨‍💻 Для разработчиков
 - [Архитектура](developer-guide/architecture.md) — обзор системы
-- [API Reference](developer-guide/api-reference.md) — REST API endpoints
+- [API Reference](developer-guide/API.md) — актуальные REST endpoints
+- [Интеграция с DJI](developer-guide/dji-integration.md) — работа с мультиспектральными данными ⭐ NEW
 - [Тестирование](developer-guide/testing.md) — запуск тестов
-- [Вклад в проект](developer-guide/contributing.md) — как помочь проекту
+
+### 📦 Выделенные библиотеки
+Мы выделяем полезные компоненты проекта в отдельные библиотеки:
+- `ag-isoxml` — генерация ISOXML TaskFiles для техники.
+- `dji-drone-meta` — извлечение мультиспектральных метаданных из снимков DJI.
 
 ### 📋 История изменений
 - [Changelog](changelog/CHANGELOG.md) — версии и изменения
 
-## 📄 Другие документы
+---
+
+*Последнее обновление: 6 мая 2026 г.*
 
 - [TODO.md](../TODO.md) — дорожная карта проекта
 - [REFACTORING.md](REFACTORING.md) — итоги рефакторинга 2026
