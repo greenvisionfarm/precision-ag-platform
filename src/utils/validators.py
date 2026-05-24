@@ -126,3 +126,16 @@ def validate_file_upload(file_info: Optional[Dict[str, Any]],
             errors.append(f"File size ({size_mb:.1f} MB) exceeds limit ({max_size_mb} MB)")
     
     return errors
+
+
+def slugify(text: str) -> str:
+    """
+    Преобразует строку в URL-friendly формат (slug).
+    Заменяет не-алфавитно-цифровые символы на подчеркивания.
+    """
+    if not text:
+        return "field"
+    # Заменяем все не буквы и не цифры на подчеркивание
+    # \w включает буквы, цифры и подчеркивание
+    text = re.sub(r'[^\w\s-]', '', text).strip()
+    return re.sub(r'[-\s]+', '_', text)

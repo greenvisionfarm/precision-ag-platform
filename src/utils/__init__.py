@@ -1,7 +1,7 @@
 """Утилиты для Field Mapper."""
 
 from src.utils.db_utils import db_connection
-from src.utils.validators import ValidationError, validate_field_data, validate_owner_data, validate_file_upload
+from src.utils.validators import ValidationError, validate_field_data, validate_owner_data, validate_file_upload, slugify
 
 __all__ = [
     'db_connection',
@@ -9,4 +9,5 @@ __all__ = [
     'validate_field_data',
     'validate_owner_data',
     'validate_file_upload',
+    'slugify',
 ]

@@ -22,7 +22,7 @@ from src.middleware.auth import AuthenticatedRequestHandler, require_auth
 from src.services.gis_service import calculate_accurate_area
 from src.services.kmz_service import create_kmz
 from src.utils.db_utils import db_connection
-from src.utils.validators import validate_field_data
+from src.utils.validators import validate_field_data, slugify
 
 class FieldApiBaseHandler(AuthenticatedRequestHandler):
     """Базовый класс для API handlers полей с авторизацией."""
