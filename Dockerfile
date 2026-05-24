@@ -17,10 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Копируем requirements.txt раньше для кэширования слоя
+# Копируем requirements.txt и локальные библиотеки раньше для кэширования слоя
 COPY requirements.txt .
+COPY libs/ libs/
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir ./libs/dji-drone-meta ./libs/ag-isoxml
 
 # 2. Сборка JS окружения (только production зависимости)
 WORKDIR /build_js
