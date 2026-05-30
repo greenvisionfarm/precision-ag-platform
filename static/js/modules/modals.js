@@ -88,8 +88,8 @@ export function downloadKmzWithSettings(fieldId) {
         </div>
         <div class="kmz-field">
           <label for="swal-dir">Угол курса (град):</label>
-          <input type="number" id="swal-dir" class="swal2-input" value="0" min="0" max="360">
-          <small>Направление полета. 0 - север, 90 - восток.</small>
+          <input type="number" id="swal-dir" class="swal2-input" placeholder="Авто (оптимально)" min="0" max="360">
+          <small>Направление полета. Оставьте пустым для авто-расчета (вдоль длинной стороны).</small>
         </div>
       </div>`,
     width: "700px",

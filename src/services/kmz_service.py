@@ -108,7 +108,8 @@ def generate_template_kml(
     height: int = 100, 
     overlap_h: int = 80, 
     overlap_w: int = 70, 
-    direction: int = 0
+    direction: int = 0,
+    current_time: int = None
 ) -> Tuple[str, str]:
     """Генерирует XML содержимое template.kml и takeoff_ref для DJI Pilot 2.
     
@@ -119,6 +120,7 @@ def generate_template_kml(
         overlap_h: Фронтальное перекрытие в процентах.
         overlap_w: Боковое перекрытие в процентах.
         direction: Угол курса в градусах.
+        current_time: Время создания (ms). Если None, берется текущее.
         
     Returns:
         Кортеж (строка KML, строка takeoff_ref).
@@ -131,7 +133,9 @@ def generate_template_kml(
     first_p = list(geom.exterior.coords)[0]
     takeoff_ref = f"{first_p[1]:.6f},{first_p[0]:.6f},0.000000"
 
-    current_time = int(time.time() * 1000)
+    if current_time is None:
+        current_time = int(time.time() * 1000)
+        
     mission_config = generate_mission_config(takeoff_ref, current_time)
 
     xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -238,11 +242,12 @@ def _generate_kmz_cached(
     if actual_direction is None:
         actual_direction = calculate_optimal_heading(wkt_str)
         
+    current_time = int(time.time() * 1000)
+        
     template_kml, takeoff_ref = generate_template_kml(
-        field_name, wkt_str, height, overlap_h, overlap_w, actual_direction
+        field_name, wkt_str, height, overlap_h, overlap_w, actual_direction, current_time
     )
     
-    current_time = int(time.time() * 1000)
     mission_config = generate_mission_config(takeoff_ref, current_time)
 
     # waylines.wpml должен содержать ту же конфигурацию миссии и Folder
