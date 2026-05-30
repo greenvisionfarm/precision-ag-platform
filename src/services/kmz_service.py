@@ -225,6 +225,27 @@ def _get_cache_key(
     return hashlib.md5(key_string.encode()).hexdigest()
 
 
+def generate_lawnmower_path(wkt_str: str, height: int, spacing: float, angle: int) -> List[Tuple[float, float]]:
+    """Генерирует простой lawnmower путь для поля."""
+    geom = wkt.loads(wkt_str)
+    # Используем bounding box для простоты (в будущем нужно использовать полигон)
+    minx, miny, maxx, maxy = geom.bounds
+    
+    # Генерация точек (упрощенная змейка)
+    path = []
+    x = minx
+    direction = 1
+    while x <= maxx:
+        if direction == 1:
+            path.append((x, miny))
+            path.append((x, maxy))
+        else:
+            path.append((x, maxy))
+            path.append((x, miny))
+        x += spacing
+        direction *= -1
+    return path
+
 @lru_cache(maxsize=128)
 def _generate_kmz_cached(
     field_id: int,
@@ -250,7 +271,18 @@ def _generate_kmz_cached(
     
     mission_config = generate_mission_config(takeoff_ref, current_time)
 
-    # waylines.wpml должен содержать ту же конфигурацию миссии и Folder
+    # Генерация waypoints (lawnmower)
+    waypoints = generate_lawnmower_path(wkt_str, height, 0.0005, actual_direction)
+    placemarks = ""
+    for i, (lon, lat) in enumerate(waypoints):
+        placemarks += f"""
+      <Placemark>
+        <Point><coordinates>{lon},{lat}</coordinates></Point>
+        <wpml:index>{i}</wpml:index>
+        <wpml:executeHeight>{height}</wpml:executeHeight>
+      </Placemark>"""
+
+    # waylines.wpml должен содержать конфигурацию миссии, Folder и Placemarks (waypoints)
     waylines_wpml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
   <Document>
@@ -260,6 +292,7 @@ def _generate_kmz_cached(
       <wpml:executeHeightMode>relativeToStartPoint</wpml:executeHeightMode>
       <wpml:waylineId>0</wpml:waylineId>
       <wpml:autoFlightSpeed>7</wpml:autoFlightSpeed>
+      {placemarks}
     </Folder>
   </Document>
 </kml>"""
