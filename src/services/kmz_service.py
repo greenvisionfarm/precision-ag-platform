@@ -3,13 +3,56 @@
 """
 import hashlib
 import io
+import math
 import time
 import zipfile
 from functools import lru_cache
-from typing import Tuple
+from typing import Tuple, Optional
 
 from shapely import wkt
 from shapely.geometry import Polygon
+
+
+def calculate_optimal_heading(wkt_str: str) -> int:
+    """
+    Рассчитывает оптимальный угол полета (в градусах) вдоль самой длинной стороны поля.
+    
+    Это минимизирует количество разворотов (U-turns), что повышает эффективность миссии.
+    """
+    try:
+        geom = wkt.loads(wkt_str)
+        if not isinstance(geom, Polygon):
+            return 0
+        
+        # Находим минимальный ограничивающий прямоугольник (повернутый)
+        mrr = geom.minimum_rotated_rectangle
+        if not isinstance(mrr, Polygon):
+            return 0
+            
+        coords = list(mrr.exterior.coords)
+        max_dist = 0
+        best_angle = 0
+        
+        for i in range(len(coords) - 1):
+            p1 = coords[i]
+            p2 = coords[i+1]
+            dist = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+            
+            if dist > max_dist:
+                max_dist = dist
+                dx = p2[0] - p1[0]
+                dy = p2[1] - p1[1]
+                
+                # Угол от севера по часовой стрелке
+                angle_rad = math.atan2(dx, dy)
+                angle_deg = math.degrees(angle_rad)
+                best_angle = (angle_deg + 360) % 360
+
+        # Возвращаем угол в диапазоне [0, 180), так как для замейки 
+        # направление вдоль линии одинаково эффективно в обе стороны.
+        return int(best_angle % 180)
+    except Exception:
+        return 0
 
 
 def wkt_to_coords(wkt_str: str) -> str:
@@ -36,50 +79,15 @@ def wkt_to_coords(wkt_str: str) -> str:
     return " ".join([f"{c[0]},{c[1]},0" for c in coords])
 
 
-def generate_template_kml(
-    field_name: str, 
-    wkt_str: str, 
-    height: int = 100, 
-    overlap_h: int = 80, 
-    overlap_w: int = 70, 
-    direction: int = 0
-) -> str:
-    """Генерирует XML содержимое template.kml для DJI Pilot 2.
-    
-    Args:
-        field_name: Имя поля.
-        wkt_str: WKT строка геометрии поля.
-        height: Высота полета в метрах.
-        overlap_h: Фронтальное перекрытие в процентах.
-        overlap_w: Боковое перекрытие в процентах.
-        direction: Угол курса в градусах.
-        
-    Returns:
-        Строка KML.
-    """
-    coords_str = wkt_to_coords(wkt_str)
-
-    # Первая точка для TakeOffRefPoint
-    coords_list = coords_str.split(' ')
-    if not coords_list or not coords_list[0]:
-        raise ValueError("Не удалось получить координаты из геометрии поля")
-    first_coord = coords_list[0]
-
-    current_time = int(time.time() * 1000)
-
-    xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
-  <Document>
-    <name>{field_name}</name>
-    <wpml:createTime>{current_time}</wpml:createTime>
-    <wpml:updateTime>{current_time}</wpml:updateTime>
-    <wpml:missionConfig>
+def generate_mission_config(takeoff_ref: str, current_time: int) -> str:
+    """Генерирует общую конфигурацию миссии для обоих файлов."""
+    return f"""<wpml:missionConfig>
       <wpml:flyToWaylineMode>safely</wpml:flyToWaylineMode>
       <wpml:finishAction>goHome</wpml:finishAction>
       <wpml:exitOnRCLost>executeLostAction</wpml:exitOnRCLost>
       <wpml:executeRCLostAction>goBack</wpml:executeRCLostAction>
       <wpml:takeOffSecurityHeight>20</wpml:takeOffSecurityHeight>
-      <wpml:takeOffRefPoint>{first_coord}</wpml:takeOffRefPoint>
+      <wpml:takeOffRefPoint>{takeoff_ref}</wpml:takeOffRefPoint>
       <wpml:globalTransitionalSpeed>10</wpml:globalTransitionalSpeed>
       <wpml:droneInfo>
         <wpml:droneEnumValue>77</wpml:droneEnumValue>
@@ -90,7 +98,48 @@ def generate_template_kml(
         <wpml:payloadSubEnumValue>3</wpml:payloadSubEnumValue>
         <wpml:payloadPositionIndex>0</wpml:payloadPositionIndex>
       </wpml:payloadInfo>
-    </wpml:missionConfig>
+    </wpml:missionConfig>"""
+
+
+def generate_template_kml(
+    field_name: str, 
+    wkt_str: str, 
+    height: int = 100, 
+    overlap_h: int = 80, 
+    overlap_w: int = 70, 
+    direction: int = 0
+) -> Tuple[str, str]:
+    """Генерирует XML содержимое template.kml и takeoff_ref для DJI Pilot 2.
+    
+    Args:
+        field_name: Имя поля.
+        wkt_str: WKT строка геометрии поля.
+        height: Высота полета в метрах.
+        overlap_h: Фронтальное перекрытие в процентах.
+        overlap_w: Боковое перекрытие в процентах.
+        direction: Угол курса в градусах.
+        
+    Returns:
+        Кортеж (строка KML, строка takeoff_ref).
+    """
+    coords_str = wkt_to_coords(wkt_str)
+
+    # DJI WPML требует lat,lon,alt для takeOffRefPoint, 
+    # но lon,lat,alt для обычных координат KML (Polygon)
+    geom = wkt.loads(wkt_str)
+    first_p = list(geom.exterior.coords)[0]
+    takeoff_ref = f"{first_p[1]},{first_p[0]},0"
+
+    current_time = int(time.time() * 1000)
+    mission_config = generate_mission_config(takeoff_ref, current_time)
+
+    xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
+  <Document>
+    <name>{field_name}</name>
+    <wpml:createTime>{current_time}</wpml:createTime>
+    <wpml:updateTime>{current_time}</wpml:updateTime>
+    {mission_config}
     <Folder>
       <wpml:templateType>mapping2d</wpml:templateType>
       <wpml:templateId>0</wpml:templateId>
@@ -117,6 +166,7 @@ def generate_template_kml(
             </LinearRing>
           </outerBoundaryIs>
         </Polygon>
+        <wpml:ellipsoidHeight>{height}</wpml:ellipsoidHeight>
         <wpml:height>{height}</wpml:height>
       </Placemark>
       <wpml:payloadParam>
@@ -126,7 +176,7 @@ def generate_template_kml(
     </Folder>
   </Document>
 </kml>"""
-    return xml_content
+    return xml_content, takeoff_ref
 
 
 def _get_cache_key(
@@ -163,29 +213,27 @@ def _generate_kmz_cached(
     height: int,
     overlap_h: int,
     overlap_w: int,
-    direction: int
+    direction: Optional[int]
 ) -> bytes:
-    """Кэшируемая функция генерации KMZ.
-    
-    Args:
-        field_id: ID поля.
-        field_name: Имя поля.
-        wkt_hash: Хеш WKT для кэширования.
-        wkt_str: WKT строка геометрии.
-        height: Высота полета.
-        overlap_h: Фронтальное перекрытие.
-        overlap_w: Боковое перекрытие.
-        direction: Угол курса.
+    """Кэшируемая функция генерации KMZ."""
+    # Если направление не задано (None), рассчитываем оптимальное
+    actual_direction = direction
+    if actual_direction is None:
+        actual_direction = calculate_optimal_heading(wkt_str)
         
-    Returns:
-        Байты KMZ файла.
-    """
-    template_kml = generate_template_kml(field_name, wkt_str, height, overlap_h, overlap_w, direction)
+    template_kml, takeoff_ref = generate_template_kml(
+        field_name, wkt_str, height, overlap_h, overlap_w, actual_direction
+    )
+    
+    current_time = int(time.time() * 1000)
+    mission_config = generate_mission_config(takeoff_ref, current_time)
 
-    # waylines.wpml нужен для DJI Pilot 2
-    waylines_wpml = """<?xml version="1.0" encoding="UTF-8"?>
+    # waylines.wpml должен содержать ту же конфигурацию миссии
+    waylines_wpml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
-  <Document></Document>
+  <Document>
+    {mission_config}
+  </Document>
 </kml>"""
 
     kmz_io = io.BytesIO()
@@ -204,7 +252,7 @@ def create_kmz(
     height: int = 100, 
     overlap_h: int = 80, 
     overlap_w: int = 70, 
-    direction: int = 0
+    direction: Optional[int] = None
 ) -> bytes:
     """Создает KMZ архив в памяти с учетом параметров миссии.
     
@@ -217,7 +265,7 @@ def create_kmz(
         height: Высота полета в метрах (по умолчанию 100).
         overlap_h: Фронтальное перекрытие в % (по умолчанию 80).
         overlap_w: Боковое перекрытие в % (по умолчанию 70).
-        direction: Угол курса в градусах (по умолчанию 0).
+        direction: Угол курса в градусах. Если None, рассчитывается автоматически.
         
     Returns:
         Байты KMZ файла.

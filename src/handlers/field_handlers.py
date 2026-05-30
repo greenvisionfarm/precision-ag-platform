@@ -357,7 +357,11 @@ class FieldExportKmzHandler(FieldApiBaseHandler):
                 height = int(self.get_argument("height", 100))
                 overlap_h = int(self.get_argument("overlap_h", 80))
                 overlap_w = int(self.get_argument("overlap_w", 70))
-                direction = int(self.get_argument("direction", 0))
+                
+                # Если direction не передан, передаем None для авто-расчета
+                direction_arg = self.get_argument("direction", None)
+                direction = int(direction_arg) if direction_arg is not None else None
+                
                 kmz_data = create_kmz(
                     field.id, field.name or "Field", field.geometry_wkt,
                     height=height, overlap_h=overlap_h, overlap_w=overlap_w,
@@ -389,7 +393,11 @@ class BulkKMZExportHandler(FieldApiBaseHandler):
                 height = int(self.get_argument("height", 100))
                 overlap_h = int(self.get_argument("overlap_h", 80))
                 overlap_w = int(self.get_argument("overlap_w", 70))
-                direction = int(self.get_argument("direction", 0))
+                
+                # Если direction не передан, передаем None для авто-расчета
+                direction_arg = self.get_argument("direction", None)
+                direction = int(direction_arg) if direction_arg is not None else None
+                
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for field in fields:

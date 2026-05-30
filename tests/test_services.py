@@ -33,3 +33,39 @@ def test_kmz_generation_logic():
             content = f.read().decode('utf-8')
             assert "<wpml:globalShootHeight>100</wpml:globalShootHeight>" in content
             assert name in content
+            # Проверка порядка координат в takeOffRefPoint: должно быть lat,lon
+            assert "<wpml:takeOffRefPoint>48.0,19.0,0</wpml:takeOffRefPoint>" in content
+        
+        # Проверяем, что waylines.wpml теперь содержит конфигурацию миссии
+        with z.open("wpmz/waylines.wpml") as f:
+            content = f.read().decode('utf-8')
+            assert "<wpml:missionConfig>" in content
+            assert "<wpml:takeOffRefPoint>48.0,19.0,0</wpml:takeOffRefPoint>" in content
+
+
+def test_kmz_auto_direction():
+    """Проверяет, что угол полета оптимизируется автоматически."""
+    field_id = 101
+    name = "Horizontal Field"
+    # Горизонтальный прямоугольник (вытянут по долготе) -> Ожидаем угол ~90
+    wkt = "POLYGON ((19 48, 19.1 48, 19.1 48.01, 19 48.01, 19 48))"
+    
+    # Передаем direction=None (ожидаем авто-расчет)
+    kmz_data = create_kmz(field_id, name, wkt, direction=None)
+    
+    with zipfile.ZipFile(io.BytesIO(kmz_data)) as z:
+        with z.open("wpmz/template.kml") as f:
+            content = f.read().decode('utf-8')
+            # Ожидаем <wpml:direction>90</wpml:direction> или близко к 90/270/etc.
+            # Наш алгоритм возвращает angle % 180, так что 90.
+            assert "<wpml:direction>90</wpml:direction>" in content
+
+    # Вертикальный прямоугольник -> Ожидаем угол 0
+    name_v = "Vertical Field"
+    wkt_v = "POLYGON ((19 48, 19.01 48, 19.01 48.1, 19 48.1, 19 48))"
+    kmz_data_v = create_kmz(field_id, name_v, wkt_v, direction=None)
+    
+    with zipfile.ZipFile(io.BytesIO(kmz_data_v)) as z:
+        with z.open("wpmz/template.kml") as f:
+            content = f.read().decode('utf-8')
+            assert "<wpml:direction>0</wpml:direction>" in content
