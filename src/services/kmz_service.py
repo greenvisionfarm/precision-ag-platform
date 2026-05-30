@@ -56,7 +56,7 @@ def calculate_optimal_heading(wkt_str: str) -> int:
 
 
 def wkt_to_coords(wkt_str: str) -> str:
-    """Преобразует WKT в строку координат lon,lat,alt через пробел.
+    """Преобразует WKT в строку координат lon,lat,alt через новую строку.
     
     Args:
         wkt_str: Строка WKT.
@@ -75,8 +75,8 @@ def wkt_to_coords(wkt_str: str) -> str:
     if len(coords) < 4:
         raise ValueError("Некорректная геометрия: полигон должен иметь минимум 4 координаты")
 
-    # Формат DJI: lon,lat,alt lon,lat,alt ...
-    return " ".join([f"{c[0]},{c[1]},0" for c in coords])
+    # Формат DJI: lon,lat,alt (одна точка на строку для лучшей читаемости)
+    return "\n                ".join([f"{c[0]:.9f},{c[1]:.9f},0" for c in coords])
 
 
 def generate_mission_config(takeoff_ref: str, current_time: int) -> str:
@@ -93,6 +93,7 @@ def generate_mission_config(takeoff_ref: str, current_time: int) -> str:
         <wpml:droneEnumValue>77</wpml:droneEnumValue>
         <wpml:droneSubEnumValue>0</wpml:droneSubEnumValue>
       </wpml:droneInfo>
+      <wpml:waylineAvoidLimitAreaMode>0</wpml:waylineAvoidLimitAreaMode>
       <wpml:payloadInfo>
         <wpml:payloadEnumValue>68</wpml:payloadEnumValue>
         <wpml:payloadSubEnumValue>3</wpml:payloadSubEnumValue>
@@ -128,7 +129,7 @@ def generate_template_kml(
     # но lon,lat,alt для обычных координат KML (Polygon)
     geom = wkt.loads(wkt_str)
     first_p = list(geom.exterior.coords)[0]
-    takeoff_ref = f"{first_p[1]},{first_p[0]},0"
+    takeoff_ref = f"{first_p[1]:.6f},{first_p[0]:.6f},0.000000"
 
     current_time = int(time.time() * 1000)
     mission_config = generate_mission_config(takeoff_ref, current_time)
@@ -150,10 +151,21 @@ def generate_template_kml(
       </wpml:waylineCoordinateSysParam>
       <wpml:autoFlightSpeed>7</wpml:autoFlightSpeed>
       <Placemark>
+        <name>Waypoint Mission</name>
+        <wpml:caliFlightEnable>0</wpml:caliFlightEnable>
         <wpml:elevationOptimizeEnable>1</wpml:elevationOptimizeEnable>
+        <wpml:smartObliqueEnable>0</wpml:smartObliqueEnable>
+        <wpml:quickOrthoMappingEnable>0</wpml:quickOrthoMappingEnable>
+        <wpml:facadeWaylineEnable>0</wpml:facadeWaylineEnable>
+        <wpml:isLookAtSceneSet>0</wpml:isLookAtSceneSet>
+        <wpml:smartObliqueGimbalPitch>0</wpml:smartObliqueGimbalPitch>
         <wpml:shootType>time</wpml:shootType>
         <wpml:direction>{direction}</wpml:direction>
+        <wpml:margin>0</wpml:margin>
+        <wpml:efficiencyFlightModeEnable>0</wpml:efficiencyFlightModeEnable>
         <wpml:overlap>
+          <wpml:orthoLidarOverlapH>{overlap_h}</wpml:orthoLidarOverlapH>
+          <wpml:orthoLidarOverlapW>{overlap_w}</wpml:orthoLidarOverlapW>
           <wpml:orthoCameraOverlapH>{overlap_h}</wpml:orthoCameraOverlapH>
           <wpml:orthoCameraOverlapW>{overlap_w}</wpml:orthoCameraOverlapW>
         </wpml:overlap>
@@ -171,6 +183,11 @@ def generate_template_kml(
       </Placemark>
       <wpml:payloadParam>
         <wpml:payloadPositionIndex>0</wpml:payloadPositionIndex>
+        <wpml:dewarpingEnable>0</wpml:dewarpingEnable>
+        <wpml:returnMode>singleReturnFirst</wpml:returnMode>
+        <wpml:samplingRate>240000</wpml:samplingRate>
+        <wpml:scanningMode>nonRepetitive</wpml:scanningMode>
+        <wpml:modelColoringEnable>0</wpml:modelColoringEnable>
         <wpml:imageFormat>visable,narrow_band</wpml:imageFormat>
       </wpml:payloadParam>
     </Folder>
@@ -228,11 +245,17 @@ def _generate_kmz_cached(
     current_time = int(time.time() * 1000)
     mission_config = generate_mission_config(takeoff_ref, current_time)
 
-    # waylines.wpml должен содержать ту же конфигурацию миссии
+    # waylines.wpml должен содержать ту же конфигурацию миссии и Folder
     waylines_wpml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:wpml="http://www.dji.com/wpmz/1.0.6">
   <Document>
     {mission_config}
+    <Folder>
+      <wpml:templateId>0</wpml:templateId>
+      <wpml:executeHeightMode>relativeToStartPoint</wpml:executeHeightMode>
+      <wpml:waylineId>0</wpml:waylineId>
+      <wpml:autoFlightSpeed>7</wpml:autoFlightSpeed>
+    </Folder>
   </Document>
 </kml>"""
 

@@ -34,13 +34,16 @@ def test_kmz_generation_logic():
             assert "<wpml:globalShootHeight>100</wpml:globalShootHeight>" in content
             assert name in content
             # Проверка порядка координат в takeOffRefPoint: должно быть lat,lon
-            assert "<wpml:takeOffRefPoint>48.0,19.0,0</wpml:takeOffRefPoint>" in content
-        
-        # Проверяем, что waylines.wpml теперь содержит конфигурацию миссии
-        with z.open("wpmz/waylines.wpml") as f:
-            content = f.read().decode('utf-8')
-            assert "<wpml:missionConfig>" in content
-            assert "<wpml:takeOffRefPoint>48.0,19.0,0</wpml:takeOffRefPoint>" in content
+            assert "<wpml:takeOffRefPoint>48.000000,19.000000,0.000000</wpml:takeOffRefPoint>" in content
+
+            # Проверяем waylines.wpml
+            with z.open("wpmz/waylines.wpml") as f:
+                content = f.read().decode('utf-8')
+                assert "<wpml:missionConfig>" in content
+                assert "<wpml:takeOffRefPoint>48.000000,19.000000,0.000000</wpml:takeOffRefPoint>" in content
+                # Проверяем наличие Folder и templateId
+                assert "<Folder>" in content
+                assert "<wpml:templateId>0</wpml:templateId>" in content
 
 
 def test_kmz_auto_direction():
