@@ -225,25 +225,45 @@ def _get_cache_key(
     return hashlib.md5(key_string.encode()).hexdigest()
 
 
-def generate_lawnmower_path(wkt_str: str, height: int, spacing: float, angle: int) -> List[Tuple[float, float]]:
-    """Генерирует простой lawnmower путь для поля."""
+def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: int) -> List[Tuple[float, float]]:
+    """Генерирует эффективный lawnmower путь внутри полигона."""
+    from shapely import affinity
     geom = wkt.loads(wkt_str)
-    # Используем bounding box для простоты (в будущем нужно использовать полигон)
-    minx, miny, maxx, maxy = geom.bounds
     
-    # Генерация точек (упрощенная змейка)
+    # 1. Поворот полигона
+    rotated_geom = affinity.rotate(geom, angle, origin='centroid')
+    minx, miny, maxx, maxy = rotated_geom.bounds
+    
+    # Расчет шага (очень грубо, нужно уточнить по overlap_w и камере)
+    spacing = 0.0002 
+    
     path = []
     x = minx
     direction = 1
     while x <= maxx:
-        if direction == 1:
-            path.append((x, miny))
-            path.append((x, maxy))
-        else:
-            path.append((x, maxy))
-            path.append((x, miny))
+        # Создаем линию (галс)
+        line = affinity.rotate(
+            wkt.loads(f"LINESTRING({x} {miny}, {x} {maxy})"), 
+            -angle, origin='centroid'
+        )
+        
+        # Пересечение с полем
+        intersection = geom.intersection(line)
+        if not intersection.is_empty:
+            if isinstance(intersection, (Polygon,)): # Или MultiLineString
+                coords = list(intersection.exterior.coords)
+            elif hasattr(intersection, 'coords'):
+                coords = list(intersection.coords)
+            else:
+                coords = []
+                
+            if coords:
+                if direction == 1:
+                    path.extend(coords)
+                else:
+                    path.extend(reversed(coords))
+                direction *= -1
         x += spacing
-        direction *= -1
     return path
 
 @lru_cache(maxsize=128)
@@ -258,7 +278,6 @@ def _generate_kmz_cached(
     direction: Optional[int]
 ) -> bytes:
     """Кэшируемая функция генерации KMZ."""
-    # Если направление не задано (None), рассчитываем оптимальное
     actual_direction = direction
     if actual_direction is None:
         actual_direction = calculate_optimal_heading(wkt_str)
@@ -272,15 +291,36 @@ def _generate_kmz_cached(
     mission_config = generate_mission_config(takeoff_ref, current_time)
 
     # Генерация waypoints (lawnmower)
-    waypoints = generate_lawnmower_path(wkt_str, height, 0.0005, actual_direction)
+    waypoints = generate_lawnmower_path(wkt_str, height, overlap_w, actual_direction)
+    
     placemarks = ""
     for i, (lon, lat) in enumerate(waypoints):
         placemarks += f"""
       <Placemark>
-        <Point><coordinates>{lon},{lat}</coordinates></Point>
+        <Point><coordinates>{lon},{lat},{height}</coordinates></Point>
         <wpml:index>{i}</wpml:index>
         <wpml:executeHeight>{height}</wpml:executeHeight>
+        <wpml:waypointHeadingParam>
+            <wpml:waypointHeadingMode>followWayline</wpml:waypointHeadingMode>
+        </wpml:waypointHeadingParam>
       </Placemark>"""
+
+    # Добавляем ActionGroup для запуска съемки (timeLapse)
+    action_groups = """
+      <wpml:actionGroup>
+        <wpml:actionGroupId>0</wpml:actionGroupId>
+        <wpml:actionGroupStartIndex>0</wpml:actionGroupStartIndex>
+        <wpml:actionGroupEndIndex>999</wpml:actionGroupEndIndex>
+        <wpml:actionGroupMode>sequence</wpml:actionGroupMode>
+        <wpml:actionTrigger>
+            <wpml:actionTriggerType>multipleTiming</wpml:actionTriggerType>
+            <wpml:actionTriggerParam>2.0</wpml:actionTriggerParam>
+        </wpml:actionTrigger>
+        <wpml:action>
+            <wpml:actionId>0</wpml:actionId>
+            <wpml:actionActuatorFunc>startTimeLapse</wpml:actionActuatorFunc>
+        </wpml:action>
+      </wpml:actionGroup>"""
 
     # waylines.wpml должен содержать конфигурацию миссии, Folder и Placemarks (waypoints)
     waylines_wpml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -293,6 +333,7 @@ def _generate_kmz_cached(
       <wpml:waylineId>0</wpml:waylineId>
       <wpml:autoFlightSpeed>7</wpml:autoFlightSpeed>
       {placemarks}
+      {action_groups}
     </Folder>
   </Document>
 </kml>"""
