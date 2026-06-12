@@ -3,6 +3,7 @@ Handlers для аутентификации и управления польз�
 """
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -245,8 +246,19 @@ class RegisterHandler(AuthHandler):
                 self.write({'error': True, 'message': 'Email already registered'})
                 return
             
-            # Создаём компанию
+            # Создаём компанию с уникальным slug
             slug = company_name.lower().replace(' ', '-').replace('--', '-')
+            slug = re.sub(r'[^\w-]', '', slug)
+            if not slug:
+                slug = 'company'
+            
+            # Гарантируем уникальность slug
+            base_slug = slug
+            counter = 1
+            while Company.select().where(Company.slug == slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
             company = Company.create(
                 name=company_name,
                 slug=slug,
@@ -502,6 +514,16 @@ class CompanyHandler(AuthHandler):
         
         if 'name' in data:
             company.name = data['name'].strip()
+            # Обновляем slug при смене имени
+            new_slug = company.name.lower().replace(' ', '-').replace('--', '-')
+            new_slug = re.sub(r'[^\w-]', '', new_slug)
+            if new_slug and new_slug != company.slug:
+                base_slug = new_slug
+                counter = 1
+                while Company.select().where((Company.slug == new_slug) & (Company.id != company.id)).exists():
+                    new_slug = f"{base_slug}-{counter}"
+                    counter += 1
+                company.slug = new_slug
         
         if 'settings' in data and isinstance(data['settings'], dict):
             company.settings_json = json.dumps(data['settings'])

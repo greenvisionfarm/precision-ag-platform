@@ -86,7 +86,7 @@ def test_field(test_db, test_company):
             name="Тестовое поле для растра",
             geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
             properties_json='{"area": 100}',
-            company=test_company
+            company_id=test_company.id
         )
     yield field
     # Cleanup
@@ -249,10 +249,9 @@ class TestRasterUploadHandler:
         handler.get_secure_cookie = MagicMock(return_value=token.encode())
         handler.write = MagicMock()
         handler.set_status = MagicMock()
+        handler._current_user = test_user
         
-        # Мокаем get_current_user_from_token
-        with patch('src.handlers.upload_handlers.get_current_user_from_token', return_value=test_user):
-            handler.post()
+        handler.post()
         
         # Проверяем что вернулся 400
         handler.set_status.assert_called_with(400)
@@ -290,16 +289,15 @@ class TestRasterUploadHandler:
             
             handler.write = mock_write
             handler.set_status = mock_set_status
+            handler._current_user = test_user
             
-            # Мокаем UPLOAD_DIR, get_current_user_from_token и process_geotiff_task
-            with patch('src.handlers.upload_handlers.get_current_user_from_token', return_value=test_user):
-                with patch('src.handlers.upload_handlers.UPLOAD_DIR', upload_dir):
-                    with patch('src.handlers.upload_handlers.process_geotiff_task') as mock_task:
-                        mock_task_instance = MagicMock()
-                        mock_task_instance.id = 'mock-upload-task-456'
-                        mock_task.return_value = mock_task_instance
-                        
-                        handler.post()
+            with patch('src.handlers.upload_handlers.UPLOAD_DIR', upload_dir):
+                with patch('src.handlers.upload_handlers.process_geotiff_task') as mock_task:
+                    mock_task_instance = MagicMock()
+                    mock_task_instance.id = 'mock-upload-task-456'
+                    mock_task.return_value = mock_task_instance
+                    
+                    handler.post()
             
             # Проверяем что всё прошло успешно
             assert len(written_data) > 0

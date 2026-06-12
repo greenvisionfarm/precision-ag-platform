@@ -1,7 +1,7 @@
 """
 Модели аутентификации и мульти-тенантности.
 """
-import hashlib
+import bcrypt
 import os
 from datetime import datetime
 from typing import Optional
@@ -91,20 +91,19 @@ class User(BaseModel):
     @staticmethod
     def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
         """
-        Хэширует пароль с использованием соли.
-        
+        Хэширует пароль с использованием bcrypt.
+
         Args:
             password: Пароль в открытом виде
             salt: Соль (если None, будет сгенерирована новая)
-            
+
         Returns:
             Кортеж (password_hash, salt)
         """
         if salt is None:
-            salt = os.urandom(32).hex()
-        
-        # Используем SHA-256 с солью
-        hashed = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+            salt = bcrypt.gensalt().decode('utf-8')
+
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt.encode('utf-8')).decode('utf-8')
         return hashed, salt
 
     @classmethod
@@ -148,15 +147,20 @@ class User(BaseModel):
     def verify_password(self, password: str) -> bool:
         """
         Проверяет правильность пароля.
-        
+
         Args:
             password: Пароль для проверки
-            
+
         Returns:
             True если пароль верный
         """
-        password_hash, _ = self.hash_password(password, self.password_salt)
-        return password_hash == self.password_hash
+        try:
+            return bcrypt.checkpw(
+                password.encode('utf-8'),
+                self.password_hash.encode('utf-8')
+            )
+        except Exception:
+            return False
 
     def has_permission(self, required_role: str) -> bool:
         """

@@ -44,13 +44,14 @@ from src.handlers.drone_handlers import (
 )
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 
 class MainHandler(tornado.web.RequestHandler):
     """Обработчик главной страницы — без кэширования."""
-
     def get(self) -> None:
         # render() вызывает write() → finish(). Перехватываем finish.
         html = self.render_string("static/index.html")
@@ -62,15 +63,14 @@ class MainHandler(tornado.web.RequestHandler):
 
 class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
     """StaticFileHandler без кэширования JS/CSS файлов."""
-
     def compute_etag(self) -> None:
         # Не генерируем ETag для .js/.css — браузер всегда загружает заново
         pass
 
 
 def make_app() -> tornado.web.Application:
-    """Создаёт и настраивает Tornado приложение.
-
+    """
+    Создаёт и настраивает Tornado приложение.
     Returns:
         Настроенное приложение Tornado.
     """

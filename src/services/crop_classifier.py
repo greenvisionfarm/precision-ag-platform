@@ -239,7 +239,11 @@ def analyze_texture(
         Метрики текстуры
     """
     if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        if cv2 is None:
+            logger.warning("cv2 не установлен, конвертация в grayscale невозможна")
+            gray = image[:, :, 0]
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     else:
         gray = image
     

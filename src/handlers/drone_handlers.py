@@ -17,6 +17,7 @@ import tornado.web
 
 from db import Field, FieldScan
 from src.tasks import process_drone_fast_task
+from src.middleware.auth import AuthenticatedRequestHandler
 from src.utils.db_utils import db_connection
 from src.constants import UPLOAD_DIR
 
@@ -24,7 +25,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class DroneUploadHandler(tornado.web.RequestHandler):
+class DroneUploadHandler(AuthenticatedRequestHandler):
     """Handler для загрузки снимков с дрона (ZIP архив)."""
 
     def post(self) -> None:
@@ -159,12 +160,12 @@ class DroneUploadHandler(tornado.web.RequestHandler):
                     if meta["lat"] == 0.0 or meta["lon"] == 0.0:
                         return None
                     
-                    # Ищем поле которое содержит эту точку
+                    # Ищем поле компании пользователя которое содержит эту точку
                     with db_connection():
                         point = Point(meta["lon"], meta["lat"])
-                        for field in Field.select():
+                        for field in Field.select().where(Field.company == self.current_user.company):
                             field_geom = wkt_loads(field.geometry_wkt)
-                            if field_geom.contains(point) or field_geom.intersects(point):
+                            if field_geom.contains(point):
                                 return field.id
                         
         except Exception as e:

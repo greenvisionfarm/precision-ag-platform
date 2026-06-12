@@ -5,7 +5,10 @@ import os
 import rasterio
 import numpy as np
 
-class FieldAnalysisHandler(tornado.web.RequestHandler):
+from src.middleware.auth import AuthenticatedRequestHandler
+
+
+class FieldAnalysisHandler(AuthenticatedRequestHandler):
     """
     Handler for field multispectral analysis data.
     Provides stats and URLs for NDVI/NDRE/VRA maps.

@@ -1,12 +1,10 @@
 """
 Сервис для создания KMZ файлов для DJI Pilot 2.
 """
-import hashlib
 import io
 import math
 import time
 import zipfile
-from functools import lru_cache
 from typing import Tuple, Optional, List
 
 from shapely import wkt
@@ -234,8 +232,15 @@ def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: in
     rotated_geom = affinity.rotate(geom, angle, origin='centroid')
     minx, miny, maxx, maxy = rotated_geom.bounds
     
-    # Расчет шага (очень грубо, нужно уточнить по overlap_w и камере)
-    spacing = 0.0002 
+    # Расчет шага на основе высоты и бокового перекрытия
+    # DJI Mavic 3M multispectral: горизонтальный FOV ~47.2°
+    camera_fov_rad = math.radians(47.2)
+    coverage_m = 2 * height * math.tan(camera_fov_rad / 2)
+    spacing_m = coverage_m * (1 - overlap_w / 100)
+    
+    # Конвертация метров в градусы (приблизительно, широта ~48°)
+    # 1° широты ≈ 111км, 1° долготы ≈ 74км → среднее ~92км
+    spacing_deg = spacing_m / 92000
     
     path = []
     x = minx
@@ -263,26 +268,23 @@ def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: in
                 else:
                     path.extend(reversed(coords))
                 direction *= -1
-        x += spacing
+        x += spacing_deg
     return path
 
-@lru_cache(maxsize=128)
-def _generate_kmz_cached(
+def _generate_kmz_inner(
     field_id: int,
     field_name: str,
-    wkt_hash: str,
     wkt_str: str,
     height: int,
     overlap_h: int,
     overlap_w: int,
-    direction: Optional[int]
+    direction: Optional[int],
+    current_time: int
 ) -> bytes:
-    """Кэшируемая функция генерации KMZ."""
+    """Внутренняя функция генерации KMZ (без кэширования)."""
     actual_direction = direction
     if actual_direction is None:
         actual_direction = calculate_optimal_heading(wkt_str)
-        
-    current_time = int(time.time() * 1000)
         
     template_kml, takeoff_ref = generate_template_kml(
         field_name, wkt_str, height, overlap_h, overlap_w, actual_direction, current_time
@@ -358,8 +360,6 @@ def create_kmz(
 ) -> bytes:
     """Создает KMZ архив в памяти с учетом параметров миссии.
     
-    Использует кэширование для повторяющихся запросов.
-    
     Args:
         field_id: ID поля.
         field_name: Имя поля.
@@ -372,26 +372,23 @@ def create_kmz(
     Returns:
         Байты KMZ файла.
     """
-    # Для кэширования используем хеш WKT + параметры
-    wkt_hash = hashlib.md5(wkt_str.encode()).hexdigest()
+    current_time = int(time.time() * 1000)
     
-    kmz_data = _generate_kmz_cached(
+    return _generate_kmz_inner(
         field_id=field_id,
         field_name=field_name,
-        wkt_hash=wkt_hash,
         wkt_str=wkt_str,
         height=height,
         overlap_h=overlap_h,
         overlap_w=overlap_w,
-        direction=direction
+        direction=direction,
+        current_time=current_time
     )
-    
-    return kmz_data
 
 
 def clear_kmz_cache() -> None:
-    """Очищает кэш KMZ. Полезно при обновлении геометрии поля."""
-    _generate_kmz_cached.cache_clear()
+    """Очищает кэш KMZ (noop — кэш был убран из-за stale timestamp)."""
+    pass
 
 
 if __name__ == "__main__":

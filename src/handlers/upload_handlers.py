@@ -19,15 +19,15 @@ from db import Field, FieldScan, database
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 from src.services.isoxml_service import export_isoxml
-from src.utils.auth import get_current_user_from_token
+from src.middleware.auth import AuthenticatedRequestHandler
 from src.constants import UPLOAD_DIR
 
 logger = logging.getLogger(__name__)
 
 
-class TaskStatusHandler(tornado.web.RequestHandler):
+class TaskStatusHandler(AuthenticatedRequestHandler):
     """Handler для получения статуса фоновой задачи."""
-    
+
     def get(self, task_id: str) -> None:
         try:
             result = huey.result(task_id)
@@ -69,7 +69,7 @@ class TaskStatusHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 
-def process_geotiff_file(request_files, upload_dir: str) -> dict:
+def process_geotiff_file(request_files, upload_dir: str, company_id: Optional[int] = None) -> dict:
     """
     Общая логика обработки GeoTIFF файла.
     Используется обоими handlers.
@@ -101,10 +101,13 @@ def process_geotiff_file(request_files, upload_dir: str) -> dict:
             ndvi_max = float(np.max(valid_data)) if len(valid_data) > 0 else None
             ndvi_avg = float(np.mean(valid_data)) if len(valid_data) > 0 else None
 
-        # Ищем поле, которое пересекается с этим растром
+        # Ищем поле компании, которое пересекается с этим растром
         with db_connection():
             target_field: Optional[Field] = None
-            for field in Field.select():
+            query = Field.select()
+            if company_id is not None:
+                query = query.where(Field.company_id == company_id)
+            for field in query:
                 field_geom = wkt.loads(field.geometry_wkt)
                 if field_geom.intersects(raster_box):
                     target_field = field
@@ -148,21 +151,11 @@ def process_geotiff_file(request_files, upload_dir: str) -> dict:
         raise
 
 
-class RasterUploadHandler(tornado.web.RequestHandler):
+class RasterUploadHandler(AuthenticatedRequestHandler):
     """Handler для загрузки растровых файлов (GeoTIFF/NDVI) через API."""
 
-    def get_current_user(self):
-        """Получает текущий пользователь из cookie."""
-        token = self.get_secure_cookie('session_token')
-        if not token:
-            return None
-        try:
-            return get_current_user_from_token(token.decode('utf-8'))
-        except Exception:
-            return None
-
     def post(self) -> None:
-        user = self.get_current_user()
+        user = self.current_user
         if not user:
             self.set_status(401)
             self.write({"error": "Требуется авторизация"})
@@ -174,7 +167,7 @@ class RasterUploadHandler(tornado.web.RequestHandler):
             return
 
         try:
-            result = process_geotiff_file(self.request.files, UPLOAD_DIR)
+            result = process_geotiff_file(self.request.files, UPLOAD_DIR, self.current_user.company_id)
             self.write(result)
         except Exception as e:
             logger.error(f"Error processing raster upload: {e}")
@@ -182,21 +175,11 @@ class RasterUploadHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 
-class UploadHandler(tornado.web.RequestHandler):
+class UploadHandler(AuthenticatedRequestHandler):
     """Handler для загрузки файлов."""
 
-    def get_current_user(self):
-        """Получает текущего пользователя из cookie."""
-        token = self.get_secure_cookie('session_token')
-        if not token:
-            return None
-        try:
-            return get_current_user_from_token(token.decode('utf-8'))
-        except Exception:
-            return None
-
     def post(self) -> None:
-        user = self.get_current_user()
+        user = self.current_user
         if not user:
             self.set_status(401)
             self.write({"error": "Требуется авторизация"})
@@ -260,7 +243,7 @@ class UploadHandler(tornado.web.RequestHandler):
 
     def handle_geotiff(self) -> None:
         try:
-            result = process_geotiff_file(self.request.files, UPLOAD_DIR)
+            result = process_geotiff_file(self.request.files, UPLOAD_DIR, self.current_user.company_id)
             self.write(result)
         except Exception as e:
             logger.error(f"Error processing geotiff: {e}")
@@ -268,56 +251,62 @@ class UploadHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 
-class ISOXMLExportHandler(tornado.web.RequestHandler):
+class ISOXMLExportHandler(AuthenticatedRequestHandler):
     """Handler для экспорта поля в формате ISOXML."""
 
     def get(self, field_id: int) -> None:
         try:
-            # Проверяем что поле существует
-            field = Field.get_by_id(field_id)
-            
-            # Проверяем что есть зоны
+            field = (
+                Field.select()
+                .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                .first()
+            )
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено"})
+                return
+
             from db import FieldZone
             zones_count = FieldZone.select().where(FieldZone.field == field).count()
             if zones_count == 0:
                 self.set_status(404)
                 self.write({"error": "Нет зон для экспорта"})
                 return
-            
-            # Генерируем имя файла
+
             filename = f"field_{field_id}_isoxml.xml"
             output_path = os.path.join(UPLOAD_DIR, filename)
-            
-            # Экспортируем
+
             export_isoxml(field_id, output_path)
-            
-            # Отправляем файл
+
             self.set_header('Content-Type', 'application/xml')
             self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
-            
+
             with open(output_path, 'rb') as f:
                 self.write(f.read())
-            
-            # Удаляем временный файл
+
             os.remove(output_path)
-            
-        except Field.DoesNotExist:
-            self.set_status(404)
-            self.write({"error": "Поле не найдено"})
+
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
 
 
-class FieldScansHandler(tornado.web.RequestHandler):
+class FieldScansHandler(AuthenticatedRequestHandler):
     """Handler для получения списка сканов поля."""
 
     def get(self, field_id: int) -> None:
         try:
             from db import FieldScan
 
-            # Проверяем что поле существует
-            Field.get_by_id(field_id)
+            field = (
+                Field.select()
+                .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                .first()
+            )
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено"})
+                return
 
             # Получаем все сканы поля
             scans = FieldScan.select().where(
@@ -368,24 +357,29 @@ class FieldScansHandler(tornado.web.RequestHandler):
             import os
             from db import FieldScan, FieldZone
 
-            # Проверяем что поле существует
-            Field.get_by_id(field_id)
+            field = (
+                Field.select()
+                .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                .first()
+            )
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено"})
+                return
 
-            # Находим скан
-            scan = FieldScan.get_or_none(FieldScan.id == scan_id)
+            scan = FieldScan.get_or_none(
+                (FieldScan.id == scan_id) & (FieldScan.field == field)
+            )
             if not scan:
                 self.set_status(404)
                 self.write({"error": "Скан не найден"})
                 return
 
-            # Удаляем зоны скана
             zones_count = FieldZone.delete().where(FieldZone.scan == scan).execute()
 
-            # Удаляем файл TIFF если существует
             if scan.file_path and os.path.exists(scan.file_path):
                 os.remove(scan.file_path)
 
-            # Удаляем скан
             scan_id_deleted = scan.id
             scan.delete_instance()
 
@@ -395,15 +389,12 @@ class FieldScansHandler(tornado.web.RequestHandler):
                 "deleted_zones": zones_count
             })
 
-        except Field.DoesNotExist:
-            self.set_status(404)
-            self.write({"error": "Поле не найдено"})
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
 
 
-class FieldScanZonesHandler(tornado.web.RequestHandler):
+class FieldScanZonesHandler(AuthenticatedRequestHandler):
     """Handler для получения зон конкретного скана."""
 
     def get(self, scan_id: int) -> None:
@@ -413,6 +404,13 @@ class FieldScanZonesHandler(tornado.web.RequestHandler):
             from shapely.geometry import mapping
 
             scan = FieldScan.get_by_id(scan_id)
+
+            # Проверяем что скан принадлежит компании пользователя
+            field = Field.get_by_id(scan.field_id)
+            if field.company_id != self.current_user.company_id:
+                self.set_status(403)
+                self.write({"error": "Доступ запрещён"})
+                return
 
             # Получаем зоны этого скана
             zones = FieldZone.select().where(FieldZone.scan == scan)
@@ -440,12 +438,11 @@ class FieldScanZonesHandler(tornado.web.RequestHandler):
             self.write({"error": str(e)})
 
 
-class ScanCropUpdateHandler(tornado.web.RequestHandler):
+class ScanCropUpdateHandler(AuthenticatedRequestHandler):
     """Handler для ручного обновления типа культуры скана."""
 
     def post(self, scan_id: int) -> None:
         try:
-            import json
             from db import FieldScan
             from src.services.crop_classifier import CROP_PROFILES, CropType
 
@@ -458,8 +455,16 @@ class ScanCropUpdateHandler(tornado.web.RequestHandler):
                 return
 
             scan = FieldScan.get_by_id(scan_id)
+
+            # Проверяем что скан принадлежит компании пользователя
+            field = Field.get_by_id(scan.field_id)
+            if field.company_id != self.current_user.company_id:
+                self.set_status(403)
+                self.write({"error": "Доступ запрещён"})
+                return
+
             scan.crop_type = new_crop
-            scan.crop_confidence = 1.0  # Ручная установка - 100% уверенность
+            scan.crop_confidence = 1.0
             scan.save()
 
             # Получаем дефолтные нормы для этой культуры
@@ -484,20 +489,11 @@ class ScanCropUpdateHandler(tornado.web.RequestHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
-class CropsMetadataHandler(tornado.web.RequestHandler):
+class CropsMetadataHandler(AuthenticatedRequestHandler):
     """Handler для получения списка доступных культур и их названий."""
 
     def get(self) -> None:
         from src.services.crop_classifier import CROP_PROFILES
-        
-        crops = []
-        for crop_type, signature in CROP_PROFILES.items():
-            crops.append({
-                "id": crop_type.value,
-                "name": signature.crop_type.value.capitalize() # Можно добавить нормальные имена в CropSignature
-            })
-            
-        # Лучше определим имена прямо здесь для API
         
         names = {
             'wheat': 'Пшеница',

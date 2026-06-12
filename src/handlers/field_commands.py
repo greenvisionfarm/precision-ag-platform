@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 from shapely.geometry import shape
 
-from db import Field, Owner
+from src.models.field import Field, Owner
 from src.services.gis_service import calculate_accurate_area
 
 

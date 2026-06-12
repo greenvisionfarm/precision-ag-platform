@@ -47,11 +47,24 @@ class FieldComparisonHandler(FieldApiBaseHandler):
             scan2_id = self.get_argument("scan2")
 
             with db_connection():
-                field = Field.get_by_id(field_id)
-                scan1 = FieldScan.get_by_id(scan1_id)
-                scan2 = FieldScan.get_by_id(scan2_id)
+                field = (
+                    Field.select()
+                    .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                    .first()
+                )
+                if not field:
+                    self.set_status(404)
+                    self.write({"error": "Поле не найдено"})
+                    return
 
-                if scan1.field_id != field.id or scan2.field_id != field.id:
+                scan1 = FieldScan.get_or_none(
+                    (FieldScan.id == scan1_id) & (FieldScan.field == field)
+                )
+                scan2 = FieldScan.get_or_none(
+                    (FieldScan.id == scan2_id) & (FieldScan.field == field)
+                )
+
+                if not scan1 or not scan2:
                     self.set_status(400)
                     self.write({"error": "Сканы не принадлежат этому полю"})
                     return
@@ -354,17 +367,27 @@ class FieldExportKmzHandler(FieldApiBaseHandler):
                     self.set_status(404)
                     self.write({"error": "Field not found"})
                     return
-                height = int(self.get_argument("height", 100))
-                overlap_h = int(self.get_argument("overlap_h", 80))
-                overlap_w = int(self.get_argument("overlap_w", 70))
-                
-                # Если direction не передан или пуст, передаем None для авто-расчета
+
+                try:
+                    height = int(self.get_argument("height", 100))
+                    overlap_h = int(self.get_argument("overlap_h", 80))
+                    overlap_w = int(self.get_argument("overlap_w", 70))
+                except (ValueError, TypeError):
+                    self.set_status(400)
+                    self.write({"error": "height, overlap_h, overlap_w must be integers"})
+                    return
+
                 direction_arg = self.get_argument("direction", None)
                 if direction_arg == "" or direction_arg == "null":
                     direction = None
                 else:
-                    direction = int(direction_arg) if direction_arg is not None else None
-                
+                    try:
+                        direction = int(direction_arg) if direction_arg is not None else None
+                    except (ValueError, TypeError):
+                        self.set_status(400)
+                        self.write({"error": "direction must be an integer"})
+                        return
+
                 kmz_data = create_kmz(
                     field.id, field.name or "Field", field.geometry_wkt,
                     height=height, overlap_h=overlap_h, overlap_w=overlap_w,
@@ -393,16 +416,26 @@ class BulkKMZExportHandler(FieldApiBaseHandler):
                     self.set_status(404)
                     self.write(json.dumps({"error": "Нет полей для экспорта"}))
                     return
-                height = int(self.get_argument("height", 100))
-                overlap_h = int(self.get_argument("overlap_h", 80))
-                overlap_w = int(self.get_argument("overlap_w", 70))
-                
-                # Если direction не передан или пуст, передаем None для авто-расчета
+
+                try:
+                    height = int(self.get_argument("height", 100))
+                    overlap_h = int(self.get_argument("overlap_h", 80))
+                    overlap_w = int(self.get_argument("overlap_w", 70))
+                except (ValueError, TypeError):
+                    self.set_status(400)
+                    self.write({"error": "height, overlap_h, overlap_w must be integers"})
+                    return
+
                 direction_arg = self.get_argument("direction", None)
                 if direction_arg == "" or direction_arg == "null":
                     direction = None
                 else:
-                    direction = int(direction_arg) if direction_arg is not None else None
+                    try:
+                        direction = int(direction_arg) if direction_arg is not None else None
+                    except (ValueError, TypeError):
+                        self.set_status(400)
+                        self.write({"error": "direction must be an integer"})
+                        return
                 
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
