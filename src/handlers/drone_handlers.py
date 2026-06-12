@@ -15,7 +15,8 @@ from typing import Any, Dict, Optional
 
 import tornado.web
 
-from db import Field, FieldScan
+from db import database
+from src.models.field import Field, FieldScan
 from src.tasks import process_drone_fast_task
 from src.middleware.auth import AuthenticatedRequestHandler
 from src.utils.db_utils import db_connection

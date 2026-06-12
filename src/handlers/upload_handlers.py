@@ -15,7 +15,8 @@ import numpy as np
 import rasterio
 import tornado.web
 
-from db import Field, FieldScan, database
+from db import database
+from src.models.field import Field, FieldScan
 from src.tasks import huey, process_geotiff_task
 from src.utils.db_utils import db_connection
 from src.services.isoxml_service import export_isoxml
@@ -254,7 +255,15 @@ class UploadHandler(AuthenticatedRequestHandler):
 class ISOXMLExportHandler(AuthenticatedRequestHandler):
     """Handler для экспорта поля в формате ISOXML."""
 
+    SUPPORTED_METHODS = ("GET", "POST")
+
     def get(self, field_id: int) -> None:
+        self._export(field_id)
+
+    def post(self, field_id: int) -> None:
+        self._export(field_id)
+
+    def _export(self, field_id: int) -> None:
         try:
             field = (
                 Field.select()
@@ -273,10 +282,22 @@ class ISOXMLExportHandler(AuthenticatedRequestHandler):
                 self.write({"error": "Нет зон для экспорта"})
                 return
 
+            # Опциональные параметры продукта из POST body
+            product_name = None
+            product_type = None
+            if self.request.method == 'POST':
+                try:
+                    import json
+                    body = json.loads(self.request.body)
+                    product_name = body.get('product_name')
+                    product_type = body.get('product_type')
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             filename = f"field_{field_id}_isoxml.xml"
             output_path = os.path.join(UPLOAD_DIR, filename)
 
-            export_isoxml(field_id, output_path)
+            export_isoxml(field_id, output_path, product_name=product_name, product_type=product_type)
 
             self.set_header('Content-Type', 'application/xml')
             self.set_header('Content-Disposition', f'attachment; filename="{filename}"')

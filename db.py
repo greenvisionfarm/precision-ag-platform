@@ -4,9 +4,10 @@
 
 NOTE: Для новой системы с мульти-тенантностью используйте:
     from src.models.auth import Company, User
-    from src.models.field import Field, FieldScan, FieldZone, Owner
+    from src.models.field import Field, FieldScan, FieldZone, Owner, FieldJournal
 """
 import os
+from datetime import datetime
 from typing import List
 
 from peewee import (
@@ -71,6 +72,8 @@ class Field(BaseModel):
     owner = ForeignKeyField(Owner, backref='fields', null=True)
     # company_id — прямое integer поле (FK через src.models.field.Field)
     company_id = IntegerField(null=True)
+    created_at = DateTimeField(default=datetime.now)
+    updated_at = DateTimeField(null=True)
 
 
 class FieldScan(BaseModel):
@@ -101,6 +104,9 @@ class FieldZone(BaseModel):
     max_value = FloatField(null=True)
     avg_ndvi = FloatField(null=True)
     color = CharField()
+    rate_kg_ha = FloatField(null=True)  # Норма внесения (кг/га)
+    product_name = CharField(null=True)  # Название продукта
+    product_type = CharField(null=True)  # Тип продукта: nitrogen, npk, phosphorus, potassium, organic
 
 
 def initialize_db() -> None:

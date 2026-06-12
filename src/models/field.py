@@ -55,19 +55,19 @@ class Field(BaseModel):
         Company,
         backref='fields',
         on_delete='CASCADE',
-        null=True,
         help_text="Компания, которой принадлежит поле"
     )
-    
-    created_at = DateTimeField(null=True, help_text="Дата создания")
-    updated_at = DateTimeField(null=True, help_text="Дата последнего обновления")
+
+    # Метаданные
+    created_at = DateTimeField(default=datetime.now, help_text="Дата создания")
+    updated_at = DateTimeField(null=True, help_text="Дата обновления")
 
     class Meta:
         table_name = 'field'
         db_table = 'field'
 
     def __str__(self) -> str:
-        return self.name or f"Field #{self.id}"
+        return self.name or f"Field {self.id}"
 
 
 class FieldScan(BaseModel):
@@ -138,9 +138,73 @@ class FieldZone(BaseModel):
     avg_ndvi = FloatField(null=True, help_text="Средний NDVI в зоне")
     color = CharField(help_text="Цвет зоны для отображения")
 
+    # Норма внесения (VRA)
+    rate_kg_ha = FloatField(null=True, help_text="Норма внесения удобрений (кг/га)")
+
+    # Продукт для внесения
+    product_name = CharField(null=True, help_text="Название продукта (Аммиачная селитра, Мочевина, ...)")
+    product_type = CharField(null=True, help_text="Тип продукта: nitrogen, npk, phosphorus, potassium, organic")
+
     class Meta:
         table_name = 'fieldzone'
         db_table = 'fieldzone'
 
     def __str__(self) -> str:
         return f"{self.field.name} - {self.name}"
+
+
+class FieldJournal(BaseModel):
+    """Журнал полевых работ — история посевов и внесений."""
+
+    field = ForeignKeyField(
+        Field,
+        backref='journal_entries',
+        on_delete='CASCADE',
+        help_text="Поле"
+    )
+    company = ForeignKeyField(
+        Company,
+        backref='journal_entries',
+        on_delete='CASCADE',
+        help_text="Компания"
+    )
+
+    # Что посажено
+    crop_type = CharField(help_text="Тип культуры: wheat, corn, sunflower, soybean, ...")
+    crop_variety = CharField(null=True, help_text="Сорт культуры (опционально)")
+    planting_date = DateTimeField(null=True, help_text="Дата посадки")
+    harvest_date = DateTimeField(null=True, help_text="Дата уборки")
+
+    # Что внесено
+    product_name = CharField(null=True, help_text="Название продукта (Аммиачная селитра, ...)")
+    product_type = CharField(null=True, help_text="Тип: nitrogen, npk, phosphorus, potassium, organic")
+    application_rate = FloatField(null=True, help_text="Норма внесения (кг/га)")
+    application_date = DateTimeField(null=True, help_text="Дата внесения")
+    application_method = CharField(null=True, help_text="Способ: foliar, soil, seed")
+
+    # Связь с NDVI сканом
+    scan = ForeignKeyField(
+        FieldScan,
+        backref='journal_entries',
+        null=True,
+        on_delete='SET NULL',
+        help_text="Скан, привязанный к записи (NDVI)"
+    )
+
+    # Урожай
+    yield_amount = FloatField(null=True, help_text="Урожайность (ц/га)")
+    yield_date = DateTimeField(null=True, help_text="Дата замера урожайности")
+
+    # Заметки
+    notes = TextField(null=True, help_text="Дополнительные заметки")
+
+    # Метаданные
+    created_at = DateTimeField(default=datetime.now, help_text="Дата создания записи")
+    updated_at = DateTimeField(null=True, help_text="Дата обновления записи")
+
+    class Meta:
+        table_name = 'fieldjournal'
+        db_table = 'fieldjournal'
+
+    def __str__(self) -> str:
+        return f"{self.field.name} - {self.crop_type} ({self.planting_date})"

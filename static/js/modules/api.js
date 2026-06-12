@@ -156,6 +156,20 @@ const API = {
     contentType: "application/json",
     data: JSON.stringify({ crop_type: cropType })
   }).catch(handleApiError),
+
+  /**
+   * Экспорт поля в ISOXML (TaskFile для техники).
+   * @param {number} fieldId - ID поля.
+   * @param {Object} params - Параметры (product_name, product_type).
+   * @returns {Promise} Promise с XML-файлом.
+   */
+  exportIsoxml: (fieldId, params = {}) => $.ajax({
+    url: `/api/field/export/isoxml/${fieldId}`,
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify(params),
+    xhrFields: { responseType: 'blob' }
+  }).catch(handleApiError),
 };
 
 export default API;

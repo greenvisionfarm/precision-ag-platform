@@ -452,3 +452,60 @@ function renderZonesStats(zones) {
 window.selectScan = selectScan;
 window.deleteScan = deleteScan;
 window.loadFieldScans = loadFieldScans;
+
+/**
+ * Скачивает blob-файл с именем filename.
+ */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 100);
+}
+
+/**
+ * Обработчик экспорта ISOXML.
+ */
+$(document).on('click', '#detail-export-isoxml', function(e) {
+  e.preventDefault();
+  if (!currentFieldId) return;
+
+  const productName = prompt('Название продукта (напр. Аммиачная селитра):', 'Аммиачная селитра');
+  if (productName === null) return;
+
+  const productType = prompt('Тип продукта (nitrogen, npk, phosphorus, potassium, organic):', 'nitrogen');
+  if (productType === null) return;
+
+  showMessage('Генерация ISOXML...', 'info');
+
+  API.exportIsoxml(currentFieldId, {
+    product_name: productName,
+    product_type: productType
+  }).then(blob => {
+    const filename = `field_${currentFieldId}_isoxml.xml`;
+    downloadBlob(blob, filename);
+    showMessage(`ISOXML экспортирован: ${filename}`, 'success');
+  });
+});
+
+/**
+ * Обработчик экспорта KMZ.
+ */
+$(document).on('click', '#detail-export-kmz', function(e) {
+  e.preventDefault();
+  if (!currentFieldId) return;
+
+  showMessage('Генерация KMZ...', 'info');
+
+  API.exportKmz(currentFieldId).then(blob => {
+    const filename = `field_${currentFieldId}_dji.kmz`;
+    downloadBlob(blob, filename);
+    showMessage(`KMZ экспортирован: ${filename}`, 'success');
+  });
+});

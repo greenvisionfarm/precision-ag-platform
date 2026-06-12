@@ -6,16 +6,42 @@ ISOXML (ISO 11783) — стандарт для обмена данными ме�
 """
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 from ag_isoxml import ISOXMLGenerator
 from src.models.field import Field, FieldZone
 
 
-def export_isoxml(field_id: int, output_path: str) -> str:
+# Маппинг типов продуктов на ISOXML ProductType (ISO 11783-10)
+# Значения: 1=generic, 2=herbicide, 3=fertilizer, 4=fuel
+PRODUCT_TYPE_MAP = {
+    "nitrogen": "3",
+    "npk": "3",
+    "phosphorus": "3",
+    "potassium": "3",
+    "organic": "3",
+    "lime": "3",
+    "sulfur": "3",
+    "herbicide": "2",
+    "fuel": "4",
+}
+
+
+def export_isoxml(
+    field_id: int,
+    output_path: str,
+    product_name: Optional[str] = None,
+    product_type: Optional[str] = None
+) -> str:
     """
     Экспортирует зоны поля в формате ISOXML TaskFile.
     Использует внешнюю библиотеку ag-isoxml для генерации XML.
+    
+    Args:
+        field_id: ID поля
+        output_path: Путь для сохранения XML
+        product_name: Название продукта (переопределяет product_name из зон)
+        product_type: Тип продукта (переопределяет product_type из зон)
     """
     try:
         field = Field.get_by_id(field_id)
@@ -24,37 +50,61 @@ def export_isoxml(field_id: int, output_path: str) -> str:
         if not zones_query:
             raise ValueError(f"Нет зон для поля {field_id}")
         
+        # Определяем продукт из зон или параметров
+        zone_product_name = product_name
+        zone_product_type = product_type
+        
+        if not zone_product_name:
+            # Берем product_name из первой зоны, где он задан
+            for zone in zones_query:
+                if zone.product_name:
+                    zone_product_name = zone.product_name
+                    zone_product_type = zone.product_type or "nitrogen"
+                    break
+        
+        # Если всё ещё нет продукта, используем дефолт
+        if not zone_product_name:
+            zone_product_name = "Аммиачная селитра"
+            zone_product_type = "nitrogen"
+        
         # Подготавливаем данные для библиотеки
         lib_zones = []
         for zone in zones_query:
-            # Получаем дефолтные нормы для культуры
-            from src.services.crop_classifier import CROP_PROFILES, CropType
-            default_rates = [150, 250, 350]
-            
-            if zone.scan and getattr(zone.scan, 'crop_type', None):
-                try:
-                    crop_enum = CropType(zone.scan.crop_type)
-                    if crop_enum in CROP_PROFILES:
-                        default_rates = CROP_PROFILES[crop_enum].default_rates
-                except (ValueError, KeyError):
-                    pass
+            rate = zone.rate_kg_ha
 
-            # Рассчитываем норму внесения на основе NDVI
-            if zone.avg_ndvi:
-                if zone.avg_ndvi < 0.4:
-                    rate = default_rates[0]
-                elif zone.avg_ndvi < 0.6:
-                    rate = default_rates[1]
+            if rate is None:
+                from src.services.crop_classifier import CROP_PROFILES, CropType
+                default_rates = [150, 250, 350]
+
+                if zone.scan and getattr(zone.scan, 'crop_type', None):
+                    try:
+                        crop_enum = CropType(zone.scan.crop_type)
+                        if crop_enum in CROP_PROFILES:
+                            default_rates = CROP_PROFILES[crop_enum].default_rates
+                    except (ValueError, KeyError):
+                        pass
+
+                if zone.avg_ndvi:
+                    if zone.avg_ndvi < 0.4:
+                        rate = default_rates[0]
+                    elif zone.avg_ndvi < 0.6:
+                        rate = default_rates[1]
+                    else:
+                        rate = default_rates[2]
                 else:
-                    rate = default_rates[2]
-            else:
-                rate = default_rates[1]
+                    rate = default_rates[1]
+
+            # Используем продукт из зоны или общий
+            z_product_name = zone.product_name or zone_product_name
+            z_product_type = zone.product_type or zone_product_type
 
             lib_zones.append({
                 "name": zone.name,
                 "geometry_wkt": zone.geometry_wkt,
                 "rate": rate,
-                "color": zone.color
+                "color": zone.color,
+                "product_name": z_product_name,
+                "product_type": PRODUCT_TYPE_MAP.get(z_product_type, z_product_type)
             })
         
         # Генерируем XML через библиотеку
@@ -62,13 +112,14 @@ def export_isoxml(field_id: int, output_path: str) -> str:
         xml_content = generator.generate_task_file(
             field_name=field.name,
             field_id=str(field.id),
-            zones=lib_zones
+            zones=lib_zones,
+            product_type=PRODUCT_TYPE_MAP.get(zone_product_type, '1')
         )
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(xml_content)
         
-        logging.info(f"ISOXML экспортирован: {output_path}")
+        logging.info(f"ISOXML экспортирован: {output_path} (продукт: {zone_product_name})")
         return output_path
         
     except Exception as e:

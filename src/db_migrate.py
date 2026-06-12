@@ -136,9 +136,49 @@ def migrate_db(db_path: str = 'fields.db') -> None:
         logger.info("Обновление таблицы fieldscan...")
         # FieldScan не нуждается в company_id, так как связан с Field
         
-        # 6. Добавляем company_id в fieldzone (через связь с field)
+        # 6. Добавляем rate_kg_ha и продукты в fieldzone
         logger.info("Обновление таблицы fieldzone...")
-        # FieldZone не нуждается в company_id, так как связан с Field
+        cursor.execute("PRAGMA table_info(fieldzone)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        if columns:
+            if 'rate_kg_ha' not in columns:
+                cursor.execute("ALTER TABLE fieldzone ADD COLUMN rate_kg_ha REAL")
+            if 'product_name' not in columns:
+                cursor.execute("ALTER TABLE fieldzone ADD COLUMN product_name VARCHAR")
+            if 'product_type' not in columns:
+                cursor.execute("ALTER TABLE fieldzone ADD COLUMN product_type VARCHAR")
+
+        # 7. Создаём таблицу fieldjournal (журнал полевых работ)
+        logger.info("Создание таблицы fieldjournal...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fieldjournal (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_id INTEGER NOT NULL,
+                company_id INTEGER NOT NULL,
+                crop_type VARCHAR NOT NULL,
+                crop_variety VARCHAR,
+                planting_date DATETIME,
+                harvest_date DATETIME,
+                product_name VARCHAR,
+                product_type VARCHAR,
+                application_rate REAL,
+                application_date DATETIME,
+                application_method VARCHAR,
+                scan_id INTEGER,
+                yield_amount REAL,
+                yield_date DATETIME,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME,
+                FOREIGN KEY (field_id) REFERENCES field(id) ON DELETE CASCADE,
+                FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+                FOREIGN KEY (scan_id) REFERENCES fieldscan(id) ON DELETE SET NULL
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_field ON fieldjournal(field_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_company ON fieldjournal(company_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_crop ON fieldjournal(crop_type)")
         
         logger.info("Миграция успешно завершена!")
         

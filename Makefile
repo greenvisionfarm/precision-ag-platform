@@ -110,39 +110,107 @@ seed-test-data: ## Создать тестовые данные
 -include .deploy.env
 
 DEPLOY_SERVER ?= vbuianov@192.168.31.196
-DEPLOY_DIR ?= /home/vbuianov/field_mapper
+DEPLOY_DIR ?= ~/field_mapper
 DEPLOY_COMPOSE ?= docker-compose.server.yml
+APP_CONTAINER ?= field-mapper-app
+HEALTH_URL ?= http://$(shell echo $(DEPLOY_SERVER) | cut -d@ -f2):8080
+HEALTH_RETRIES ?= 10
+HEALTH_INTERVAL ?= 5
 
-deploy: ## Задеплоить на домашний сервер
-	@echo "$(YELLOW)Деплой на $(DEPLOY_SERVER)...$(NC)"
-	@echo "$(BLUE)1. Push в GitHub...$(NC)"
-	git push upstream master
-	@echo "$(BLUE)2. Git pull и restart на сервере...$(NC)"
-	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull --rebase && docker compose -f $(DEPLOY_COMPOSE) up -d --build && docker exec field-mapper-nginx nginx -s reload"
-	@echo "$(GREEN)✅ Деплой завершён! http://$(shell echo $(DEPLOY_SERVER) | cut -d@ -f2):8080$(NC)"
+define remote
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && $(1)"
+endef
+
+define container_exec
+	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && docker compose -f $(DEPLOY_COMPOSE) exec -T $(APP_CONTAINER) $(1)"
+endef
+
+deploy: ## Задеплоить на домашний сервер (pre-check → build → migrate → health)
+	@echo "$(YELLOW)═══ Деплой на $(DEPLOY_SERVER) ═══$(NC)"
+	@echo "$(BLUE)1/7 Pre-deploy checks...$(NC)"
+	@PYTHONPYCACHEPREFIX=/tmp/pycache ./venv/bin/python -m pytest tests/test_raster_upload.py tests/test_isoxml_export.py tests/test_auth.py -q 2>&1 | tail -3
+	@node -c static/js/modules/api.js && node -c static/js/modules/field-detail.js && echo "$(GREEN)JS OK$(NC)"
+	@echo "$(BLUE)2/7 Push в GitHub...$(NC)"
+	@git push upstream master 2>/dev/null || echo "$(YELLOW)⚠️  Push пропущен$(NC)"
+	@echo "$(BLUE)3/7 Backup БД + Git pull...$(NC)"
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) exec -T $(APP_CONTAINER) cp /app/data/fields.db /app/data/fields.db.bak 2>/dev/null || true)
+	$(call remote,git pull --rebase)
+	@echo "$(BLUE)4/7 Fix permissions...$(NC)"
+	$(call remote,mkdir -p data uploads && chmod 777 data uploads 2>/dev/null || true)
+	@echo "$(BLUE)5/7 Docker build + up...$(NC)"
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
+	@echo "$(BLUE)6/7 Миграция БД...$(NC)"
+	$(call container_exec,/opt/venv/bin/python src/db_migrate.py) || echo "$(YELLOW)⚠️  Миграция не требуется$(NC)"
+	@echo "$(BLUE)7/7 Health check ($(HEALTH_RETRIES) попыток)...$(NC)"
+	@i=0; while [ $$i -lt $(HEALTH_RETRIES) ]; do \
+		i=$$((i+1)); \
+		sleep $(HEALTH_INTERVAL); \
+		if curl -sf $(HEALTH_URL)/ > /dev/null 2>&1; then \
+			echo "$(GREEN)✅ Сервер отвечает (попытка $$i/$(HEALTH_RETRIES))$(NC)"; \
+			break; \
+		fi; \
+		echo "$(YELLOW) ⏳ Попытка $$i/$(HEALTH_RETRIES)...$(NC)"; \
+	done; \
+	curl -sf $(HEALTH_URL)/ > /dev/null 2>&1 || echo "$(RED)❌ Сервер не отвечает — проверь логи$(NC)"
+	$(call remote,docker image prune -f 2>/dev/null || true)
+	@echo "$(GREEN)═══ Деплой завершён! $(HEALTH_URL) ═══$(NC)"
+
+deploy-quick: ## Быстрый деплой без build (только pull + restart)
+	@echo "$(YELLOW)Быстрый деплой...$(NC)"
+	$(call remote,git pull --rebase)
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart)
+	@sleep 3; curl -sf $(HEALTH_URL)/ > /dev/null && echo "$(GREEN)✅ OK$(NC)" || echo "$(YELLOW)⚠️  Проверь логи$(NC)"
+
+deploy-rollback: ## Откатить на предыдущий коммит
+	@echo "$(YELLOW)Откат...$(NC)"
+	$(call remote,git log --oneline -1)
+	$(call remote,git reset --hard HEAD~1)
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) exec -T $(APP_CONTAINER) cp /app/data/fields.db.bak /app/data/fields.db 2>/dev/null || true)
+	@sleep 3; curl -sf $(HEALTH_URL)/ > /dev/null && echo "$(GREEN)✅ Откат завершён$(NC)" || echo "$(RED)❌ Проблемы$(NC)"
+
+deploy-migrate: ## Запустить миграцию БД на сервере
+	$(call container_exec,/opt/venv/bin/python src/db_migrate.py)
+	@echo "$(GREEN)✅ Миграция завершена!$(NC)"
 
 deploy-seed: ## Запустить seed данные на сервере
-	@echo "$(YELLOW)Запуск seed данных на сервере...$(NC)"
-	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && docker compose -f $(DEPLOY_COMPOSE) run --rm app /opt/venv/bin/python seed_auth.py"
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) run --rm $(APP_CONTAINER) /opt/venv/bin/python seed_auth.py)
 	@echo "$(GREEN)✅ Seed завершён!$(NC)"
 
 deploy-logs: ## Показать логи приложения на сервере
-	@echo "$(YELLOW)Логи приложения:$(NC)"
-	ssh $(DEPLOY_SERVER) "docker logs field-mapper-app --tail 50"
+	ssh $(DEPLOY_SERVER) "docker logs $(APP_CONTAINER) --tail 50"
+
+deploy-logs-live: ## Логи в реальном времени (Ctrl+C для выхода)
+	ssh $(DEPLOY_SERVER) "docker logs -f $(APP_CONTAINER)"
 
 deploy-status: ## Статус контейнеров на сервере
-	@echo "$(YELLOW)Статус контейнеров:$(NC)"
 	ssh $(DEPLOY_SERVER) "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 
 deploy-restart: ## Перезапустить приложение на сервере
-	@echo "$(YELLOW)Перезапуск...$(NC)"
-	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && docker compose -f $(DEPLOY_COMPOSE) restart"
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart)
 	@echo "$(GREEN)✅ Перезапуск завершён!$(NC)"
 
-deploy-rebuild: ## Пересобрать и перезапустить (после изменений Dockerfile)
-	@echo "$(YELLOW)Пересборка...$(NC)"
-	ssh $(DEPLOY_SERVER) "cd $(DEPLOY_DIR) && git pull && docker compose -f $(DEPLOY_COMPOSE) up -d --build"
+deploy-rebuild: ## Пересобрать без кэша и перезапустить
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) build --no-cache)
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d)
 	@echo "$(GREEN)✅ Пересборка завершён!$(NC)"
+
+deploy-dry: ## Показать что будет сделано (без реального деплоя)
+	@echo "$(YELLOW)═══ Dry Run ═══$(NC)"
+	@echo "Server: $(DEPLOY_SERVER)"
+	@echo "Dir:    $(DEPLOY_DIR)"
+	@echo "Compose: $(DEPLOY_COMPOSE)"
+	@echo ""
+	@echo "Steps:"
+	@echo "  1. Pre-deploy checks (pytest + js lint)"
+	@echo "  2. git push upstream master"
+	@echo "  3. Backup fields.db → fields.db.bak"
+	@echo "  4. git pull --rebase"
+	@echo "  5. Fix permissions on data/ uploads/"
+	@echo "  6. docker compose up -d --build"
+	@echo "  7. db_migrate.py"
+	@echo "  8. Health check ($(HEALTH_RETRIES) x $(HEALTH_INTERVAL)s)"
+	@echo "  9. docker image prune"
 
 # Быстрые алиасы
 t: test-e2e

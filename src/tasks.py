@@ -19,9 +19,9 @@ huey = RedisHuey('field-mapper', url=redis_url)
 
 def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
     """Внутренняя реализация обработки GeoTIFF, вызываемая из задачи и тестов."""
-    # Импортируем database внутри функции чтобы использовать правильный путь
     from db import Field, FieldZone, FieldScan, database
     from src.services.raster_service import process_ndvi_zones
+    from src.services.crop_classifier import classify_from_raster
 
     logging.info(f"Запуск обработки растра: {file_path} для поля ID {field_id}")
 
@@ -37,6 +37,11 @@ def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] 
                 if scan_id:
                     FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
                 return False
+
+            # Классификация культуры
+            crop_result = classify_from_raster(file_path)
+            crop_type = crop_result.get("crop_type")
+            crop_confidence = crop_result.get("confidence")
 
             # Сохраняем зоны в БД в транзакции
             with database.atomic():
@@ -54,14 +59,20 @@ def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] 
                         name=z['name'],
                         geometry_wkt=z['geometry_wkt'],
                         avg_ndvi=z['avg_ndvi'],
-                        color=z['color']
+                        color=z['color'],
+                        rate_kg_ha=z.get('rate_kg_ha')
                     )
 
-                # Обновляем статус скана
+                # Обновляем статус скана с результатами классификации
                 if scan_id:
-                    FieldScan.update(processed='true').where(FieldScan.id == scan_id).execute()
+                    update_fields = {'processed': 'true'}
+                    if crop_type:
+                        update_fields['crop_type'] = crop_type
+                    if crop_confidence is not None:
+                        update_fields['crop_confidence'] = crop_confidence
+                    FieldScan.update(**update_fields).where(FieldScan.id == scan_id).execute()
 
-            logging.info(f"Обработка завершена. Зон создано: {len(zones_data)}")
+            logging.info(f"Обработка завершена. Зон создано: {len(zones_data)}. Культура: {crop_type}")
 
             # Удаляем временный файл после успешной обработки
             if os.path.exists(file_path):
@@ -98,6 +109,7 @@ def process_drone_fast_task(
     import numpy as np
     from db import Field, FieldScan, FieldZone, database
     from src.constants import UPLOAD_DIR
+    from src.services.crop_classifier import classify_from_raster
     
     logging.info(f"Запуск БЫСТРОЙ обработки дрона: {zip_path} для поля ID {field_id}")
     
@@ -127,7 +139,12 @@ def process_drone_fast_task(
             if total_fertilizer_kg:
                 zones = service.calculate_vra_rates(zones, total_fertilizer_kg)
             
-            # 5. Сохранение результатов
+            # 5. Классификация культуры
+            crop_result = classify_from_raster(temp_tif)
+            crop_type = crop_result.get("crop_type")
+            crop_confidence = crop_result.get("confidence")
+            
+            # 6. Сохранение результатов
             final_tif_name = f"fast_drone_{field_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tif"
             final_tif_path = os.path.join(UPLOAD_DIR, final_tif_name)
             os.makedirs(os.path.dirname(final_tif_path), exist_ok=True)
@@ -159,6 +176,12 @@ def process_drone_fast_task(
                         scan.ndvi_max = float(np.max(ndvi_vals))
                         scan.ndvi_avg = float(np.mean(ndvi_vals))
                     
+                    # Сохраняем результаты классификации культуры
+                    if crop_type:
+                        scan.crop_type = crop_type
+                    if crop_confidence is not None:
+                        scan.crop_confidence = crop_confidence
+                    
                     scan.save()
                     
                     # Удаляем старые зоны этого скана
@@ -166,8 +189,7 @@ def process_drone_fast_task(
                     
                     for z in zones:
                         zone_name = z['name']
-                        if total_fertilizer_kg and 'rate_kg_ha' in z:
-                            zone_name = f"{z['name']} ({z['rate_kg_ha']:.1f} кг/га)"
+                        rate = z.get('rate_kg_ha')
 
                         FieldZone.create(
                             field=field,
@@ -175,12 +197,15 @@ def process_drone_fast_task(
                             name=zone_name,
                             geometry_wkt=z['geometry_wkt'],
                             avg_ndvi=z['avg_ndvi'],
-                            color=z['color']
+                            color=z['color'],
+                            rate_kg_ha=rate
                         )
             
             results["success"] = True
             results["zones_count"] = len(zones)
             results["scan_id"] = scan.id
+            results["crop_type"] = crop_type
+            results["crop_confidence"] = crop_confidence
             
     except Exception as e:
         logging.error(f"Ошибка в задаче fast_drone: {str(e)}", exc_info=True)

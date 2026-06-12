@@ -1,6 +1,6 @@
 # Field Mapper — Контекст проекта
 
-## 📋 Общая информация
+## Общая информация
 
 | Параметр | Значение |
 |----------|----------|
@@ -8,11 +8,11 @@
 | **Тип** | Precision Agriculture Platform |
 | **Цель** | Цикл от полёта дрона до карты предписаний (VRA) |
 | **Лицензия** | Open Source |
-| **Ветка** | `feature/refactoring-2026` (готова к merge) |
+| **Деплой** | `make deploy` → Docker на `192.168.31.196:8080` |
 
 ---
 
-## 🏗️ Архитектура
+## Архитектура
 
 ### Docker Compose
 ```
@@ -44,96 +44,80 @@
 
 ---
 
-## 🚀 Быстрый старт
+## Быстрый старт
 
 ### Локальный запуск
 ```bash
-# Установка зависимостей
 pip install -r requirements.txt
 npm install
-
-# Запуск сервера
 python app.py
-
-# Тесты
-FIELD_MAPPER_ENV=test ./venv/bin/pytest tests/
-npm test
 ```
 
 ### Docker
 ```bash
-# Сборка и запуск
 docker-compose up -d --build
+```
 
-# Просмотр логов
-docker-compose logs -f app
-
-# Тесты в Docker
-docker-compose exec -e FIELD_MAPPER_ENV=test app pytest tests/
-docker-compose exec app npm test
+### Деплой на сервер
+```bash
+make deploy
+# Или вручную:
+ssh vladibuyanov@192.168.31.196
+cd /opt/field_mapper
+git pull origin master
+docker compose up -d --build
 ```
 
 ---
 
-## 📁 Структура проекта
+## Структура проекта
 
 ```
 field_mapper/
 ├── app.py                          # Точка входа (Tornado)
 ├── db.py                           # Модели Peewee
 ├── requirements.txt                # Python зависимости
-├── package.json                    # Node.js зависимости
-├── Dockerfile                      # Многоэтапная сборка
-├── docker-compose.yml              # Оркестрация
 │
 ├── src/
 │   ├── handlers/                   # REST API
+│   │   ├── auth_handlers.py        # Авторизация
 │   │   ├── field_handlers.py       # CRUD полей
 │   │   ├── owner_handlers.py       # Владельцы
 │   │   ├── upload_handlers.py      # Загрузка файлов
+│   │   ├── drone_handlers.py       # Дрон-снимки
 │   │   └── field_commands.py       # Command pattern
 │   │
 │   ├── services/                   # Бизнес-логика
-│   │   ├── gis_service.py          # GIS вычисления
-│   │   ├── kmz_service.py          # KMZ экспорт (кэш)
-│   │   └── raster_service.py       # NDVI анализ
+│   │   ├── raster_service.py       # NDVI зонирование
+│   │   ├── drone_processing_service.py  # Обработка дрона
+│   │   ├── crop_classifier.py      # Классификация культуры
+│   │   ├── core_math.py            # Расчёт VRA норм
+│   │   ├── isoxml_service.py       # ISOXML экспорт
+│   │   ├── kmz_service.py          # KMZ экспорт
+│   │   └── gis_service.py          # GIS вычисления
+│   │
+│   ├── models/                     # Модели данных
+│   │   ├── auth.py                 # Пользователи, сессии
+│   │   └── field.py                # Поля, зоны, сканы
 │   │
 │   └── utils/                      # Утилиты
-│       ├── db_utils.py             # @db_connection
+│       ├── db_utils.py             # db_connection()
+│       ├── auth.py                 # SessionManager
 │       └── validators.py           # Валидация
 │
-├── static/
-│   ├── index.html                  # Главный HTML
-│   ├── css/
-│   │   └── style.css               # Стили + темная тема
-│   └── js/
-│       ├── main.js                 # FieldMapperApp класс
-│       └── modules/                # ES6 модули
-│           ├── api.js              # API вызовы
-│           ├── router.js           # Маршрутизация
-│           ├── tables.js           # DataTables
-│           ├── modals.js           # Модальные окна
-│           ├── uploads.js          # Загрузка файлов
-│           ├── stats.js            # Статистика
-│           ├── theme.js            # Тема оформления
-│           ├── field-detail.js     # Детали поля
-│           ├── map-callbacks.js    # Leaflet callback'и
-│           ├── utils.js            # Утилиты
-│           └── map_manager.js      # Управление картой
+├── static/                         # Frontend
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/modules/                 # ES6 модули
 │
 ├── tests/                          # Тесты
-│   ├── test_app.py                 # Backend тесты
-│   └── *.test.js                   # Frontend тесты
-│
-└── docs/
-    ├── README.md                   # Основная документация
-    ├── TODO.md                     # Roadmap
-    └── REFACTORING_PLAN.md         # Итоги рефакторинга
+├── docs/                           # Документация
+└── Makefile                        # Команды деплоя
 ```
 
 ---
 
-## 🔑 Ключевой функционал
+## Ключевой функционал
 
 ### 1. Земельный учет
 - Границы полей (GeoJSON, Shapefile)
@@ -144,30 +128,57 @@ field_mapper/
 ### 2. NDVI Анализ
 - Загрузка GeoTIFF (до 1 GB)
 - Фоновая обработка (Huey + Redis)
-- Автоматическое зонирование
+- Автоматическое зонирование (KMeans / Percentiles)
+- Классификация культуры по NDVI профилю
 - Визуализация на карте
 
-### 3. Экспорт DJI KMZ
-- Формат WPML 1.0.6
-- Совместимость с Mavic 3M
-- Углы курса, перекрытия (overlap)
-- Кэширование (lru_cache)
+### 3. VRA (Variable Rate Application)
+- Автоматический расчёт норм внесения
+- 4 зоны по продуктивности
+- Балансировка массы удобрения
+- Сохранение норм в БД
 
-### 4. PWA
-- Service Worker
-- Offline кэш
-- Локальные переводы (DataTables)
+### 4. Экспорт
+- **ISOXML** — John Deere, Claas, Valtra (ISO 11783-10)
+- **KMZ** — DJI drones (WPML 1.0.6)
+- **Shapefile** — Геометрия зон
+
+### 5. Безопасность (Исправлено)
+- bcrypt хеширование паролей
+- Авторизация на всех handler'ах
+- Мульти-тенантность (изоляция компаний)
+- Защита от XSS, CSRF, path traversal
 
 ---
 
-## 🧪 Тестирование
+## Workflow: Drone → Prescription
+
+```
+Загрузка снимков (ZIP/TIFF)
+        ↓
+Обработка NDVI (быстрый путь / ортомозаика)
+        ↓
+Зонирование (4 зоны по перцентилям)
+        ↓
+Классификация культуры (авто)
+        ↓
+Расчёт VRA норм (если указана масса)
+        ↓
+Экспорт (ISOXML / KMZ)
+        ↓
+Загрузка на технику
+```
+
+Подробности: [docs/workflow.md](workflow.md)
+
+---
+
+## Тестирование
 
 ### Backend (Pytest)
 ```bash
 FIELD_MAPPER_ENV=test ./venv/bin/pytest tests/ -v
 ```
-
-**Статус:** 14 passed, 1 skipped
 
 ### Frontend (Jest)
 ```bash
@@ -176,48 +187,36 @@ npm test
 
 ---
 
-## 📊 Метрики
+## Недавние изменения (Июнь 2026)
 
-| Метрика | Значение |
-|---------|----------|
-| **Тесты** | 14 passed, 1 skipped |
-| **Файлов изменено** | 35 (рефакторинг 2026) |
-| **Строк добавлено** | ~2700 |
-| **Строк удалено** | ~950 |
-| **Размер образа** | ~1.5 GB (с GIS) |
-| **Время сборки** | ~6 мин (с кэшем) |
+### Безопасность (Критические исправления)
+- ✅ bcrypt хеширование паролей
+- ✅ Авторизация на 8 не защищённых handler'ах
+- ✅ Единая модель Owner (убран дублирующийся класс)
+- ✅ db_connection() с reference counting
+- ✅ KMZ кэш (убран lru_cache для multi-tenant)
+- ✅ Изоляция данных по компаниям
 
----
+### Pipeline: Drone → Prescription
+- ✅ rate_kg_ha поле в FieldZone
+- ✅ Сохранение VRA норм в БД
+- ✅ ISOXML использует сохранённые нормы
+- ✅ Автоматическая классификация культуры
 
-## 📝 Недавние изменения (2026)
-
-### Рефакторинг
-- ✅ Декоратор `@db_connection` для БД
-- ✅ Валидация входных данных
-- ✅ Type hints во всём Python коде
-- ✅ Command pattern для обновлений полей
-- ✅ Кэширование KMZ (lru_cache)
-- ✅ ES6 модули для JavaScript
-- ✅ Класс `FieldMapperApp`
-
-### UI улучшения
-- ✅ Страница загрузок (отдельный UI)
-- ✅ Круглая кнопка меню с анимацией
-- ✅ Адаптивный дизайн (десктоп + мобильные)
-
-### Docker оптимизация
-- ✅ Многоэтапная сборка
-- ✅ Кэширование npm зависимостей
-- ✅ Уменьшен контекст сборки на ~40%
+### Workflow
+- ✅ Создан docs/workflow.md — полное описание цикла
+- ✅ Обновлён CONTEXT.md
 
 ---
 
-## 🔗 Ссылки
+## Полезные ссылки
 
-- [README.md](README.md) — Основная документация
-- [TODO.md](TODO.md) — Roadmap проекта
-- [REFACTORING_PLAN.md](REFACTORING_PLAN.md) — Итоги рефакторинга 2026
+- [README.md](../README.md) — Основная документация
+- [workflow.md](workflow.md) — Полный цикл Drone → Prescription
+- [API Reference](developer-guide/API.md) — REST API
+- [ISOXML Guide](user-guide/isoxml.md) — Экспорт для техники
+- [Drone Guide](drone-imagery-guide.md) — Обработка снимков
 
 ---
 
-*Последнее обновление: 24 марта 2026 г.*
+*Последнее обновление: 13 июня 2026 г.*
