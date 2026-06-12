@@ -88,7 +88,7 @@ const API = {
     url: `/api/field/export/kmz/${fieldId}`,
     type: "GET",
     data: params,
-    xhrFields: { responseType: 'arraybuffer' }
+    xhrFields: { responseType: 'blob' }
   }).catch(handleApiError),
   
   /**
@@ -100,7 +100,7 @@ const API = {
     url: "/api/field/export/kmz/all",
     type: "GET",
     data: params,
-    xhrFields: { responseType: 'arraybuffer' }
+    xhrFields: { responseType: 'blob' }
   }).catch(handleApiError),
 
   /**
