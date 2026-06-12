@@ -457,6 +457,9 @@ window.loadFieldScans = loadFieldScans;
  * Скачивает blob-файл с именем filename.
  */
 function downloadBlob(blob, filename) {
+  if (!(blob instanceof Blob)) {
+    blob = new Blob([blob], { type: 'application/octet-stream' });
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

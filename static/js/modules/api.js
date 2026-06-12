@@ -168,6 +168,7 @@ const API = {
     type: "POST",
     contentType: "application/json",
     data: JSON.stringify(params),
+    dataType: 'binary',
     xhrFields: { responseType: 'blob' }
   }).catch(handleApiError),
 };
