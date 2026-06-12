@@ -119,14 +119,25 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         # Убираем "соль и перец" через медианный фильтр
         labels = ndimage.median_filter(labels, size=9)
 
+        # Морфологическая очистка: убираем мелкие изолированные кластеры пикселей
+        # Binary opening удаляет тонкие "мостики" и мелкие островки
+        for zone_id in range(num_zones):
+            zone_mask = (labels == zone_id)
+            # Убираем кластеры меньше 20 пикселей (≈ 2м² при разрешении 0.3м)
+            cleaned, num_features = ndimage.label(zone_mask)
+            for feat_id in range(1, num_features + 1):
+                component = (cleaned == feat_id)
+                if component.sum() < 20:
+                    labels[component] = -1  # Помечаем как "не зона"
+
         # 5. Векторизация
         # Используем размер пикселя для расчета допусков
         if raster_crs == "EPSG:3035":
             simplify_tolerance = max(pixel_size_x, pixel_size_y) * 2.0
-            island_threshold = field_area * 0.005  # 0.5% of field area
+            island_threshold = field_area * 0.002  # 0.2% of field area
         else:
             simplify_tolerance = max(pixel_size_x, pixel_size_y) * 2.0
-            island_threshold = field_area * 0.005
+            island_threshold = field_area * 0.002
 
         logger.info(f"Vectorization: simplify={simplify_tolerance:.6f}, island_threshold={island_threshold:.2f}")
 
