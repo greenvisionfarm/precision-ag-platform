@@ -1,7 +1,6 @@
 /**
  * Отображение деталей поля.
  */
-import { downloadKmzWithSettings } from './modals.js';
 import { showMessage } from './utils.js';
 import API from './api.js';
 
@@ -479,21 +478,48 @@ $(document).on('click', '#detail-export-isoxml', function(e) {
   e.preventDefault();
   if (!currentFieldId) return;
 
-  const productName = prompt('Название продукта (напр. Аммиачная селитра):', 'Аммиачная селитра');
-  if (productName === null) return;
+  Swal.fire({
+    title: "Настройки экспорта ISOXML",
+    html: `
+      <div class="kmz-settings-grid">
+        <div class="kmz-field">
+          <label for="swal-product-name">Название продукта:</label>
+          <input type="text" id="swal-product-name" class="swal2-input" value="Аммиачная селитра" placeholder="Напр. Аммиачная селитра">
+        </div>
+        <div class="kmz-field">
+          <label for="swal-product-type">Тип продукта:</label>
+          <select id="swal-product-type" class="swal2-select">
+            <option value="nitrogen" selected>Azote (nitrogen)</option>
+            <option value="npk">NPK</option>
+            <option value="phosphorus">Phosphore (phosphorus)</option>
+            <option value="potassium">Potassium</option>
+            <option value="organic">Organique (organic)</option>
+          </select>
+          <small>Тип удобрения для ISOXML TaskData.</small>
+        </div>
+      </div>`,
+    width: "500px",
+    focusConfirm: false,
+    preConfirm: () => {
+      const name = document.getElementById("swal-product-name").value.trim();
+      const type = document.getElementById("swal-product-type").value;
+      if (!name) {
+        Swal.showValidationMessage("Введите название продукта");
+        return false;
+      }
+      return { product_name: name, product_type: type };
+    }
+  }).then(res => {
+    if (!res.isConfirmed) return;
+    const { product_name, product_type } = res.value;
 
-  const productType = prompt('Тип продукта (nitrogen, npk, phosphorus, potassium, organic):', 'nitrogen');
-  if (productType === null) return;
+    showMessage('Генерация ISOXML...', 'info');
 
-  showMessage('Генерация ISOXML...', 'info');
-
-  API.exportIsoxml(currentFieldId, {
-    product_name: productName,
-    product_type: productType
-  }).then(blob => {
-    const filename = `field_${currentFieldId}_isoxml.xml`;
-    downloadBlob(blob, filename);
-    showMessage(`ISOXML экспортирован: ${filename}`, 'success');
+    API.exportIsoxml(currentFieldId, { product_name, product_type }).then(blob => {
+      const filename = `field_${currentFieldId}_isoxml.xml`;
+      downloadBlob(blob, filename);
+      showMessage(`ISOXML экспортирован: ${filename}`, 'success');
+    });
   });
 });
 
@@ -504,11 +530,50 @@ $(document).on('click', '#detail-export-kmz', function(e) {
   e.preventDefault();
   if (!currentFieldId) return;
 
-  showMessage('Генерация KMZ...', 'info');
+  Swal.fire({
+    title: "Настройки полета DJI",
+    html: `
+      <div class="kmz-settings-grid">
+        <div class="kmz-field">
+          <label for="swal-h">Высота полета (м):</label>
+          <input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="150">
+          <small>Высота над точкой взлета. Для NDVI оптимально 100-120м.</small>
+        </div>
+        <div class="kmz-field">
+          <label for="swal-oh">Фронтальное перекрытие (%):</label>
+          <input type="number" id="swal-oh" class="swal2-input" value="80" min="40" max="90">
+          <small>Наложение снимков по ходу движения. Нужно 75-80%.</small>
+        </div>
+        <div class="kmz-field">
+          <label for="swal-ow">Боковое перекрытие (%):</label>
+          <input type="number" id="swal-ow" class="swal2-input" value="70" min="40" max="90">
+          <small>Наложение между проходами (галсами). Обычно 70-75%.</small>
+        </div>
+        <div class="kmz-field">
+          <label for="swal-dir">Угол курса (град):</label>
+          <input type="number" id="swal-dir" class="swal2-input" placeholder="Авто (оптимально)" min="0" max="360">
+          <small>Направление полета. Оставьте пустым для авто-расчета.</small>
+        </div>
+      </div>`,
+    width: "700px",
+    focusConfirm: false,
+    preConfirm: () => {
+      return {
+        height: document.getElementById("swal-h").value,
+        overlap_h: document.getElementById("swal-oh").value,
+        overlap_w: document.getElementById("swal-ow").value,
+        direction: document.getElementById("swal-dir").value
+      };
+    }
+  }).then(res => {
+    if (!res.isConfirmed) return;
 
-  API.exportKmz(currentFieldId).then(blob => {
-    const filename = `field_${currentFieldId}_dji.kmz`;
-    downloadBlob(blob, filename);
-    showMessage(`KMZ экспортирован: ${filename}`, 'success');
+    showMessage('Генерация KMZ...', 'info');
+
+    API.exportKmz(currentFieldId, res.value).then(blob => {
+      const filename = `field_${currentFieldId}_dji.kmz`;
+      downloadBlob(blob, filename);
+      showMessage(`KMZ экспортирован: ${filename}`, 'success');
+    });
   });
 });
