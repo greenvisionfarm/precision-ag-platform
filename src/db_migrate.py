@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def migrate_db(db_path: str = 'fields.db') -> None:
+def migrate_db(db_path: str = 'data/fields.db') -> None:
     """
     Выполняет миграцию базы данных.
     
@@ -211,5 +211,5 @@ def migrate_db(db_path: str = 'fields.db') -> None:
 
 if __name__ == '__main__':
     import sys
-    db_path = sys.argv[1] if len(sys.argv) > 1 else 'fields.db'
+    db_path = sys.argv[1] if len(sys.argv) > 1 else 'data/fields.db'
     migrate_db(db_path)
