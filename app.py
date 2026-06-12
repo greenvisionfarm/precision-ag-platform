@@ -42,6 +42,11 @@ from src.handlers.upload_handlers import (
 from src.handlers.drone_handlers import (
     DroneUploadHandler,
 )
+from src.handlers.journal_handlers import (
+    FieldJournalHandler,
+    FieldJournalCreateHandler,
+    FieldJournalDeleteHandler,
+)
 
 # Настройка логирования
 logging.basicConfig(
@@ -124,6 +129,11 @@ def make_app() -> tornado.web.Application:
 
         # Drone imagery processing
         (r"/api/drone/upload", DroneUploadHandler),
+
+        # Field Journal
+        (r"/api/field/([0-9]+)/journal", FieldJournalHandler),
+        (r"/api/field/([0-9]+)/journal/add", FieldJournalCreateHandler),
+        (r"/api/field/([0-9]+)/journal/([0-9]+)", FieldJournalDeleteHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

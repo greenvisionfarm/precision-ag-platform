@@ -1,6 +1,7 @@
 /**
  * Отображение деталей поля.
  */
+import { downloadKmzWithSettings } from './modals.js';
 import { showMessage } from './utils.js';
 import API from './api.js';
 
@@ -155,6 +156,8 @@ export function showFieldDetail(id) {
     }
 
     loadFieldScans(id);
+    loadJournal(id);
+    $("#journal-add-btn").show();
   });
 }
 
@@ -451,6 +454,7 @@ function renderZonesStats(zones) {
 window.selectScan = selectScan;
 window.deleteScan = deleteScan;
 window.loadFieldScans = loadFieldScans;
+window.compareSelectedScans = compareSelectedScans;
 
 /**
  * Скачивает blob-файл с именем filename.
@@ -530,50 +534,132 @@ $(document).on('click', '#detail-export-kmz', function(e) {
   e.preventDefault();
   if (!currentFieldId) return;
 
+  downloadKmzWithSettings(currentFieldId);
+});
+
+// ===== Field Journal =====
+
+const CROP_LABELS = {
+  wheat: 'Пшеница', corn: 'Кукуруза', sunflower: 'Подсолнечник',
+  soybean: 'Соя', barley: 'Ячмень', rapeseed: 'Рапс',
+  sugar_beet: 'Сахарная свекла', potato: 'Картофель', other: 'Другое'
+};
+
+function loadJournal(fieldId) {
+  $.getJSON(`/api/field/${fieldId}/journal`).then(data => {
+    const entries = data.entries || [];
+    if (entries.length === 0) {
+      $("#journal-entries").hide();
+      $("#journal-empty").show();
+      return;
+    }
+    $("#journal-empty").hide();
+    $("#journal-entries").show();
+    const $tbody = $("#journal-table-body").empty();
+    entries.forEach(e => {
+      const crop = CROP_LABELS[e.crop_type] || e.crop_type || '-';
+      const plant = e.planting_date ? new Date(e.planting_date).toLocaleDateString('ru-RU') : '-';
+      const product = e.product_name || '-';
+      const rate = e.application_rate ? `${e.application_rate} кг/га` : '-';
+      const yld = e.yield_amount ? `${e.yield_amount} ц/га` : '-';
+      $tbody.append(`
+        <tr>
+          <td>${crop}${e.crop_variety ? ' (' + e.crop_variety + ')' : ''}</td>
+          <td>${plant}</td>
+          <td>${product}</td>
+          <td>${rate}</td>
+          <td>${yld}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteJournalEntry(${fieldId}, ${e.id})" title="Удалить"><i class="fas fa-trash"></i></button></td>
+        </tr>
+      `);
+    });
+  });
+}
+
+function deleteJournalEntry(fieldId, entryId) {
+  if (!confirm('Удалить запись журнала?')) return;
+  $.ajax({ url: `/api/field/${fieldId}/journal/${entryId}`, type: 'DELETE' })
+    .then(() => { loadJournal(fieldId); showMessage('Запись удалена', 'success'); });
+}
+
+window.deleteJournalEntry = deleteJournalEntry;
+
+$(document).on('click', '#journal-add-btn', function() {
+  if (!currentFieldId) return;
+
   Swal.fire({
-    title: "Настройки полета DJI",
+    title: "Новая запись журнала",
     html: `
-      <div class="kmz-settings-grid">
+      <div class="kmz-settings-grid" style="text-align:left;">
         <div class="kmz-field">
-          <label for="swal-h">Высота полета (м):</label>
-          <input type="number" id="swal-h" class="swal2-input" value="100" min="20" max="150">
-          <small>Высота над точкой взлета. Для NDVI оптимально 100-120м.</small>
+          <label>Культура:</label>
+          <select id="j-crop-type" class="swal2-select">
+            <option value="wheat">Пшеница</option>
+            <option value="corn">Кукуруза</option>
+            <option value="sunflower">Подсолнечник</option>
+            <option value="soybean">Соя</option>
+            <option value="barley">Ячмень</option>
+            <option value="rapeseed">Рапс</option>
+            <option value="sugar_beet">Сахарная свекла</option>
+            <option value="potato">Картофель</option>
+            <option value="other">Другое</option>
+          </select>
         </div>
         <div class="kmz-field">
-          <label for="swal-oh">Фронтальное перекрытие (%):</label>
-          <input type="number" id="swal-oh" class="swal2-input" value="80" min="40" max="90">
-          <small>Наложение снимков по ходу движения. Нужно 75-80%.</small>
+          <label>Сорт:</label>
+          <input type="text" id="j-crop-variety" class="swal2-input" placeholder="Не обязательно">
         </div>
         <div class="kmz-field">
-          <label for="swal-ow">Боковое перекрытие (%):</label>
-          <input type="number" id="swal-ow" class="swal2-input" value="70" min="40" max="90">
-          <small>Наложение между проходами (галсами). Обычно 70-75%.</small>
+          <label>Дата посадки:</label>
+          <input type="date" id="j-planting-date" class="swal2-input">
         </div>
         <div class="kmz-field">
-          <label for="swal-dir">Угол курса (град):</label>
-          <input type="number" id="swal-dir" class="swal2-input" placeholder="Авто (оптимально)" min="0" max="360">
-          <small>Направление полета. Оставьте пустым для авто-расчета.</small>
+          <label>Дата уборки:</label>
+          <input type="date" id="j-harvest-date" class="swal2-input">
+        </div>
+        <div class="kmz-field">
+          <label>Продукт (удобрение):</label>
+          <input type="text" id="j-product-name" class="swal2-input" placeholder="Напр. Аммиачная селитра">
+        </div>
+        <div class="kmz-field">
+          <label>Норма (кг/га):</label>
+          <input type="number" id="j-application-rate" class="swal2-input" placeholder="200">
+        </div>
+        <div class="kmz-field">
+          <label>Урожайность (ц/га):</label>
+          <input type="number" id="j-yield" class="swal2-input" placeholder="Опционально">
+        </div>
+        <div class="kmz-field" style="grid-column: span 2;">
+          <label>Заметки:</label>
+          <textarea id="j-notes" class="swal2-textarea" rows="2" placeholder="Дополнительная информация"></textarea>
         </div>
       </div>`,
     width: "700px",
     focusConfirm: false,
     preConfirm: () => {
+      const crop = document.getElementById("j-crop-type").value;
+      if (!crop) { Swal.showValidationMessage("Выберите культуру"); return false; }
       return {
-        height: document.getElementById("swal-h").value,
-        overlap_h: document.getElementById("swal-oh").value,
-        overlap_w: document.getElementById("swal-ow").value,
-        direction: document.getElementById("swal-dir").value
+        crop_type: crop,
+        crop_variety: document.getElementById("j-crop-variety").value || null,
+        planting_date: document.getElementById("j-planting-date").value || null,
+        harvest_date: document.getElementById("j-harvest-date").value || null,
+        product_name: document.getElementById("j-product-name").value || null,
+        application_rate: parseFloat(document.getElementById("j-application-rate").value) || null,
+        yield_amount: parseFloat(document.getElementById("j-yield").value) || null,
+        notes: document.getElementById("j-notes").value || null,
       };
     }
   }).then(res => {
     if (!res.isConfirmed) return;
-
-    showMessage('Генерация KMZ...', 'info');
-
-    API.exportKmz(currentFieldId, res.value).then(blob => {
-      const filename = `field_${currentFieldId}_dji.kmz`;
-      downloadBlob(blob, filename);
-      showMessage(`KMZ экспортирован: ${filename}`, 'success');
+    $.ajax({
+      url: `/api/field/${currentFieldId}/journal/add`,
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(res.value)
+    }).then(() => {
+      loadJournal(currentFieldId);
+      showMessage('Запись добавлена', 'success');
     });
   });
 });

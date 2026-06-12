@@ -19,6 +19,27 @@
 </head>
 <body>
 
+    <!-- Auth gate: shown until user logs in -->
+    <div id="auth-gate" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;">
+        <div id="auth-gate-card" style="background:var(--card-bg);border-radius:12px;padding:2rem;box-shadow:0 4px 24px rgba(0,0,0,.12);width:100%;max-width:380px;text-align:center;">
+            <h2 style="margin-bottom:.5rem;">Field Mapper</h2>
+            <p style="color:var(--text-muted);margin-bottom:1.5rem;">Войдите для работы с платформой</p>
+            <div id="auth-gate-alert" style="display:none;color:#dc3545;margin-bottom:1rem;font-size:.9rem;"></div>
+            <form id="auth-gate-form">
+                <div style="margin-bottom:1rem;text-align:left;">
+                    <label for="auth-gate-email" style="display:block;margin-bottom:.25rem;font-weight:600;font-size:.875rem;">Email</label>
+                    <input type="email" id="auth-gate-email" required style="width:100%;padding:.5rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-secondary);color:var(--text-color);box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:1.5rem;text-align:left;">
+                    <label for="auth-gate-password" style="display:block;margin-bottom:.25rem;font-weight:600;font-size:.875rem;">Пароль</label>
+                    <input type="password" id="auth-gate-password" required style="width:100%;padding:.5rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-secondary);color:var(--text-color);box-sizing:border-box;">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="width:100%;padding:.6rem;">Войти</button>
+            </form>
+            <p style="margin-top:1rem;font-size:.85rem;color:var(--text-muted);">Нет аккаунта? <a href="#" id="auth-gate-register-link">Зарегистрироваться</a></p>
+        </div>
+    </div>
+
     <button id="sidebar-toggle" aria-label="Открыть меню">
         <i class="fas fa-bars"></i>
     </button>
@@ -167,6 +188,34 @@
                             </thead>
                             <tbody id="zones-table-body"></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Journal Card -->
+                <div class="detail-card info-card" id="journal-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                        <h3 style="margin:0;">Журнал полевых работ</h3>
+                        <button id="journal-add-btn" class="btn btn-sm btn-primary" style="display:none;">
+                            <i class="fas fa-plus"></i> Добавить запись
+                        </button>
+                    </div>
+                    <div id="journal-entries" style="display:none;">
+                        <table class="info-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Культура</th>
+                                    <th>Посадка</th>
+                                    <th>Продукт</th>
+                                    <th>Норма</th>
+                                    <th>Урожай</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="journal-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="journal-empty" style="display:none;color:var(--text-muted);font-size:.9rem;">
+                        Записей пока нет. Добавьте первую запись о посеве или внесении.
                     </div>
                 </div>
             </div>

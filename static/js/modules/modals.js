@@ -68,7 +68,7 @@ export function openFieldModal(id) {
  */
 export function downloadKmzWithSettings(fieldId) {
   Swal.fire({
-    title: "Настройки DJI KMZ",
+    title: "Настройки полета DJI",
     html: `
       <div class="kmz-settings-grid">
         <div class="kmz-field">
@@ -89,7 +89,7 @@ export function downloadKmzWithSettings(fieldId) {
         <div class="kmz-field">
           <label for="swal-dir">Угол курса (град):</label>
           <input type="number" id="swal-dir" class="swal2-input" placeholder="Авто (оптимально)" min="0" max="360">
-          <small>Направление полета. Оставьте пустым для авто-расчета (вдоль длинной стороны).</small>
+          <small>Направление полета. Оставьте пустым для авто-расчета.</small>
         </div>
       </div>`,
     width: "700px",
@@ -97,11 +97,29 @@ export function downloadKmzWithSettings(fieldId) {
     preConfirm: () => {
       return {
         height: document.getElementById("swal-h").value,
-        oh: document.getElementById("swal-oh").value,
-        ow: document.getElementById("swal-ow").value,
-        dir: document.getElementById("swal-dir").value
+        overlap_h: document.getElementById("swal-oh").value,
+        overlap_w: document.getElementById("swal-ow").value,
+        direction: document.getElementById("swal-dir").value
       };
     }
+  }).then(res => {
+    if (!res.isConfirmed) return;
+
+    showMessage('Генерация KMZ...', 'info');
+
+    API.exportKmz(fieldId, res.value).then(blob => {
+      const filename = `field_${fieldId}_dji.kmz`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+      showMessage(`KMZ экспортирован: ${filename}`, 'success');
+    });
+  });
+}
   }).then(res => {
     if (res.isConfirmed) {
       const p = res.value;

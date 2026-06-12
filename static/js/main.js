@@ -18,6 +18,63 @@ $.ajaxSetup({
 });
 
 /**
+ * Auth gate: показывает форму входа если пользователь не авторизован.
+ * @returns {Promise<boolean>} true если авторизован.
+ */
+async function checkAuthGate() {
+    const gate = document.getElementById('auth-gate');
+    if (!gate) return true;
+
+    try {
+        const resp = await fetch('/api/auth/profile', { credentials: 'include' });
+        if (resp.ok) {
+            gate.style.display = 'none';
+            return true;
+        }
+    } catch (_) {}
+
+    // Показываем gate
+    gate.style.display = 'flex';
+
+    const form = document.getElementById('auth-gate-form');
+    const alertEl = document.getElementById('auth-gate-alert');
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        alertEl.style.display = 'none';
+        const email = document.getElementById('auth-gate-email').value;
+        const password = document.getElementById('auth-gate-password').value;
+
+        try {
+            const resp = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                gate.style.display = 'none';
+                window.location.reload();
+            } else {
+                alertEl.textContent = data.error || 'Ошибка входа';
+                alertEl.style.display = 'block';
+            }
+        } catch (err) {
+            alertEl.textContent = 'Ошибка сети';
+            alertEl.style.display = 'block';
+        }
+    };
+
+    document.getElementById('auth-gate-register-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.AuthModule?.openLogin?.();
+    });
+
+    return false;
+}
+
+/**
  * Главный класс приложения Field Mapper.
  */
 class FieldMapperApp {
@@ -30,7 +87,10 @@ class FieldMapperApp {
      * Инициализирует приложение.
      * Порядок вызовов критичен: exportGlobalMethods() ДО onHashChange().
      */
-    init() {
+    async init() {
+        // 0. Auth gate — блокируем пока не войдёт
+        const authenticated = await checkAuthGate();
+
         // 1. Тема
         initTheme();
 

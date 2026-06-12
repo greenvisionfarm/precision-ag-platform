@@ -715,6 +715,7 @@ const AuthModule = (function() {
         closeSettings,
         toggleUserDropdown,
         logout,
+        loadCurrentUser,
         getCurrentUser: () => currentUser,
         getCurrentLanguage: () => currentLanguage,
         isLoggedIn: () => currentUser !== null,
