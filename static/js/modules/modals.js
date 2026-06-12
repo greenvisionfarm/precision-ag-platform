@@ -120,15 +120,3 @@ export function downloadKmzWithSettings(fieldId) {
     });
   });
 }
-  }).then(res => {
-    if (res.isConfirmed) {
-      const p = res.value;
-      const url = "/api/field/export/kmz/" + fieldId +
-        "?height=" + p.height +
-        "&overlap_h=" + p.oh +
-        "&overlap_w=" + p.ow +
-        "&direction=" + p.dir;
-      window.location.href = url;
-    }
-  });
-}

@@ -33,8 +33,10 @@ async function checkAuthGate() {
         }
     } catch (_) {}
 
-    // Показываем gate
+    // Показываем gate, скрываем интерфейс
     gate.style.display = 'flex';
+    document.getElementById('sidebar-toggle').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'none';
 
     const form = document.getElementById('auth-gate-form');
     const alertEl = document.getElementById('auth-gate-alert');
