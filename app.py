@@ -7,6 +7,9 @@ import os
 import secrets
 from typing import Any, Dict
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import tornado.ioloop
 import tornado.web
 
