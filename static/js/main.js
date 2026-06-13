@@ -92,6 +92,9 @@ class FieldMapperApp {
     async init() {
         // 0. Auth gate — блокируем пока не войдёт
         const authenticated = await checkAuthGate();
+        if (!authenticated) {
+            return;
+        }
 
         // 1. Тема
         initTheme();

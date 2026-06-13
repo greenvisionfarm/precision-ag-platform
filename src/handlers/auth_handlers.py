@@ -339,7 +339,6 @@ class ProfileHandler(AuthHandler):
     GET/PUT /api/auth/profile
     """
     
-    @tornado.web.authenticated
     def get(self) -> None:
         """
         Возвращает данные профиля текущего пользователя.
@@ -371,7 +370,6 @@ class ProfileHandler(AuthHandler):
             }
         })
     
-    @tornado.web.authenticated
     def put(self) -> None:
         """
         Обновляет данные профиля пользователя.
@@ -444,7 +442,6 @@ class CompanyHandler(AuthHandler):
     GET/PUT /api/auth/company
     """
     
-    @tornado.web.authenticated
     def get(self) -> None:
         """
         Возвращает данные компании текущего пользователя.
@@ -482,7 +479,6 @@ class CompanyHandler(AuthHandler):
             }
         })
     
-    @tornado.web.authenticated
     def put(self) -> None:
         """
         Обновляет настройки компании.
