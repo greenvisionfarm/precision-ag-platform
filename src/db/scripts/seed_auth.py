@@ -11,31 +11,28 @@ logger = logging.getLogger(__name__)
 
 def seed_data():
     """Создаёт тестовые данные в БД."""
+    db_file = os.environ.get('FIELD_MAPPER_DB', 'fields.db')
+    
     # Удаляем старую БД если есть
-    if os.path.exists('fields.db'):
-        os.remove('fields.db')
+    if os.path.exists(db_file):
+        os.remove(db_file)
     
     # Сначала создаём базовые таблицы через db.initialize_db
-    # Временно устанавливаем test окружение чтобы разрешить инициализацию
-    os.environ['FIELD_MAPPER_ENV'] = 'test'
-    
     from db import database, initialize_db
-    from peewee import SqliteDatabase
-    
     initialize_db()
     
     # Теперь выполняем миграцию для добавления company и user
     from src.db_migrate import migrate_db
-    migrate_db('fields.db')
+    migrate_db(db_file)
     
     # Импортируем модели
-    database = SqliteDatabase('fields.db')
     from src.models.auth import Company, User, UserRole
     
     Company._meta.database = database
     User._meta.database = database
     
-    database.connect()
+    if database.is_closed():
+        database.connect()
     
     try:
         # Создаём компании
