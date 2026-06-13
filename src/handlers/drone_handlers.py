@@ -73,7 +73,7 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
             if not field_id:
                 field_id = self._detect_field_from_gps(zip_path)
                 if not field_id:
-                    os.remove(zip_path)
+                    # os.remove(zip_path)  # Временно отключено для отладки
                     self.set_status(400)
                     self.write({
                         "error": "Не удалось определить поле по GPS. Укажите field_id явно"
