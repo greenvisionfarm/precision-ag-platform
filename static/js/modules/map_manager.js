@@ -181,11 +181,21 @@ const MapManager = {
    * Обновляет зоны на карте деталей.
    * @param {Array} zones - Массив зон для отображения.
    */
+  _updateZonesRetries: 0,
+
   updateZones: (zones = []) => {
     if (!MapManager.detailInstance) {
-      console.error('[MapManager] detailInstance не инициализирован');
+      if (MapManager._updateZonesRetries < 15) {
+        MapManager._updateZonesRetries++;
+        console.warn(`[MapManager] detailInstance не инициализирован, попытка ${MapManager._updateZonesRetries}/15 через 200ms`);
+        setTimeout(() => MapManager.updateZones(zones), 200);
+      } else {
+        console.error('[MapManager] detailInstance так и не создан после 15 попыток');
+        MapManager._updateZonesRetries = 0;
+      }
       return;
     }
+    MapManager._updateZonesRetries = 0;
 
     console.log('[MapManager.updateZones] Обновление зон:', zones.length);
 

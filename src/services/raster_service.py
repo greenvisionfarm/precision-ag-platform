@@ -3,150 +3,151 @@ import numpy as np
 import rasterio
 import rasterio.mask
 from rasterio import features
-from shapely.geometry import shape, Polygon, MultiPolygon
+from rasterio.transform import Affine
+from shapely.geometry import shape
 from shapely.ops import unary_union
 from sklearn.cluster import KMeans
 from scipy import ndimage
 import logging
 from shapely import wkt
-from rasterio.transform import Affine
-from rasterio.windows import from_bounds
-from rasterio.mask import mask as raster_mask
 import pyproj
 from shapely.ops import transform as shapely_transform
 
 logger = logging.getLogger(__name__)
 
+MAX_PROCESSED_PIXELS = 5_000_000
+
 
 def _validate_zone_geometry(geom, zone_name, field_area):
-    """Validate zone geometry and fix common issues."""
     if geom is None or geom.is_empty:
-        logger.warning(f"Zone '{zone_name}': empty geometry, skipping")
         return None
-
     if not geom.is_valid:
-        logger.warning(f"Zone '{zone_name}': invalid geometry, attempting buffer(0)")
         geom = geom.buffer(0)
         if geom.is_empty or not geom.is_valid:
-            logger.warning(f"Zone '{zone_name}': geometry still invalid after buffer(0)")
             return None
-
-    # Check for unreasonable area (> 150% of field or < 0.1% of field)
     area_ratio = geom.area / field_area if field_area > 0 else 0
-    if area_ratio > 1.5:
-        logger.warning(f"Zone '{zone_name}': area ratio {area_ratio:.2f} > 1.5, clipping to field")
+    if area_ratio > 1.5 or area_ratio < 0.001:
         return None
-    if area_ratio < 0.001:
-        logger.warning(f"Zone '{zone_name}': area ratio {area_ratio:.4f} < 0.1%, too small")
-        return None
-
     return geom
 
 
 def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
-    """
-    Анализирует NDVI растр и разбивает его на агрегированные зоны.
-    Поддерживает KMeans (3 зоны) и Percentiles (4 зоны для VRA).
-    """
     field_geom = wkt.loads(field_geometry_wkt)
 
     with rasterio.open(tif_path) as src:
-        raster_crs = src.crs.to_string()
-        pixel_size_x = abs(src.transform.a)
-        pixel_size_y = abs(src.transform.e)
+        raster_crs = src.crs.to_string() if src.crs else "EPSG:4326"
+        full_h, full_w = src.shape
+        nodata = src.nodata
 
-        logger.info(f"Raster CRS: {raster_crs}, pixel size: {pixel_size_x:.6f} x {pixel_size_y:.6f}")
+        logger.info(f"Raster: {full_w}x{full_h}, CRS={raster_crs}, nodata={nodata}")
 
-        # Если растр в EPSG:3035, а геометрия в 4326 - трансформируем геометрию
-        if raster_crs == "EPSG:3035":
-            project = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3035", always_xy=True).transform
-            field_geom_proj = shapely_transform(project, field_geom)
-        else:
-            field_geom_proj = field_geom
+        # Трансформация геометрии в CRS растра
+        field_geom_proj = field_geom
+        if raster_crs != "EPSG:4326":
+            try:
+                project = pyproj.Transformer.from_crs("EPSG:4326", raster_crs, always_xy=True).transform
+                field_geom_proj = shapely_transform(project, field_geom)
+            except Exception as e:
+                logger.warning(f"CRS transform failed: {e}")
 
         field_area = field_geom_proj.area
-        logger.info(f"Field area in CRS units: {field_area:.2f}")
 
-        # 1. Чтение и маскирование
-        try:
-            out_image, out_transform = raster_mask(src, [field_geom_proj], crop=True)
-            data = out_image[0]
-            logger.info(f"Raster masked: shape={data.shape}, transform={out_transform}")
-        except Exception as e:
-            logger.warning(f"Raster mask failed: {e}. Falling back to full read.")
-            data = src.read(1)
-            out_transform = src.transform
+        # Downsampling
+        total = full_h * full_w
+        downsample = 1
+        if total > MAX_PROCESSED_PIXELS:
+            downsample = max(1, int(np.ceil(np.sqrt(total / MAX_PROCESSED_PIXELS))))
+        ds_h = full_h // downsample
+        ds_w = full_w // downsample
+        logger.info(f"Processing at {ds_w}x{ds_h} (downsample={downsample})")
 
-        # 2. Фильтрация данных
-        valid_mask = (data > 0.1) & (data <= 1.0)
+        # Читаем растр сразу уменьшенным
+        if downsample > 1:
+            data = src.read(1, out_shape=(ds_h, ds_w))
+            # Масштабируем transform
+            out_transform = src.transform * Affine.scale(downsample, downsample)
+        else:
+            try:
+                out_image, out_transform = rasterio.mask.mask(src, [field_geom_proj], crop=True)
+                data = out_image[0]
+            except Exception as e:
+                logger.warning(f"Mask failed: {e}, reading full")
+                data = src.read(1)
+                out_transform = src.transform
+
+        logger.info(f"Data ready: shape={data.shape}, transform={out_transform}")
+
+        # Фильтрация
+        non_zero = data[(data != 0)]
+        if nodata is not None:
+            non_zero = non_zero[non_zero != nodata]
+
+        data_min = float(np.min(non_zero)) if len(non_zero) > 0 else 0
+        data_max = float(np.max(non_zero)) if len(non_zero) > 0 else 0
+        logger.info(f"Data range: {data_min:.4f} - {data_max:.4f}")
+
+        if data_max > 1.5:
+            data = data.astype(np.float64)
+            if data_max > 0:
+                data = data / data_max
+
+        valid_mask = (data > 0.05) & (data <= 1.0)
+        if nodata is not None:
+            valid_mask &= (data != nodata)
         valid_data = data[valid_mask]
 
         if len(valid_data) < 100:
-            logger.error(f"Not enough valid data for zoning: {len(valid_data)} valid pixels")
+            logger.error(f"Not enough valid data: {len(valid_data)} pixels")
             return []
 
-        logger.info(f"Valid pixels: {len(valid_data)} / {data.size} ({100*len(valid_data)/data.size:.1f}%)")
+        logger.info(f"Valid: {len(valid_data)} / {data.size} ({100*len(valid_data)/data.size:.1f}%)")
 
-        # 3. Классификация
+        # Классификация
         labels = np.full(data.shape, -1, dtype=np.int16)
 
         if num_zones == 4:
-            # VRA Strategy: 4 зоны по перцентилям (P20, P50, P80)
-            p20 = np.percentile(valid_data, 20)
-            p50 = np.percentile(valid_data, 50)
-            p80 = np.percentile(valid_data, 80)
-
+            p20, p50, p80 = np.percentile(valid_data, [20, 50, 80])
             labels[valid_mask] = 0
             labels[valid_mask & (data > p20)] = 1
             labels[valid_mask & (data > p50)] = 2
             labels[valid_mask & (data > p80)] = 3
-
             names = ["Очень низкая", "Низкая", "Средняя", "Высокая"]
             colors = ["#ff0000", "#ffa500", "#ffff00", "#008000"]
-            logger.info(f"VRA zones: P20={p20:.3f}, P50={p50:.3f}, P80={p80:.3f}")
+            logger.info(f"VRA: P20={p20:.3f}, P50={p50:.3f}, P80={p80:.3f}")
         else:
-            # Стандартная стратегия: KMeans (3 зоны)
-            kmeans = KMeans(n_clusters=num_zones, random_state=42, n_init=10).fit(valid_data.reshape(-1, 1))
+            MAX_SAMPLE = 200_000
+            sample = valid_data if len(valid_data) <= MAX_SAMPLE else valid_data[np.random.choice(len(valid_data), MAX_SAMPLE, replace=False)]
+            kmeans = KMeans(n_clusters=num_zones, random_state=42, n_init=5).fit(sample.reshape(-1, 1))
             centers = kmeans.cluster_centers_.flatten()
             rank_map = {old: new for new, old in enumerate(np.argsort(centers))}
             labels[valid_mask] = np.array([rank_map[l] for l in kmeans.predict(valid_data.reshape(-1, 1))])
-
             names = ["Низкая", "Средняя", "Высокая"]
             colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
             logger.info(f"KMeans centers: {sorted(centers)}")
 
-        # 4. Генерализация (сглаживание шума)
-        # Убираем "соль и перец" через медианный фильтр
-        labels = ndimage.median_filter(labels, size=9)
+        # Сглаживание
+        labels = ndimage.median_filter(labels, size=3)
 
-        # Морфологическая очистка: убираем мелкие изолированные кластеры пикселей
-        # Binary opening удаляет тонкие "мостики" и мелкие островки
+        # Морфология
         for zone_id in range(num_zones):
-            zone_mask = (labels == zone_id)
-            # Убираем кластеры меньше 20 пикселей (≈ 2м² при разрешении 0.3м)
-            cleaned, num_features = ndimage.label(zone_mask)
+            cleaned, num_features = ndimage.label(labels == zone_id)
             for feat_id in range(1, num_features + 1):
                 component = (cleaned == feat_id)
-                if component.sum() < 20:
-                    labels[component] = -1  # Помечаем как "не зона"
+                if component.sum() < 3:
+                    labels[component] = -1
 
-        # 5. Векторизация
-        # Используем размер пикселя для расчета допусков
-        if raster_crs == "EPSG:3035":
-            simplify_tolerance = max(pixel_size_x, pixel_size_y) * 2.0
-            island_threshold = field_area * 0.002  # 0.2% of field area
-        else:
-            simplify_tolerance = max(pixel_size_x, pixel_size_y) * 2.0
-            island_threshold = field_area * 0.002
-
-        logger.info(f"Vectorization: simplify={simplify_tolerance:.6f}, island_threshold={island_threshold:.2f}")
+        # Векторизация
+        simplify_tolerance = max(abs(out_transform.a), abs(out_transform.e)) * 2.0
+        island_threshold = field_area * 0.002 if field_area > 0 else 0
 
         results = []
-        zone_polys = []  # Track all zone polygons for overlap detection
+        zone_polys = []
 
-        # Собираем зоны по порядку от худшей к лучшей
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
+            if mask.sum() == 0:
+                continue
+
             shapes_gen = features.shapes(mask, mask=mask, transform=out_transform)
 
             polys = []
@@ -154,63 +155,49 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                 poly = shape(s)
                 if not poly.is_valid:
                     poly = poly.buffer(0)
-                if poly.is_valid and poly.area > island_threshold:
+                if poly.is_valid and (island_threshold == 0 or poly.area > island_threshold):
                     polys.append(poly)
 
             if not polys:
-                logger.warning(f"Zone {i} ('{names[i]}'): no valid polygons")
                 continue
 
             zone_union = unary_union(polys).intersection(field_geom_proj)
             if zone_union.is_empty:
-                logger.warning(f"Zone {i} ('{names[i]}'): empty after intersection")
                 continue
 
-            # Validate zone geometry
             zone_union = _validate_zone_geometry(zone_union, names[i], field_area)
             if zone_union is None:
                 continue
 
-            # Check for overlap with existing zones
-            for j, existing_poly in enumerate(zone_polys):
+            for existing_poly in zone_polys:
                 overlap = zone_union.intersection(existing_poly)
-                if overlap.area > 0:
-                    overlap_ratio = overlap.area / zone_union.area
-                    if overlap_ratio > 0.1:
-                        logger.warning(
-                            f"Zone {i} ('{names[i]}') overlaps {overlap_ratio:.1%} with zone {j}"
-                        )
-                        # Remove overlap
-                        zone_union = zone_union.difference(existing_poly)
-                        if zone_union.is_empty:
-                            logger.warning(f"Zone {i}: became empty after removing overlap")
-                            break
+                if overlap.area > 0 and overlap.area / zone_union.area > 0.1:
+                    zone_union = zone_union.difference(existing_poly)
+                    if zone_union.is_empty:
+                        break
 
             if zone_union.is_empty:
                 continue
 
             zone_polys.append(zone_union)
 
-            # Считаем среднее значение индекса в зоне
             zone_idx_mask = (labels == i) & valid_mask
             avg_val = float(np.mean(data[zone_idx_mask])) if np.any(zone_idx_mask) else 0.0
 
-            # Обратная трансформация в 4326 для БД
-            if raster_crs == "EPSG:3035":
-                back_project = pyproj.Transformer.from_crs("EPSG:3035", "EPSG:4326", always_xy=True).transform
-                final_geom = shapely_transform(back_project, zone_union)
+            if raster_crs != "EPSG:4326":
+                try:
+                    back_project = pyproj.Transformer.from_crs(raster_crs, "EPSG:4326", always_xy=True).transform
+                    final_geom = shapely_transform(back_project, zone_union)
+                except:
+                    final_geom = zone_union
             else:
                 final_geom = zone_union
 
-            # Simplify with tolerance appropriate for the data
             final_geom = final_geom.simplify(simplify_tolerance, preserve_topology=True)
-
-            # Final validation
             if not final_geom.is_valid:
                 final_geom = final_geom.buffer(0)
 
-            area_ha = final_geom.area * 111320 * 111320 / 10000 if raster_crs == "EPSG:4326" else field_area / 10000
-            logger.info(f"Zone {i} ('{names[i]}'): NDVI={avg_val:.3f}, area_ratio={final_geom.area/field_area:.2%}")
+            logger.info(f"Zone {i} ('{names[i]}'): NDVI={avg_val:.3f}")
 
             results.append({
                 "name": names[i],
@@ -219,10 +206,5 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
                 "color": colors[i]
             })
 
-        # Final overlap check
-        total_area = sum(
-            wkt.loads(z["geometry_wkt"]).area for z in results
-        )
-        logger.info(f"Total zones: {len(results)}, total area ratio: {total_area/field_area:.2%}")
-
+        logger.info(f"Result: {len(results)} zones")
         return results
