@@ -88,7 +88,7 @@ def make_app() -> tornado.web.Application:
     settings: Dict[str, Any] = {
         "template_path": os.path.dirname(__file__),
         "static_path": os.path.join(os.path.dirname(__file__), "static"),
-        "debug": True,
+        "debug": os.getenv("FIELD_MAPPER_DEBUG", "false").lower() == "true",
         "cookie_secret": secret_key,
         "login_url": "/",  # Для @tornado.web.authenticated
     }
