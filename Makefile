@@ -139,6 +139,7 @@ deploy: ## Задеплоить на домашний сервер (pre-check �
 	$(call remote,mkdir -p data uploads && chmod 777 data uploads 2>/dev/null || true)
 	@echo "$(BLUE)5/7 Docker build + up...$(NC)"
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
+	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart nginx)
 	@echo "$(BLUE)6/7 Миграция БД...$(NC)"
 	$(call container_exec,/opt/venv/bin/python src/db_migrate.py) || echo "$(YELLOW)⚠️  Миграция не требуется$(NC)"
 	@echo "$(BLUE)7/7 Health check ($(HEALTH_RETRIES) попыток)...$(NC)"
