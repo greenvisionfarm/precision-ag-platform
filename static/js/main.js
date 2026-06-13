@@ -59,7 +59,7 @@ async function checkAuthGate() {
                 gate.style.display = 'none';
                 window.location.reload();
             } else {
-                alertEl.textContent = data.error || 'Ошибка входа';
+                alertEl.textContent = data.message || data.error || 'Ошибка входа';
                 alertEl.style.display = 'block';
             }
         } catch (err) {

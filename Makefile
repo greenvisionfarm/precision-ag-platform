@@ -112,7 +112,7 @@ seed-test-data: ## Создать тестовые данные
 DEPLOY_SERVER ?= vbuianov@192.168.31.196
 DEPLOY_DIR ?= ~/field_mapper
 DEPLOY_COMPOSE ?= docker-compose.server.yml
-APP_CONTAINER ?= field-mapper-app
+APP_CONTAINER ?= app
 HEALTH_URL ?= http://$(shell echo $(DEPLOY_SERVER) | cut -d@ -f2):8080
 HEALTH_RETRIES ?= 10
 HEALTH_INTERVAL ?= 5

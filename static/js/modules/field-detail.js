@@ -14,10 +14,6 @@ let processingPollInterval = null;
 let availableCrops = [];
 let ndviHistoryChart = null;
 
-// Инициализация списка культур
-API.getCrops().then(data => {
-  availableCrops = data.crops || [];
-});
 
 /**
  * Инициализирует и обновляет график истории NDVI.
@@ -384,10 +380,27 @@ function renderZonesStats(zones) {
   const $badge = $("#prediction-badge");
   const $confidence = $("#prediction-confidence");
 
+  // Загружаем список культур лениво
+  function loadCropsIfNeeded() {
+    if (availableCrops.length > 0) {
+      return Promise.resolve(availableCrops);
+    }
+    return API.getCrops().then(data => {
+      availableCrops = data.crops || [];
+      return availableCrops;
+    });
+  }
+
   // Заполняем выпадающий список если он пуст
   if ($select.children().length === 0) {
-    availableCrops.forEach(crop => {
-      $select.append(`<option value="${crop.id}">${crop.name}</option>`);
+    loadCropsIfNeeded().then(crops => {
+      $select.empty();
+      crops.forEach(crop => {
+        $select.append(`<option value="${crop.id}">${crop.name}</option>`);
+      });
+      if (currentScan) {
+        $select.val(currentScan.crop_type || 'unknown');
+      }
     });
   }
 
