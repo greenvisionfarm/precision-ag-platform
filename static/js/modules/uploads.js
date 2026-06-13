@@ -153,10 +153,10 @@ export function initDroneUpload() {
       return;
     }
 
-    // Проверка размера файла (макс 6GB)
-    const MAX_SIZE = 6 * 1024 * 1024 * 1024;
+    // Проверка размера файла (макс 8GB — совпадает с nginx и tornado)
+    const MAX_SIZE = 8 * 1024 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      showMessage(`Файл слишком большой (${(file.size / 1024 / 1024 / 1024).toFixed(1)} GB). Максимум 6 GB.`, "error");
+      showMessage(`Файл слишком большой (${(file.size / 1024 / 1024 / 1024).toFixed(1)} GB). Максимум 8 GB.`, "error");
       return;
     }
 
