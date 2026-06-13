@@ -23,25 +23,25 @@ function initNDVIChart(scans) {
     const ctx = document.getElementById('ndvi-history-chart');
     if (!ctx) return;
 
+    // Всегда уничтожаем старый график перед созданием нового
+    if (ndviHistoryChart) {
+        ndviHistoryChart.destroy();
+        ndviHistoryChart = null;
+    }
+
     // Фильтруем только обработанные сканы и сортируем по дате
     const chartData = scans
         .filter(s => s.processed && s.ndvi_avg)
         .sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
 
     if (chartData.length === 0) {
-        if (ndviHistoryChart) ndviHistoryChart.destroy();
         return;
     }
 
     const labels = chartData.map(s => new Date(s.uploaded_at).toLocaleDateString('ru-RU'));
     const values = chartData.map(s => s.ndvi_avg);
 
-    if (ndviHistoryChart) {
-        ndviHistoryChart.data.labels = labels;
-        ndviHistoryChart.data.datasets[0].data = values;
-        ndviHistoryChart.update();
-    } else {
-        ndviHistoryChart = new Chart(ctx, {
+    ndviHistoryChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -70,7 +70,6 @@ function initNDVIChart(scans) {
                 }
             }
         });
-    }
 }
 
 /**
