@@ -146,14 +146,28 @@ export function initDroneUpload() {
     const fieldId = $("#drone-field-select").val();
     const cropType = $("#drone-crop-type").val();
     const fertilizer = $("#drone-fertilizer").val();
+    const file = $("#drone-input")[0].files[0];
 
-    statusDiv.removeClass("text-success text-danger").html("");
-    progressDiv.show();
-    btn.prop("disabled", true);
+    if (!file) {
+      showMessage("Выберите файл для загрузки", "warning");
+      return;
+    }
+
+    // Проверка размера файла (макс 6GB)
+    const MAX_SIZE = 6 * 1024 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      showMessage(`Файл слишком большой (${(file.size / 1024 / 1024 / 1024).toFixed(1)} GB). Максимум 6 GB.`, "error");
+      return;
+    }
+
+    statusDiv.removeClass("text-success text-danger")
+      .html('<i class="fas fa-spinner fa-spin"></i> Загрузка архива...');
+    progressDiv.removeClass("hidden").show();
+    btn.prop("disabled", true).addClass("hidden");
 
     // Создаём FormData
     const formData = new FormData();
-    formData.append("drone_images", $("#drone-input")[0].files[0]);
+    formData.append("drone_images", file);
     formData.append("data", JSON.stringify({
       field_id: fieldId || null,
       crop_type: cropType,
@@ -167,8 +181,11 @@ export function initDroneUpload() {
       data: formData,
       processData: false,
       contentType: false,
+      timeout: 600000,
       success: (res) => {
-        statusDiv.html("<i class=\"fas fa-check\"></i> Архив принят. Обработка...");
+        statusDiv.removeClass("text-danger").addClass("text-success")
+          .html('<i class="fas fa-check"></i> Архив принят! Обработка запущена...');
+        statusDiv.show();
         
         if (res.task_id) {
           pollDroneTaskStatus(res.task_id, res.field_id);
@@ -176,13 +193,23 @@ export function initDroneUpload() {
         
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP или снимки');
-        btn.addClass("hidden");
       },
       error: (xhr) => {
-        const err = xhr.responseJSON?.error || "Ошибка загрузки";
-        statusDiv.addClass("text-danger").html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
-        progressDiv.hide();
-        btn.prop("disabled", false);
+        let err;
+        if (xhr.status === 0) {
+          err = "Нет соединения с сервером. Проверьте интернет.";
+        } else if (xhr.status === 413) {
+          err = "Файл слишком большой для сервера.";
+        } else if (xhr.status === 502) {
+          err = "Сервер перегружен. Попробуйте позже.";
+        } else {
+          err = xhr.responseJSON?.error || `Ошибка загрузки (HTTP ${xhr.status})`;
+        }
+        statusDiv.removeClass("text-success").addClass("text-danger")
+          .html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
+        statusDiv.show();
+        progressDiv.addClass("hidden");
+        btn.prop("disabled", false).removeClass("hidden");
         showMessage(err, "error");
       }
     });
@@ -221,29 +248,28 @@ function pollDroneTaskStatus(taskId, fieldId) {
     API.getTaskStatus(taskId).then(res => {
       if (res.status === "completed") {
         clearInterval(interval);
-        progressDiv.hide();
+        progressDiv.addClass("hidden");
         statusDiv.removeClass("text-danger").addClass("text-success")
-          .html("<i class=\"fas fa-check\"></i> Обработка завершена!");
+          .html('<i class="fas fa-check-circle"></i> Обработка завершена! Зоны созданы.');
+        showMessage("Обработка завершена! Зоны NDVI созданы.", "success");
         
         setTimeout(() => {
-          statusDiv.hide();
           if (fieldId) {
             window.location.hash = `#field/${fieldId}`;
             window.showFieldDetail?.(fieldId);
           }
           window.loadMapData?.();
-        }, 2000);
+          statusDiv.removeClass("text-success").html("");
+        }, 3000);
         
       } else if (res.status === "error") {
         clearInterval(interval);
-        progressDiv.hide();
+        progressDiv.addClass("hidden");
         statusDiv.removeClass("text-success").addClass("text-danger")
-          .html(`<i class=\"fas fa-exclamation-triangle\"></i> Ошибка: ${res.message || "Ошибка обработки"}`);
-        $("#drone-upload-button").prop("disabled", false);
-        showMessage(res.message || "Ошибка обработки", "error");
+          .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.message || "Ошибка обработки"}`);
+        showMessage(res.message || "Ошибка обработки дрон-данных", "error");
         
       } else {
-        // Статус pending или processing
         progress = Math.min(progress + 5, 95);
         progressFill.css("width", `${progress}%`);
         progressText.text(res.message || "Обработка снимков...");
