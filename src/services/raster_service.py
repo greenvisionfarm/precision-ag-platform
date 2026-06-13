@@ -125,16 +125,18 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             colors = ["#ff4d4d", "#ffcc00", "#2eb82e"]
             logger.info(f"KMeans centers: {sorted(centers)}")
 
-        # Сглаживание
-        labels = ndimage.median_filter(labels, size=3)
+        # Сглаживание: крупный медианный фильтр + удаление мелких компонентов
+        labels = ndimage.median_filter(labels, size=7)
 
-        # Морфология
+        # Удаляем мелкие компоненты
+        min_component_size = max(50, data.size // 20_000)
         for zone_id in range(num_zones):
             cleaned, num_features = ndimage.label(labels == zone_id)
             for feat_id in range(1, num_features + 1):
                 component = (cleaned == feat_id)
-                if component.sum() < 3:
+                if component.sum() < min_component_size:
                     labels[component] = -1
+        logger.info(f"Post-morphology: min_component={min_component_size}px")
 
         # Векторизация
         simplify_tolerance = max(abs(out_transform.a), abs(out_transform.e)) * 2.0
