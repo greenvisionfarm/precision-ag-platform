@@ -1,0 +1,48 @@
+# Field Mapper — NOTICE
+
+Copyright (C) 2026 Field Mapper Contributors
+
+This project is licensed under the GNU Affero General Public License v3.0.
+See the LICENSE file for the full license text.
+
+## Third-Party Dependencies
+
+Field Mapper uses the following open-source libraries:
+
+### Python
+- **Tornado** — BSD License — https://www.tornadoweb.org/
+- **Peewee** — MIT License — https://docs.peewee-orm.com/
+- **Shapely** — BSD License — https://shapely.readthedocs.io/
+- **Rasterio** — BSD License — https://rasterio.readthedocs.io/
+- **GeoPandas** — BSD License — https://geopandas.org/
+- **NumPy** — BSD License — https://numpy.org/
+- **SciPy** — BSD License — https://scipy.org/
+- **scikit-learn** — BSD License — https://scikit-learn.org/
+- **OpenCV** — Apache 2.0 License — https://opencv.org/
+- **Pillow** — MIT-CMU License — https://python-pillow.org/
+- **pyproj** — MIT License — https://pyproj4.github.io/pyproj/
+- **Redis** (via redis-py) — MIT License — https://redis.io/
+
+### JavaScript
+- **jQuery** — MIT License — https://jquery.com/
+- **Leaflet** — BSD-2-Clause License — https://leafletjs.com/
+- **DataTables** — MIT License — https://datatables.net/
+- **SweetAlert2** — MIT License — https://sweetalert2.github.io/
+- **Chart.js** — MIT License — https://www.chartjs.org/
+
+### Libraries (bundled)
+- **dji-drone-meta** — MIT License — DJI drone metadata extraction
+- **ag-isoxml** — MIT License — ISOXML TaskData generation
+
+## Trademarks
+
+- **Field Mapper** is a trademark of Field Mapper Contributors
+- **DJI** is a trademark of DJI Inc.
+- **John Deere** is a trademark of Deere & Company
+- **Claas** is a trademark of Claas KGaA mbH
+- **Agricon** is a trademark of Agricon GmbH
+
+## Disclaimer
+
+This software is provided "as is" without warranty. See the LICENSE file
+for full terms.

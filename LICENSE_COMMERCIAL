@@ -1,0 +1,95 @@
+# Field Mapper — Commercial License Agreement
+
+**Version:** 1.0
+**Effective Date:** June 2026
+
+## 1. Overview
+
+Field Mapper is free and open-source software licensed under the GNU Affero General Public License v3.0 ("AGPL-3.0"). This Commercial License ("Agreement") provides an alternative license for organizations that cannot or do not wish to comply with AGPL-3.0 requirements.
+
+## 2. Who Needs a Commercial License
+
+A Commercial License is required if **any** of the following conditions are met:
+
+- Your organization manages **more than 1,000 hectares** of agricultural land in total
+- Your organization's **annual revenue exceeds $100,000 USD** (or equivalent)
+- You offer Field Mapper as a **SaaS/hosted service** to third parties
+- You wish to use Field Mapper **without AGPL-3.0 copyleft obligations**
+
+If none of the above apply, you may use Field Mapper freely under AGPL-3.0.
+
+## 3. What the Commercial License Grants
+
+- ✅ Use of Field Mapper in production environments
+- ✅ Modification and customization for internal use
+- ✅ No obligation to release your modifications as open source
+- ✅ Right to run Field Mapper as a hosted service for your own organization
+- ✅ Priority email support (response within 48 hours)
+- ✅ Access to commercial-only features (if any are released)
+
+## 4. What the Commercial License Does NOT Grant
+
+- ❌ Right to redistribute Field Mapper as a standalone product
+- ❌ Right to sublicense or transfer the license
+- ❌ Right to use Field Mapper to offer competing SaaS services
+- ❌ Warranty or liability (see Section 7)
+
+## 5. License Fee
+
+- **Annual subscription:** Pricing is based on hectares under management
+- **Small holdings (1,001–5,000 ha):** Contact for pricing
+- **Medium holdings (5,001–50,000 ha):** Contact for pricing
+- **Large holdings (50,000+ ha):** Contact for pricing
+- **Non-profit / research / education:** Discounted or free (contact us)
+
+## 6. Definitions
+
+- **"Field Mapper"** means the software application, including all source code, documentation, and associated materials.
+- **"Organization"** means the legal entity that controls, is controlled by, or is under common control with the user.
+- **"Hectares under management"** means the total area of agricultural land managed by the Organization, including owned, leased, and contracted land.
+- **"Internal use"** means use within the Organization for its own agricultural operations.
+- **"SaaS"** means providing Field Mapper as a hosted service to third parties.
+
+## 7. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## 8. Termination
+
+This Agreement is effective until terminated. Either party may terminate
+this Agreement with 30 days written notice. Upon termination:
+
+- All rights granted under this Agreement cease immediately
+- You must stop using Field Mapper or comply with AGPL-3.0
+- Outstanding fees remain payable
+
+## 9. Governing Law
+
+This Agreement shall be governed by the laws of the Slovak Republic,
+without regard to its conflict of law provisions.
+
+## 10. Contact
+
+For Commercial License inquiries:
+- Email: [INSERT EMAIL]
+- Website: [INSERT WEBSITE]
+
+---
+
+## How to Determine Your Hectares
+
+If you are unsure whether you exceed 1,000 hectares:
+
+1. Sum the area of all fields you manage (owned + leased)
+2. Include fields managed on behalf of other organizations
+3. Round up to the nearest hectare
+4. If total ≥ 1,001 ha → Commercial License required
+
+**Note:** Field Mapper includes an automatic hectares calculation.
+Organizations approaching the threshold will be notified proactively.
