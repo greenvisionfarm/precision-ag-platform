@@ -1,35 +1,76 @@
 # Pipeline Architecture: Drone Processing
 
-Этот каталог содержит модульную реализацию быстрого пайплайна обработки мультиспектральных данных DJI Mavic 3M (без фотограмметрии).
+Этот каталог содержит модульную реализацию обработки мультиспектральных данных DJI Mavic 3M.
 
 ## Структура модулей
+
+### Быстрый путь (Fast Mode)
+
+```
+Files (DJI) → provider_dji (Metadata) → drone_processing_service (Grid) → raster_service (Zones)
+```
+
+### Путь ортомозаики (Orthomosaic)
+
+```
+Files (DJI) → orthomosaic_service (Stitching + GeoTIFF) → drone_processing_service (NDVI Points) → raster_service (Zones)
+```
+
+---
+
+## Модули
 
 ### 1. `core_math.py` (Functional Core)
 **Ответственность:** Чистая математика, алгоритмы и статистика.
 - **Вход:** Массивы (numpy), таблицы (pandas), списки словарей.
 - **Выход:** Числовые показатели, агрегированные данные, веса VRA.
-- **AI Context:** Используй этот файл, если нужно изменить формулы NDVI/NDRE, логику сетки (grid) или математику распределения удобрений.
-- **Zero Dependencies:** Не зависит от файлов на диске или базы данных.
 
 ### 2. `provider_dji.py` (Hardware Adapter)
 **Ответственность:** Работа с низкоуровневыми данными DJI.
 - **Вход:** Пути к файлам (TIF, JPG).
-- **Выход:** Метаданные (GPS, EXIF), сырые массивы пикселей (decimated read).
-- **AI Context:** Используй этот файл, если изменился формат именования файлов DJI (префиксы/суффиксы) или нужно оптимизировать чтение RAW-данных.
+- **Выход:** Метаданные (GPS, EXIF), сырые массивы пикселей.
 
-### 3. `drone_processing_service.py` (Orchestrator)
-**Ответственность:** Координация процесса (Workflow).
-- **Логика:** Соединяет провайдера (`DJIProvider`) с математикой (`core_math`).
-- **Задачи:** Управление процессом от загрузки папки до генерации итогового TIF и зон.
-- **AI Context:** Используй этот файл, если нужно изменить последовательность шагов, добавить новые этапы обработки или изменить логику логирования/диагностики.
+### 3. `drone_processing_service.py` (Fast Orchestrator)
+**Ответственность:** Быстрая обработка без склейки.
+- Координация от загрузки папки до генерации TIF и зон.
+- Интерполяция NDVI по GPS-точкам (scipy.griddata).
 
-## Как работать с AI (Token Optimization)
+### 4. `orthomosaic_service.py` (Orthomosaic Orchestrator)
+**Ответственность:** Склейка дрон-фото в ортомозаику.
+- `cv2.Stitcher_SCANS` для склейки RGB JPG.
+- Геореференсирование по GPS из EXIF.
+- Сохранение как GeoTIFF через rasterio.
 
-Для эффективной работы с LLM (Gemini/ChatGPT/Claude) **НЕ давай** все файлы сразу. Используй контекстный подход:
+### 5. `raster_service.py` (Zoning)
+**Ответственность:** Зонирование NDVI растров.
+- KMeans или Percentiles для разделения на зоны.
+- Морфологическая обработка (median_filter, binary_closing).
+
+### 6. `crop_classifier.py` (Classification)
+**Ответственность:** Автоматическое определение культуры.
+- NDVI профиль + текстура + дата съёмки.
+
+### 7. `analysis_service.py` (Analysis)
+**Ответственность:** Анализ и сравнение сканов.
+
+### 8. `isoxml_service.py` (ISOXML Export)
+**Ответственность:** Генерация ISOXML TaskFile для техники.
+
+### 9. `kmz_service.py` (KMZ Export)
+**Ответственность:** Генерация KMZ для DJI Pilot.
+
+### 10. `gis_service.py` (GIS Utilities)
+**Ответственность:** GIS вычисления и трансформации.
+
+---
+
+## AI Context: Как работать с файлами
 
 1. **Задача по формулам/VRA:** Дай только `core_math.py`.
-2. **Задача по поддержке новых дронов:** Дай `provider_dji.py` как пример и попроси создать новый провайдер.
-3. **Задача по общей логике:** Дай `drone_processing_service.py`.
+2. **Задача по DJI:** Дай `provider_dji.py`.
+3. **Задача по склейке:** Дай `orthomosaic_service.py`.
+4. **Задача по общей логике:** Дай `drone_processing_service.py`.
 
-## Data Flow
-`Files (DJI)` -> `provider_dji (Metadata + Arrays)` -> `core_math (Indices + Grid)` -> `service (Rasterization)` -> `Zoning (process_ndvi_zones)`
+---
+
+*Последнее обновление: 14 июня 2026 г.*

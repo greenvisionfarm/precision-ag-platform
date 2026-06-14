@@ -28,9 +28,20 @@ docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest tests/ -v
 ```
 tests/
 ├── test_app.py              # Интеграционные тесты API
+├── test_auth.py             # Авторизация и сессии
 ├── test_services.py         # Тесты сервисов
+├── test_drone_processing.py # Обработка дрона + DJI
+├── test_orthomosaic.py      # Ортомозаика (cv2.Stitcher)
+├── test_fields_api.py       # API полей
+├── test_field_duplicates.py # Детекция дубликатов
+├── test_critical_path.py    # Критические пути
+├── test_ndvi_service.py     # NDVI сервис
+├── test_raster_service.py   # Raster зонирование
+├── test_raster_upload.py    # Загрузка раастров
+├── test_isoxml_export.py    # ISOXML экспорт
 ├── test_bulk_export.py      # Массовый экспорт KMZ
-└── test_raster_service.py   # NDVI анализ
+├── test_upload_integration.py  # Интеграция загрузки
+└── e2e/                     # E2E тесты (Playwright)
 ```
 
 ### Пример теста

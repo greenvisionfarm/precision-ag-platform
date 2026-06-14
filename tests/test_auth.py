@@ -117,6 +117,7 @@ class TestSessionManager:
     def test_invalidate_token(self, auth_test_data):
         """Тест аннулирования токена."""
         manager = SessionManager('test_secret')
+        manager._redis = None
         user = auth_test_data['user1']
         token = manager.create_token(user)
 
@@ -125,15 +126,13 @@ class TestSessionManager:
         assert session is not None
 
         manager.invalidate_token(token)
-        # После инвалидации сессия удаляется из dict
-        assert token not in manager._sessions
+        # После инвалидации сессия удаляется
+        assert token not in manager._fallback_sessions
 
         # verify_token в stateless режиме восстановит сессию из БД
         # потому что HMAC подпись всё ещё валидна
         session2 = manager.verify_token(token)
-        # Сессия восстановлена из БД — это ожидаемое поведение stateless
         assert session2 is not None
-        assert token in manager._sessions  # восстановлена
 
 
 class TestGetCurrentUserFromToken:

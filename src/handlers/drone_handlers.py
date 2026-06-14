@@ -7,22 +7,19 @@ Handlers для загрузки и обработки снимков с дро�
 - Автоматическое определение поля по координатам
 """
 import json
+import logging
 import os
 import tempfile
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
-import tornado.web
-
-from db import database
-from src.models.field import Field, FieldScan
-from src.tasks import process_drone_fast_task
-from src.middleware.auth import AuthenticatedRequestHandler
-from src.utils.db_utils import db_connection
 from src.constants import UPLOAD_DIR
+from src.middleware.auth import AuthenticatedRequestHandler
+from src.models.field import Field, FieldScan
+from src.tasks import process_drone_fast_task, process_orthomosaic_task
+from src.utils.db_utils import db_connection
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -31,12 +28,13 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
 
     def post(self) -> None:
         """
-        Загружает ZIP архив со снимками для быстрой обработки.
+        Загружает ZIP архив со снимками для обработки.
         
         Body параметры (в JSON поле 'data'):
             - field_id: ID поля (опционально, если не указано — авто-определение по GPS)
             - crop_type: Тип культуры (опционально)
             - total_fertilizer_kg: Общая масса удобрений для расчета VRA
+            - processing_mode: 'fast' (по умолчанию) или 'orthomosaic'
         """
         try:
             if 'drone_images' not in self.request.files:
@@ -50,12 +48,14 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
             field_id = None
             crop_type = 'auto'
             total_fertilizer_kg = None
+            processing_mode = 'fast'
             
             try:
                 body = json.loads(self.get_argument('data', '{}'))
                 field_id = body.get('field_id')
                 crop_type = body.get('crop_type', 'auto')
                 total_fertilizer_kg = body.get('total_fertilizer_kg')
+                processing_mode = body.get('processing_mode', 'fast')
             except Exception as e:
                 logger.warning(f"Ошибка парсинга параметров: {e}")
 
@@ -92,6 +92,7 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                 return
 
             # 1. Создаём запись скана (status: pending)
+            scan_source = 'drone_orthomosaic' if processing_mode == 'orthomosaic' else 'drone_fast'
             with db_connection():
                 scan = FieldScan.create(
                     field=field,
@@ -99,17 +100,25 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                     filename=uploaded_file['filename'],
                     uploaded_at=datetime.now(),
                     processed='pending',
-                    source='drone_fast',
+                    source=scan_source,
                     crop_type=crop_type if crop_type != 'auto' else None
                 )
 
             # 2. Запускаем фоновую задачу
-            task = process_drone_fast_task.delay(
-                zip_path=zip_path,
-                field_id=field_id,
-                total_fertilizer_kg=total_fertilizer_kg,
-                scan_id=scan.id
-            )
+            if processing_mode == 'orthomosaic':
+                task = process_orthomosaic_task.delay(
+                    zip_path=zip_path,
+                    field_id=field_id,
+                    total_fertilizer_kg=total_fertilizer_kg,
+                    scan_id=scan.id
+                )
+            else:
+                task = process_drone_fast_task.delay(
+                    zip_path=zip_path,
+                    field_id=field_id,
+                    total_fertilizer_kg=total_fertilizer_kg,
+                    scan_id=scan.id
+                )
 
             # 3. Обновляем task_id у скана
             with db_connection():
@@ -117,10 +126,11 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                 scan.save()
 
             self.write({
-                "message": "Запущена обработка снимков (fast mode).",
+                "message": f"Запущена обработка снимков ({processing_mode} mode).",
                 "task_id": str(task.id),
                 "field_id": field_id,
-                "scan_id": scan.id
+                "scan_id": scan.id,
+                "processing_mode": processing_mode,
             })
 
         except Exception as e:
@@ -133,9 +143,10 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
         Пытается определить поле по GPS координатам из мультиспектральных снимков.
         """
         import zipfile
-        import tempfile
+
         from shapely.geometry import Point
         from shapely.wkt import loads as wkt_loads
+
         from src.services.provider_dji import DJIProvider
         
         provider = DJIProvider()

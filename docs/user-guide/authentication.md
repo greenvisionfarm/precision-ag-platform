@@ -366,9 +366,8 @@ class AdminHandler(AuthenticatedRequestHandler):
 
 ### Хранение паролей
 
-- SHA-256 хэширование с уникальной солью
-- Соль: 32 байта (64 hex символа)
-- Хэш: `SHA256(password + salt)`
+- bcrypt хэширование (cost factor 12)
+- Автоматическая миграция со старых SHA-256 хэшей при входе
 
 ### Session tokens
 

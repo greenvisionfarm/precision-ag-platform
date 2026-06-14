@@ -1,6 +1,7 @@
 """
 Тесты для сервисов обработки снимков с дрона.
 """
+import json
 import os
 import pytest
 from unittest.mock import Mock, patch, MagicMock
@@ -174,6 +175,90 @@ class TestDJIProvider:
             assert meta["lat"] == 48.8584
             assert meta["lon"] == 2.2945
             assert meta["alt"] == 120.5
+
+
+class TestDroneUploadHandler:
+    """Tests for DroneUploadHandler processing_mode routing."""
+
+    @patch('src.handlers.drone_handlers.process_orthomosaic_task')
+    @patch('src.handlers.drone_handlers.process_drone_fast_task')
+    @patch('src.handlers.drone_handlers.FieldScan')
+    @patch('src.handlers.drone_handlers.Field')
+    @patch('src.handlers.drone_handlers.db_connection')
+    def test_orthomosaic_mode_routes_to_ortho_task(
+        self, mock_db_conn, mock_field, mock_scan,
+        mock_fast_task, mock_ortho_task
+    ):
+        """processing_mode=orthomosaic dispatches to orthomosaic task."""
+        from src.handlers.drone_handlers import DroneUploadHandler
+
+        mock_field_inst = MagicMock()
+        mock_field.get_by_id.return_value = mock_field_inst
+        mock_scan_inst = MagicMock()
+        mock_scan_inst.id = 10
+        mock_scan.create.return_value = mock_scan_inst
+
+        mock_task = MagicMock()
+        mock_task.id = "task-123"
+        mock_ortho_task.delay.return_value = mock_task
+
+        handler = DroneUploadHandler.__new__(DroneUploadHandler)
+        handler.request = MagicMock()
+        handler.request.files = {
+            'drone_images': [{'filename': 'test.zip', 'body': b'data'}]
+        }
+        handler.get_argument = MagicMock(return_value=json.dumps({
+            'field_id': 1,
+            'processing_mode': 'orthomosaic',
+        }))
+        handler.set_status = MagicMock()
+        handler.write = MagicMock()
+        handler._current_user = MagicMock()
+
+        handler.post()
+
+        mock_ortho_task.delay.assert_called_once()
+        mock_fast_task.delay.assert_not_called()
+
+    @patch('src.handlers.drone_handlers.process_orthomosaic_task')
+    @patch('src.handlers.drone_handlers.process_drone_fast_task')
+    @patch('src.handlers.drone_handlers.FieldScan')
+    @patch('src.handlers.drone_handlers.Field')
+    @patch('src.handlers.drone_handlers.db_connection')
+    def test_fast_mode_routes_to_fast_task(
+        self, mock_db_conn, mock_field, mock_scan,
+        mock_fast_task, mock_ortho_task
+    ):
+        """processing_mode=fast dispatches to fast task."""
+        from src.handlers.drone_handlers import DroneUploadHandler
+
+        mock_field_inst = MagicMock()
+        mock_field.get_by_id.return_value = mock_field_inst
+        mock_scan_inst = MagicMock()
+        mock_scan_inst.id = 11
+        mock_scan.create.return_value = mock_scan_inst
+
+        mock_task = MagicMock()
+        mock_task.id = "task-456"
+        mock_fast_task.delay.return_value = mock_task
+
+        handler = DroneUploadHandler.__new__(DroneUploadHandler)
+        handler.request = MagicMock()
+        handler.request.files = {
+            'drone_images': [{'filename': 'test.zip', 'body': b'data'}]
+        }
+        handler.get_argument = MagicMock(return_value=json.dumps({
+            'field_id': 1,
+            'processing_mode': 'fast',
+        }))
+        handler.set_status = MagicMock()
+        handler.write = MagicMock()
+        handler._current_user = MagicMock()
+
+        handler.post()
+
+        mock_fast_task.delay.assert_called_once()
+        mock_ortho_task.delay.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -104,8 +104,14 @@ class AuthenticatedRequestHandler(tornado.web.RequestHandler):
     def prepare(self) -> None:
         """
         Вызывается перед каждым запросом.
-        Проверяет авторизацию пользователя.
+        Устанавливает correlation ID и проверяет авторизацию.
         """
+        from src.logging_config import request_id_var, generate_request_id
+
+        req_id = self.request.headers.get("X-Request-ID", generate_request_id())
+        request_id_var.set(req_id)
+        self.set_header("X-Request-ID", req_id)
+
         user = self.get_current_user()
         
         if not user:

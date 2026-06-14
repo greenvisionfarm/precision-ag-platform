@@ -39,18 +39,36 @@
 ```
 src/
 ├── handlers/          # REST API контроллеры
+│   ├── auth_handlers.py     # Авторизация
 │   ├── field_handlers.py    # CRUD полей
 │   ├── owner_handlers.py    # Владельцы
 │   ├── upload_handlers.py   # Загрузка файлов
+│   ├── drone_handlers.py    # Дрон-снимки
+│   ├── journal_handlers.py  # Журнал полей
 │   └── field_commands.py    # Command pattern
 │
 ├── services/          # Бизнес-логика
+│   ├── orthomosaic_service.py   # Склейка ортомозаики
+│   ├── drone_processing_service.py  # Обработка дрона
+│   ├── raster_service.py      # NDVI анализ
+│   ├── crop_classifier.py     # Классификация культуры
+│   ├── analysis_service.py    # Анализ сканов
 │   ├── gis_service.py         # GIS вычисления
-│   ├── kmz_service.py         # KMZ экспорт (кэш)
-│   └── raster_service.py      # NDVI анализ
+│   ├── kmz_service.py         # KMZ экспорт
+│   ├── isoxml_service.py      # ISOXML экспорт
+│   ├── core_math.py           # VRA расчёты
+│   └── provider_dji.py        # DJI metadata
+│
+├── middleware/         # Auth middleware
+│   └── auth.py               # AuthenticatedRequestHandler
+│
+├── models/            # Peewee ORM
+│   ├── auth.py               # User, Company, Session
+│   └── field.py              # Field, FieldZone, FieldScan
 │
 └── utils/             # Утилиты
     ├── db_utils.py            # @db_connection
+    ├── auth.py                # SessionManager
     └── validators.py          # Валидация
 ```
 
@@ -168,18 +186,9 @@ Upload → API → Task Queue → Worker → DB
 
 ## Кэширование
 
-### KMZ Export
+### Внутрипроцессное кэширование
 
-```python
-# src/services/kmz_service.py
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def generate_kmz(field_id: int, height: float, ...) -> bytes:
-    # Кэш по параметрам
-```
-
-**Эффект:** Ускорение в 5-10 раз при повторном экспорте
+Приложение использует in-memory кэширование для тяжёлых операций. KMZ кэш был удалён для мульти-тенантной изоляции (каждая компания видит только свои данные).
 
 ---
 

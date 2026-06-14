@@ -24,6 +24,6 @@
 
 ## Known Security Considerations
 
-- Пароли хэшируются через SHA-256 с солью. В будущем планируется переход на bcrypt/argon2
+- Пароли хэшируются через bcrypt (cost factor 12). Старые SHA-256 хэши мигрируются при входе пользователя
 - Session tokens используют HMAC. Для production рекомендуется задавать `SESSION_SECRET` через переменную окружения
 - Redis работает без пароля в Docker Compose — это нормально для разработки, но не для production

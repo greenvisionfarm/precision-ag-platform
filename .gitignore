@@ -70,3 +70,7 @@ venv/
 .vscode/
 *.zip
 libs/**/*.egg-info
+
+# Generated TIF files
+*.tif
+*.tiff

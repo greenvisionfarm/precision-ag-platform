@@ -265,7 +265,7 @@ field_mapper/
 - Формат WPML 1.0.6
 - Совместимость с Mavic 3M
 - Углы курса, перекрытия (overlap)
-- Кэширование (lru_cache maxsize=128)
+- Кэширование удалено (multi-tenant изоляция)
 
 ### 4. PWA
 - Service Worker
@@ -326,7 +326,7 @@ field_mapper/
 - ✅ Валидация входных данных
 - ✅ Type hints во всём Python коде
 - ✅ Command pattern для обновлений полей
-- ✅ Кэширование KMZ (lru_cache)
+- ✅ KMZ экспорт (без кэша, multi-tenant)
 - ✅ ES6 модули для JavaScript
 - ✅ Класс `FieldMapperApp`
 

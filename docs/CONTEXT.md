@@ -8,7 +8,7 @@
 | **Тип** | Precision Agriculture Platform |
 | **Цель** | Цикл от полёта дрона до карты предписаний (VRA) |
 | **Лицензия** | Open Source |
-| **Деплой** | `make deploy` → Docker на `192.168.31.196:8080` |
+| **Деплой** | `make deploy` → Docker (см. `.deploy.env`) |
 
 ---
 
@@ -61,9 +61,9 @@ docker-compose up -d --build
 ### Деплой на сервер
 ```bash
 make deploy
-# Или вручную:
-ssh vladibuyanov@192.168.31.196
-cd /opt/field_mapper
+# Или вручную (IP сервера в .deploy.env):
+ssh $DEPLOY_SERVER
+cd ~/field_mapper
 git pull origin master
 docker compose up -d --build
 ```

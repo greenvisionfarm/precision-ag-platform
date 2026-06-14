@@ -3,6 +3,12 @@ services:
     build: .
     container_name: field-mapper-app
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8888/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     environment:
       - FIELD_MAPPER_ENV=production
       - FIELD_MAPPER_DB=/app/data/fields.db
@@ -28,6 +34,12 @@ services:
     build: .
     container_name: field-mapper-worker
     restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r=redis.from_url('redis://redis:6379/0'); r.ping()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     command: ["huey_consumer.py", "src.tasks.huey", "--workers=1", "--max-delay=60"]
     environment:
       - FIELD_MAPPER_ENV=production
@@ -51,6 +63,11 @@ services:
     image: redis:alpine
     container_name: field-mapper-redis
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     deploy:
       resources:
         limits:

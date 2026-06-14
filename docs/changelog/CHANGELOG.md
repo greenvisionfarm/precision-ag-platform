@@ -9,6 +9,13 @@
 ## [Unreleased]
 
 ### Добавлено
+- **Ортомозаика из дрон-снимков:**
+  - `src/services/orthomosaic_service.py` — склейка через cv2.Stitcher_SCANS
+  - Геореференсирование по GPS из EXIF
+  - `process_orthomosaic_task` — фоновая задача Huey
+  - `processing_mode` параметр в DroneUploadHandler (fast/orthomosaic)
+  - Фронтенд toggle для выбора режима обработки
+
 - **ISOXML экспорт карт предписаний:**
   - `src/services/isoxml_service.py` — генерация ISOXML TaskFile
   - API endpoint `/api/field/export/isoxml/<field_id>`

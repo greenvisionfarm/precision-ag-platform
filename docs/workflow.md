@@ -74,13 +74,16 @@ total_fertilizer_kg: 500  # Общая масса удобрения (опцио
 ### Полный путь (Orthomosaic)
 
 ```
-1. Создание ортомозаики (OpenDroneMap / Pix4D)
-2. NDVI расчёт (NIR - RED) / (NIR + RED)
-3. Зонирование KMeans (3 зоны) или Percentiles (4 зоны)
-4. Сохранение зон в БД
+1. Склейка RGB JPG через cv2.Stitcher_SCANS
+2. Геореференсирование по GPS из EXIF
+3. NDVI расчёт (NIR - RED) / (NIR + RED) по GPS-точкам
+4. Зонирование по перцентилям: 4 зоны
+5. Расчёт VRA норм (если указана масса удобрения)
+6. Классификация культуры по NDVI профилю
+7. Сохранение зон в БД
 ```
 
-**Код:** `src/tasks.py::process_geotiff_task`
+**Код:** `src/tasks.py::process_orthomosaic_task` → `src/services/orthomosaic_service.py`
 
 ---
 

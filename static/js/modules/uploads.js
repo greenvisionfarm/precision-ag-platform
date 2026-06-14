@@ -166,12 +166,13 @@ export function initDroneUpload() {
     btn.prop("disabled", true).addClass("hidden");
 
     // Создаём FormData
+    const isOrthomosaic = !$("#drone-fast-mode").is(":checked");
     const formData = new FormData();
     formData.append("drone_images", file);
     formData.append("data", JSON.stringify({
       field_id: fieldId || null,
       crop_type: cropType,
-      processing_mode: "fast",
+      processing_mode: isOrthomosaic ? "orthomosaic" : "fast",
       total_fertilizer_kg: fertilizer ? parseFloat(fertilizer) : null
     }));
 
@@ -183,8 +184,9 @@ export function initDroneUpload() {
       contentType: false,
       timeout: 600000,
       success: (res) => {
+        const modeLabel = res.processing_mode === 'orthomosaic' ? 'ортомозаика' : 'быстрая';
         statusDiv.removeClass("text-danger").addClass("text-success")
-          .html('<i class="fas fa-check"></i> Архив принят! Обработка запущена...');
+          .html(`<i class="fas fa-check"></i> Архив принят! Обработка (${modeLabel}) запущена...`);
         statusDiv.show();
         
         if (res.task_id) {

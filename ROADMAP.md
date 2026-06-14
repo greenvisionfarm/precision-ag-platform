@@ -1,6 +1,14 @@
 # Field Mapper Roadmap 🚀
 
-## 🎯 Ближайшие цели (Next 2 weeks)
+## 🎯 Текущая цель: Orthomosaic (Полная реализация)
+- [x] **orthomosaic_service.py** — cv2.Stitcher + EXIF GPS + геореференсирование
+- [x] **Huey task** — фоновая обработка склейки
+- [x] **Handler endpoints** — загрузка + статус (processing_mode routing)
+- [x] **Frontend toggle** — fast/orthomosaic mode + прогресс
+- [x] **Tests** — unit + integration (22 tests)
+- [x] **Документация** — исправлены stale docs
+
+## 📋 Следующие цели
 - [ ] **Chunked reading** для очень больших GeoTIFF (>10GB)
 - [ ] **Кэширование результатов кластеризации** (ускорение повторного анализа)
 - [ ] **Progressive loading** геометрий на frontend (для полей с 1000+ полигонами)

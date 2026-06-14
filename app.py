@@ -14,6 +14,7 @@ import tornado.ioloop
 import tornado.web
 
 from db import ensure_db_exists
+from src.logging_config import setup_logging
 from src.handlers.auth_handlers import (
     CompanyHandler,
     LoginHandler,
@@ -45,6 +46,8 @@ from src.handlers.upload_handlers import (
 from src.handlers.drone_handlers import (
     DroneUploadHandler,
 )
+from src.handlers.health_handler import HealthHandler
+from src.handlers.health_dashboard import HealthDashboardHandler
 from src.handlers.journal_handlers import (
     FieldJournalHandler,
     FieldJournalCreateHandler,
@@ -52,10 +55,7 @@ from src.handlers.journal_handlers import (
 )
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+setup_logging()
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -94,6 +94,10 @@ def make_app() -> tornado.web.Application:
     }
     return tornado.web.Application([
         (r"/", MainHandler),
+
+        # Health
+        (r"/api/health", HealthHandler),
+        (r"/health", HealthDashboardHandler),
 
         # API: Authentication
         (r"/api/auth/login", LoginHandler),

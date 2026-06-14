@@ -1,8 +1,12 @@
 """
 Утилиты для аутентификации и сессий.
+Redis-backed session storage с HMAC-SHA256 подписью.
+Fallback на in-memory dict если Redis недоступен.
 """
 import hashlib
 import hmac
+import json
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -10,211 +14,192 @@ from typing import Optional
 
 from src.models.auth import User
 
+logger = logging.getLogger(__name__)
+
 
 class SessionManager:
     """
-    Менеджер сессий для управления токенами доступа.
-    Использует HMAC-SHA256 для генерации и проверки токенов.
+    Менеджер сессий: HMAC-SHA256 подпись + Redis хранение.
+    Stateless verification (подпись) + stateful storage (Redis).
     """
-    
+
     def __init__(self, secret_key: Optional[str] = None):
-        """
-        Инициализирует менеджер сессий.
-        
-        Args:
-            secret_key: Секретный ключ для подписи токенов.
-                       Если None, используется SESSION_SECRET из окружения
-                       или генерируется новый.
-        """
         self.secret_key = secret_key or os.environ.get(
-            'SESSION_SECRET', 
+            'SESSION_SECRET',
             secrets.token_hex(32)
         )
-        # Хранилище сессий: token -> {user_id, expires_at, data}
-        self._sessions: dict[str, dict] = {}
-    
+        self._redis = None
+        self._fallback_sessions: dict[str, dict] = {}
+        self._connect_redis()
+
+    def _connect_redis(self) -> None:
+        """Подключается к Redis. Fallback на dict если недоступен."""
+        try:
+            import redis
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+            self._redis = redis.from_url(
+                redis_url, socket_timeout=2, decode_responses=True
+            )
+            self._redis.ping()
+            logger.info("Session storage: Redis")
+        except Exception as e:
+            logger.warning(
+                f"Redis unavailable, using in-memory sessions: {e}"
+            )
+            self._redis = None
+
+    def _session_key(self, token: str) -> str:
+        return f"session:{token}"
+
     def create_token(self, user: User, expires_hours: int = 24) -> str:
-        """
-        Создаёт токен сессии для пользователя.
-        
-        Args:
-            user: Пользователь, для которого создаётся токен
-            expires_hours: Время действия токена в часах
-            
-        Returns:
-            Строка токена
-        """
-        # Генерируем случайную часть токена
+        """Создаёт подписанный токен и сохраняет сессию в Redis."""
         random_part = secrets.token_hex(32)
-        
-        # Создаём timestamp истечения
         expires_at = datetime.now() + timedelta(hours=expires_hours)
         expires_timestamp = int(expires_at.timestamp())
-        
-        # Создаём payload: user_id:expires_timestamp:random_part
+
         payload = f"{user.id}:{expires_timestamp}:{random_part}"
-        
-        # Подписываем payload
         signature = self._sign(payload)
-        
-        # Токен: payload.signature
         token = f"{payload}.{signature}"
-        
-        # Сохраняем сессию
-        self._sessions[token] = {
+
+        session_data = {
             'user_id': user.id,
-            'expires_at': expires_at,
+            'expires_at': expires_at.isoformat(),
             'data': {
                 'email': user.email,
                 'company_id': user.company.id,
                 'role': user.role,
             }
         }
-        
+
+        self._store_session(token, session_data, expires_hours)
         return token
-    
+
     def verify_token(self, token: str) -> Optional[dict]:
-        """
-        Проверяет токен и возвращает данные сессии.
-        
-        Args:
-            token: Токен для проверки
-            
-        Returns:
-            Данные сессии или None если токен невалидный
-        """
+        """Проверяет подпись и возвращает данные сессии."""
         try:
-            # Разделяем токен на payload и signature
             parts = token.split('.')
             if len(parts) != 2:
                 return None
-            
+
             payload, signature = parts
-            
-            # Проверяем подпись
             if not self._verify_signature(payload, signature):
                 return None
-            
-            # Разбираем payload
+
             payload_parts = payload.split(':')
             if len(payload_parts) != 3:
                 return None
-            
+
             user_id, expires_timestamp, _ = payload_parts
             expires_at = datetime.fromtimestamp(int(expires_timestamp))
-            
-            # Проверяем истечение
+
             if datetime.now() > expires_at:
-                # Удаляем истёкшую сессию
-                self._sessions.pop(token, None)
+                self._delete_session(token)
                 return None
-            
-            # Проверяем, есть ли сессия в хранилище
-            if token in self._sessions:
-                return self._sessions[token]
-            
-            # Если сессии нет в хранилище, но токен валидный,
-            # создаём новую запись (для stateless режима)
+
+            session = self._get_session(token)
+            if session:
+                return session
+
             user = User.get_or_none(User.id == int(user_id))
             if not user or not user.is_active:
                 return None
-            
+
+            remaining_hours = max(
+                1,
+                int((expires_at - datetime.now()).total_seconds() / 3600)
+            )
             session_data = {
                 'user_id': user.id,
-                'expires_at': expires_at,
+                'expires_at': expires_at.isoformat(),
                 'data': {
                     'email': user.email,
                     'company_id': user.company.id,
                     'role': user.role,
                 }
             }
-            
-            # Кэшируем сессию
-            self._sessions[token] = session_data
-            
+            self._store_session(token, session_data, remaining_hours)
             return session_data
-            
+
         except (ValueError, TypeError):
             return None
-    
+
     def invalidate_token(self, token: str) -> None:
-        """
-        Уничтожает сессию (logout).
-        
-        Args:
-            token: Токен для уничтожения
-        """
-        self._sessions.pop(token, None)
-    
+        """Уничтожает сессию (logout)."""
+        self._delete_session(token)
+
+    def cleanup_expired(self) -> int:
+        """Redis TTL автоматически удаляет истёкшие. Для dict — ручная очистка."""
+        if self._redis:
+            return 0
+        now = datetime.now()
+        expired = [
+            t for t, d in self._fallback_sessions.items()
+            if datetime.fromisoformat(d['expires_at']) < now
+        ]
+        for t in expired:
+            del self._fallback_sessions[t]
+        return len(expired)
+
+    def _store_session(
+        self, token: str, data: dict, expires_hours: int
+    ) -> None:
+        """Сохраняет сессию в Redis или fallback dict."""
+        if self._redis:
+            try:
+                key = self._session_key(token)
+                self._redis.setex(
+                    key, expires_hours * 3600, json.dumps(data, default=str)
+                )
+                return
+            except Exception as e:
+                logger.warning(f"Redis write failed: {e}")
+        self._fallback_sessions[token] = data
+
+    def _get_session(self, token: str) -> Optional[dict]:
+        """Читает сессию из Redis или fallback dict."""
+        if self._redis:
+            try:
+                key = self._session_key(token)
+                raw = self._redis.get(key)
+                if raw:
+                    return json.loads(raw)
+                return None
+            except Exception as e:
+                logger.warning(f"Redis read failed: {e}")
+        return self._fallback_sessions.get(token)
+
+    def _delete_session(self, token: str) -> None:
+        """Удаляет сессию из Redis или fallback dict."""
+        if self._redis:
+            try:
+                key = self._session_key(token)
+                self._redis.delete(key)
+            except Exception as e:
+                logger.warning(f"Redis delete failed: {e}")
+        self._fallback_sessions.pop(token, None)
+
     def _sign(self, payload: str) -> str:
-        """
-        Создаёт HMAC подпись для payload.
-        
-        Args:
-            payload: Данные для подписи
-            
-        Returns:
-            Hex подпись
-        """
         return hmac.new(
             self.secret_key.encode('utf-8'),
             payload.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
-    
+
     def _verify_signature(self, payload: str, signature: str) -> bool:
-        """
-        Проверяет HMAC подпись.
-        
-        Args:
-            payload: Подписанные данные
-            signature: Подпись для проверки
-            
-        Returns:
-            True если подпись валидна
-        """
         expected = self._sign(payload)
         return hmac.compare_digest(expected, signature)
-    
-    def cleanup_expired(self) -> int:
-        """
-        Удаляет истёкшие сессии.
-        
-        Returns:
-            Количество удалённых сессий
-        """
-        now = datetime.now()
-        expired = [
-            token for token, data in self._sessions.items()
-            if data['expires_at'] < now
-        ]
-        
-        for token in expired:
-            del self._sessions[token]
-        
-        return len(expired)
 
 
-# Глобальный экземляр менеджера сессий
 session_manager = SessionManager()
 
 
 def get_current_user_from_token(token: str) -> Optional[User]:
-    """
-    Получает пользователя из токена сессии.
-    
-    Args:
-        token: Токен сессии
-        
-    Returns:
-        Пользователь или None
-    """
+    """Получает пользователя из токена сессии."""
     session_data = session_manager.verify_token(token)
     if not session_data:
         return None
-    
+
     try:
-        from src.models.auth import User, Company
         user = User.get(User.id == session_data['user_id'])
         return user
     except Exception:

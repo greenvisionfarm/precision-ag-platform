@@ -4,13 +4,12 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from huey import RedisHuey
 
-from src.utils.db_utils import db_connection
-
 from src.services.drone_processing_service import DroneProcessingService
+from src.utils.db_utils import db_connection
 
 # Настройка Huey
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -19,9 +18,9 @@ huey = RedisHuey('field-mapper', url=redis_url)
 
 def _process_geotiff_impl(file_path: str, field_id: int, scan_id: Optional[int] = None) -> bool:
     """Внутренняя реализация обработки GeoTIFF, вызываемая из задачи и тестов."""
-    from db import Field, FieldZone, FieldScan, database
-    from src.services.raster_service import process_ndvi_zones
+    from db import Field, FieldScan, FieldZone, database
     from src.services.crop_classifier import classify_from_raster
+    from src.services.raster_service import process_ndvi_zones
 
     logging.info(f"Запуск обработки растра: {file_path} для поля ID {field_id}")
 
@@ -103,10 +102,12 @@ def process_drone_fast_task(
     """
     Быстрая обработка снимков с дрона без создания ортомозаики.
     """
+    import shutil
     import tempfile
     import zipfile
-    import shutil
+
     import numpy as np
+
     from db import Field, FieldScan, FieldZone, database
     from src.constants import UPLOAD_DIR
     from src.services.crop_classifier import classify_from_raster
@@ -219,3 +220,138 @@ def process_drone_fast_task(
         os.remove(zip_path)
         
     return results
+
+
+def _process_orthomosaic_impl(
+    zip_path: str,
+    field_id: int,
+    total_fertilizer_kg: Optional[float] = None,
+    scan_id: Optional[int] = None,
+) -> dict:
+    """Внутренняя реализация обработки ортомозаики."""
+    import shutil
+    import tempfile
+    import zipfile
+
+    import numpy as np
+
+    from db import Field, FieldScan, FieldZone, database
+    from src.constants import UPLOAD_DIR
+    from src.services.crop_classifier import classify_from_raster
+    from src.services.drone_processing_service import DroneProcessingService
+    from src.services.orthomosaic_service import OrthomosaicService
+
+    logging.info(f"Запуск ОРТОМОЗАИКИ: {zip_path} для поля ID {field_id}")
+
+    results = {"success": False, "error": None}
+    ortho_service = OrthomosaicService()
+    drone_service = DroneProcessingService()
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir)
+
+            ortho_tif = os.path.join(tmpdir, "orthomosaic.tif")
+            stitch_result = ortho_service.process_directory(tmpdir, ortho_tif)
+
+            if not stitch_result.success:
+                raise ValueError(f"Ошибка склейки: {stitch_result.error}")
+
+            with db_connection():
+                field = Field.get_by_id(field_id)
+                field_wkt = field.geometry_wkt
+
+            points = drone_service.process_directory(tmpdir)
+
+            zones = []
+            if points:
+                temp_tif = os.path.join(tmpdir, "ndvi_grid.tif")
+                zones = drone_service.create_grid_and_zone(points, field_wkt, temp_tif)
+
+                if total_fertilizer_kg:
+                    zones = drone_service.calculate_vra_rates(zones, total_fertilizer_kg)
+
+            crop_result = classify_from_raster(ortho_tif)
+            crop_type = crop_result.get("crop_type")
+            crop_confidence = crop_result.get("confidence")
+
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            final_tif_name = f"orthomosaic_{field_id}_{ts}.tif"
+            final_tif_path = os.path.join(UPLOAD_DIR, final_tif_name)
+            os.makedirs(os.path.dirname(final_tif_path), exist_ok=True)
+            shutil.copy2(ortho_tif, final_tif_path)
+
+            with db_connection():
+                with database.atomic():
+                    scan = FieldScan.get_by_id(scan_id) if scan_id else None
+                    if not scan:
+                        scan = FieldScan.create(
+                            field=field,
+                            file_path=final_tif_path,
+                            filename=final_tif_name,
+                            uploaded_at=datetime.now(),
+                            processed='true',
+                            source='drone_orthomosaic',
+                        )
+                    else:
+                        scan.file_path = final_tif_path
+                        scan.filename = final_tif_name
+                        scan.processed = 'true'
+                        scan.source = 'drone_orthomosaic'
+
+                    if points:
+                        ndvi_vals = [p.ndvi for p in points]
+                        scan.ndvi_min = float(np.min(ndvi_vals))
+                        scan.ndvi_max = float(np.max(ndvi_vals))
+                        scan.ndvi_avg = float(np.mean(ndvi_vals))
+
+                    if crop_type:
+                        scan.crop_type = crop_type
+                    if crop_confidence is not None:
+                        scan.crop_confidence = crop_confidence
+
+                    scan.save()
+
+                    FieldZone.delete().where(FieldZone.scan == scan).execute()
+
+                    for z in zones:
+                        FieldZone.create(
+                            field=field,
+                            scan=scan,
+                            name=z['name'],
+                            geometry_wkt=z['geometry_wkt'],
+                            avg_ndvi=z['avg_ndvi'],
+                            color=z['color'],
+                            rate_kg_ha=z.get('rate_kg_ha'),
+                        )
+
+            results["success"] = True
+            results["zones_count"] = len(zones)
+            results["scan_id"] = scan.id
+            results["crop_type"] = crop_type
+            results["crop_confidence"] = crop_confidence
+            results["orthomosaic_path"] = final_tif_path
+
+    except Exception as e:
+        logging.error(f"Ошибка в задаче orthomosaic: {str(e)}", exc_info=True)
+        results["error"] = str(e)
+        if scan_id:
+            with db_connection():
+                FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
+
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
+
+    return results
+
+
+@huey.task()
+def process_orthomosaic_task(
+    zip_path: str,
+    field_id: int,
+    total_fertilizer_kg: Optional[float] = None,
+    scan_id: Optional[int] = None,
+) -> dict:
+    """Фоновая задача по созданию ортомозаики из дрон-снимков."""
+    return _process_orthomosaic_impl(zip_path, field_id, total_fertilizer_kg, scan_id)

@@ -27,9 +27,9 @@
 |-------------------------|---------------------|---------------|-------------------------|
 | Field boundaries on map | GeoTIFF upload | **ISOXML** (John Deere, Claas) | Auto norm calculation |
 | Owners & cadastre | Automatic zoning | DJI KMZ (WPML 1.0.6) | 3 productivity zones |
-| KMZ import/export | Large aggregated zones | Shapefile | Norms: 150/250/350 kg/ha |
-| Statistics & reports | **Scan history** | Bulk ZIP export | Zone statistics |
-| | **Scan deletion** | | |
+| KMZ import/export | Fast mode (point interpolation) | Shapefile | Dynamic VRA rates |
+| Statistics & reports | **Orthomosaic** (cv2.Stitcher) | Bulk ZIP export | Zone statistics |
+| | **Scan history** | | |
 | | **Fullscreen mode** | | |
 
 ---
@@ -147,7 +147,7 @@ docker-compose run --rm -e FIELD_MAPPER_ENV=test app pytest tests/
 docker-compose run --rm app npm test
 ```
 
-**Status:** 32 passed, 1 skipped | **Coverage:** ~65% (backend)
+**Status:** 47+ passed | **Coverage:** ~65% (backend)
 
 ---
 
@@ -159,15 +159,15 @@ Track progress on [GitHub Projects](https://github.com/orgs/greenvisionfarm/proj
 
 | Milestone | Focus | Target |
 |-----------|-------|--------|
-| **v2026.3** | Orthomosaic from drone photos, mobile UI | Apr 2026 |
-| **v2026.4** | NDVI time series, yield prediction, OneSoil | May 2026 |
+| **v2026.3** | Orthomosaic from drone photos, mobile UI | ✅ Done (Jun 2026) |
+| **v2026.4** | NDVI time series, yield prediction, OneSoil | Jul 2026 |
 | **v2027.1** | PostgreSQL/PostGIS, CI/CD, monitoring | Jan 2027 |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](docs/legal/CONTRIBUTING.md) for guidelines.
 
 - 🐛 [Bug Reports](https://github.com/greenvisionfarm/precision-ag-platform/issues/new?template=bug_report.yml)
 - ✨ [Feature Requests](https://github.com/greenvisionfarm/precision-ag-platform/issues/new?template=feature_request.yml)
@@ -181,7 +181,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 32 passed, 1 skipped |
+| **Tests** | 47+ passed |
 | **Coverage** | ~65% (backend) |
 | **Image Size** | ~1.5 GB (with GIS) |
 | **Build Time** | ~6 min (~2 min with cache) |
@@ -195,9 +195,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - **Issues:** [Bug Reports & Features](https://github.com/greenvisionfarm/precision-ag-platform/issues)
 - **Projects:** [GitHub Projects](https://github.com/orgs/greenvisionfarm/projects)
 - **License:** [MIT](LICENSE)
-- **Security:** [SECURITY.md](SECURITY.md)
+- **Security:** [SECURITY.md](docs/legal/SECURITY.md)
 
 ---
 
-*Last updated: April 6, 2026*  
+*Last updated: June 14, 2026*  
 *Built with ❤️ and AI agents 🤖*
