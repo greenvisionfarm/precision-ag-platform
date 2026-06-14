@@ -349,11 +349,28 @@
                         </button>
                     </form>
                     <div id="drone-upload-status" class="upload-status"></div>
+                    <div id="drone-steps" class="drone-steps hidden">
+                        <div class="step active">
+                            <span class="step-icon"><i class="fas fa-cloud-upload-alt"></i></span>
+                            <span class="step-label">Загрузка</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step">
+                            <span class="step-icon"><i class="fas fa-save"></i></span>
+                            <span class="step-label">Сохранение</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step">
+                            <span class="step-icon"><i class="fas fa-cog"></i></span>
+                            <span class="step-label">Обработка</span>
+                        </div>
+                        <p class="step-text"></p>
+                    </div>
                     <div id="drone-progress" class="upload-progress hidden">
                         <div class="progress-bar">
                             <div class="progress-fill"></div>
                         </div>
-                        <p class="progress-text">Обработка снимков...</p>
+                        <p class="progress-text"></p>
                     </div>
                 </div>
 

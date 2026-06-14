@@ -142,10 +142,12 @@ export function initDroneUpload() {
     const form = this;
     const statusDiv = $("#drone-upload-status");
     const progressDiv = $("#drone-progress");
+    const progressFill = progressDiv.find(".progress-fill");
+    const progressText = progressDiv.find(".progress-text");
+    const stepsDiv = $("#drone-steps");
     const btn = $("#drone-upload-button");
     const fieldId = $("#drone-field-select").val();
     const cropType = $("#drone-crop-type").val();
-    const fertilizer = $("#drone-fertilizer").val();
     const file = $("#drone-input")[0].files[0];
 
     if (!file) {
@@ -160,61 +162,121 @@ export function initDroneUpload() {
       return;
     }
 
-    statusDiv.removeClass("text-success text-danger")
-      .html('<i class="fas fa-spinner fa-spin"></i> Загрузка архива...');
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(0);
+    statusDiv.removeClass("text-success text-danger").html("");
     progressDiv.removeClass("hidden").show();
+    stepsDiv.removeClass("hidden").show();
     btn.prop("disabled", true).addClass("hidden");
+
+    // Обновляем шаги
+    function setStep(step, text) {
+      stepsDiv.find(".step").removeClass("active done");
+      stepsDiv.find(".step").each(function(i) {
+        if (i < step) $(this).addClass("done");
+        if (i === step) $(this).addClass("active");
+      });
+      stepsDiv.find(".step-text").text(text);
+    }
+
+    setStep(0, `Загрузка на сервер (${fileSizeMB} MB)...`);
+    progressFill.css("width", "0%");
+    progressText.text("0%");
 
     // Создаём FormData
     const isOrthomosaic = !$("#drone-fast-mode").is(":checked");
     const formData = new FormData();
-    formData.append("drone_images", file);
     formData.append("data", JSON.stringify({
       field_id: fieldId || null,
       crop_type: cropType,
-      processing_mode: isOrthomosaic ? "orthomosaic" : "fast",
-      total_fertilizer_kg: fertilizer ? parseFloat(fertilizer) : null
+      processing_mode: isOrthomosaic ? "orthomosaic" : "fast"
     }));
+    formData.append("drone_images", file);
 
-    $.ajax({
-      url: "/api/drone/upload",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      timeout: 600000,
-      success: (res) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/drone/upload", true);
+    xhr.timeout = 600000;
+
+    // Прогресс загрузки файла
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        const loadedMB = (e.loaded / 1024 / 1024).toFixed(0);
+        const totalMB = (e.total / 1024 / 1024).toFixed(0);
+        progressFill.css("width", `${pct}%`);
+        progressText.text(`${pct}% — ${loadedMB} / ${totalMB} MB`);
+      }
+    };
+
+    xhr.onload = function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const res = JSON.parse(xhr.responseText);
         const modeLabel = res.processing_mode === 'orthomosaic' ? 'ортомозаика' : 'быстрая';
+
+        setStep(2, `Обработка (${modeLabel}) запущена`);
+        progressFill.css("width", "100%");
+        progressText.text("Готово");
+
         statusDiv.removeClass("text-danger").addClass("text-success")
           .html(`<i class="fas fa-check"></i> Архив принят! Обработка (${modeLabel}) запущена...`);
         statusDiv.show();
-        
+
         if (res.task_id) {
           pollDroneTaskStatus(res.task_id, res.field_id);
         }
-        
+
         form.reset();
         $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP или снимки');
-      },
-      error: (xhr) => {
+      } else {
         let err;
-        if (xhr.status === 0) {
-          err = "Нет соединения с сервером. Проверьте интернет.";
-        } else if (xhr.status === 413) {
+        if (xhr.status === 413) {
           err = "Файл слишком большой для сервера.";
         } else if (xhr.status === 502) {
           err = "Сервер перегружен. Попробуйте позже.";
         } else {
-          err = xhr.responseJSON?.error || `Ошибка загрузки (HTTP ${xhr.status})`;
+          try {
+            err = JSON.parse(xhr.responseText).error;
+          } catch(e) {
+            err = `Ошибка загрузки (HTTP ${xhr.status})`;
+          }
         }
         statusDiv.removeClass("text-success").addClass("text-danger")
           .html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
         statusDiv.show();
         progressDiv.addClass("hidden");
+        stepsDiv.addClass("hidden");
         btn.prop("disabled", false).removeClass("hidden");
         showMessage(err, "error");
       }
-    });
+    };
+
+    xhr.onerror = function() {
+      statusDiv.removeClass("text-success").addClass("text-danger")
+        .html('<i class="fas fa-exclamation-triangle"></i> Нет соединения с сервером. Проверьте интернет.');
+      statusDiv.show();
+      progressDiv.addClass("hidden");
+      stepsDiv.addClass("hidden");
+      btn.prop("disabled", false).removeClass("hidden");
+      showMessage("Нет соединения с сервером", "error");
+    };
+
+    xhr.ontimeout = function() {
+      statusDiv.removeClass("text-success").addClass("text-danger")
+        .html('<i class="fas fa-exclamation-triangle"></i> Превышено время ожидания.');
+      statusDiv.show();
+      progressDiv.addClass("hidden");
+      stepsDiv.addClass("hidden");
+      btn.prop("disabled", false).removeClass("hidden");
+      showMessage("Превышено время ожидания", "error");
+    };
+
+    // Симулируем серверные этапы после завершения загрузки
+    xhr.upload.onload = function() {
+      setStep(1, "Сохранение на диск...");
+      progressFill.css("width", "100%");
+      progressText.text("Загрузка завершена, обработка...");
+    };
+
+    xhr.send(formData);
   });
 }
 
@@ -243,19 +305,34 @@ function pollDroneTaskStatus(taskId, fieldId) {
   const progressDiv = $("#drone-progress");
   const progressFill = progressDiv.find(".progress-fill");
   const progressText = progressDiv.find(".progress-text");
+  const stepsDiv = $("#drone-steps");
   
-  let progress = 0;
+  let progress = 50;
+  
+  // Обновляем шаг на "Обработка"
+  stepsDiv.find(".step").removeClass("active done");
+  stepsDiv.find(".step").eq(0).addClass("done");
+  stepsDiv.find(".step").eq(1).addClass("done");
+  stepsDiv.find(".step").eq(2).addClass("active");
+  stepsDiv.find(".step-text").text("Обработка снимков...");
+  
+  progressFill.css("width", `${progress}%`);
+  progressText.text(`${progress}% — обработка...`);
   
   const interval = setInterval(() => {
     API.getTaskStatus(taskId).then(res => {
       if (res.status === "completed") {
         clearInterval(interval);
         progressDiv.addClass("hidden");
+        stepsDiv.find(".step").removeClass("active");
+        stepsDiv.find(".step").addClass("done");
+        stepsDiv.find(".step-text").text("Готово!");
         statusDiv.removeClass("text-danger").addClass("text-success")
           .html('<i class="fas fa-check-circle"></i> Обработка завершена! Зоны созданы.');
         showMessage("Обработка завершена! Зоны NDVI созданы.", "success");
         
         setTimeout(() => {
+          stepsDiv.addClass("hidden");
           if (fieldId) {
             window.location.hash = `#field/${fieldId}`;
             window.showFieldDetail?.(fieldId);
@@ -267,6 +344,7 @@ function pollDroneTaskStatus(taskId, fieldId) {
       } else if (res.status === "error") {
         clearInterval(interval);
         progressDiv.addClass("hidden");
+        stepsDiv.addClass("hidden");
         statusDiv.removeClass("text-success").addClass("text-danger")
           .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.message || "Ошибка обработки"}`);
         showMessage(res.message || "Ошибка обработки дрон-данных", "error");
@@ -274,7 +352,8 @@ function pollDroneTaskStatus(taskId, fieldId) {
       } else {
         progress = Math.min(progress + 5, 95);
         progressFill.css("width", `${progress}%`);
-        progressText.text(res.message || "Обработка снимков...");
+        progressText.text(`${progress}% — ${res.message || "Обработка снимков..."}`);
+        stepsDiv.find(".step-text").text(res.message || "Обработка снимков...");
       }
     }).catch(() => {
       // Игнорируем ошибки сети, продолжаем опрос
