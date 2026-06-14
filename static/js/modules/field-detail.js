@@ -549,6 +549,65 @@ $(document).on('click', '#detail-export-kmz', function(e) {
   downloadKmzWithSettings(currentFieldId);
 });
 
+/**
+ * Обработчик экспорта TaskData.zip (ISOXML v3.3).
+ */
+$(document).on('click', '#detail-export-taskdata', function(e) {
+  e.preventDefault();
+  if (!currentFieldId) return;
+
+  Swal.fire({
+    title: "Экспорт TaskData",
+    html: `
+      <div style="text-align: left; display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label for="swal-td-product" style="display: block; font-weight: 600; margin-bottom: 4px;">Продукт:</label>
+          <input type="text" id="swal-td-product" class="swal2-input" style="margin: 0; width: 100%;" value="Аммиачная селитра" placeholder="Напр. KCl, Amofos">
+        </div>
+        <div>
+          <label for="swal-td-farm" style="display: block; font-weight: 600; margin-bottom: 4px;">Ферма:</label>
+          <input type="text" id="swal-td-farm" class="swal2-input" style="margin: 0; width: 100%;" placeholder="Название фермы">
+        </div>
+        <div>
+          <label for="swal-td-resolution" style="display: block; font-weight: 600; margin-bottom: 4px;">Разрешение грида:</label>
+          <select id="swal-td-resolution" class="swal2-select" style="margin: 0; width: 100%;">
+            <option value="1">1 м (точное)</option>
+            <option value="2" selected>2 м (стандарт)</option>
+            <option value="5">5 м (быстрое)</option>
+            <option value="10">10 м (грубое)</option>
+          </select>
+        </div>
+        <div style="background: #f0f0f0; padding: 10px; border-radius: 6px; font-size: 0.85em;">
+          <strong>Формат:</strong> TaskData.zip (ISO 11783 v3.3)<br>
+          Совместим с: Agricon, John Deere TaskData, Claas
+        </div>
+      </div>`,
+    width: "500px",
+    focusConfirm: false,
+    preConfirm: () => {
+      const product = document.getElementById("swal-td-product").value.trim();
+      const farm = document.getElementById("swal-td-farm").value.trim();
+      const resolution = document.getElementById("swal-td-resolution").value;
+      if (!product) {
+        Swal.showValidationMessage("Введите название продукта");
+        return false;
+      }
+      return { product_name: product, farm_name: farm || null, resolution: parseFloat(resolution) };
+    }
+  }).then(res => {
+    if (!res.isConfirmed) return;
+    const { product_name, farm_name, resolution } = res.value;
+
+    showMessage('Генерация TaskData.zip...', 'info');
+
+    API.exportTaskData(currentFieldId, { product_name, farm_name, resolution }).then(blob => {
+      const filename = `field_${currentFieldId}_taskdata.zip`;
+      downloadBlob(blob, filename);
+      showMessage(`TaskData экспортирован: ${filename}`, 'success');
+    });
+  });
+});
+
 // ===== Field Journal =====
 
 const CROP_LABELS = {

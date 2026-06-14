@@ -171,6 +171,20 @@ const API = {
     dataType: 'binary',
     xhrFields: { responseType: 'blob' }
   }).catch(handleApiError),
+
+  /**
+   * Экспорт поля в TaskData.zip (ISO 11783 v3.3).
+   * @param {number} fieldId - ID поля.
+   * @param {Object} params - Параметры (product_name, farm_name, resolution).
+   * @returns {Promise} Promise с ZIP-файлом.
+   */
+  exportTaskData: (fieldId, params = {}) => $.ajax({
+    url: `/api/field/export/taskdata/${fieldId}`,
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify(params),
+    xhrFields: { responseType: 'blob' }
+  }).catch(handleApiError),
 };
 
 export default API;

@@ -38,6 +38,7 @@ from src.handlers.upload_handlers import (
     FieldScansHandler,
     FieldScanZonesHandler,
     ISOXMLExportHandler,
+    TaskDataExportHandler,
     RasterUploadHandler,
     ScanCropUpdateHandler,
     TaskStatusHandler,
@@ -128,6 +129,7 @@ def make_app() -> tornado.web.Application:
         (r"/api/raster/upload", RasterUploadHandler),
         (r"/api/task/(.*)", TaskStatusHandler),
         (r"/api/field/export/isoxml/([0-9]+)", ISOXMLExportHandler),
+        (r"/api/field/export/taskdata/([0-9]+)", TaskDataExportHandler),
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),
         (r"/api/field/([0-9]+)/scans/([0-9]+)", FieldScansHandler),  # DELETE /api/field/{id}/scans/{scan_id}
         (r"/api/scan/([0-9]+)/update_crop", ScanCropUpdateHandler),

@@ -312,6 +312,74 @@ class ISOXMLExportHandler(AuthenticatedRequestHandler):
             self.write({"error": str(e)})
 
 
+class TaskDataExportHandler(AuthenticatedRequestHandler):
+    """Handler для экспорта поля в формате TaskData.zip (ISO 11783 v3.3)."""
+
+    SUPPORTED_METHODS = ("GET", "POST")
+
+    def get(self, field_id: int) -> None:
+        self._export(field_id)
+
+    def post(self, field_id: int) -> None:
+        self._export(field_id)
+
+    def _export(self, field_id: int) -> None:
+        try:
+            from src.services.taskdata_service import export_taskdata
+
+            field = (
+                Field.select()
+                .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                .first()
+            )
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено"})
+                return
+
+            from db import FieldZone
+            zones_count = FieldZone.select().where(FieldZone.field == field).count()
+            if zones_count == 0:
+                self.set_status(404)
+                self.write({"error": "Нет зон для экспорта"})
+                return
+
+            product_name = None
+            farm_name = None
+            resolution = 2.0
+            if self.request.method == 'POST':
+                try:
+                    import json
+                    body = json.loads(self.request.body)
+                    product_name = body.get('product_name')
+                    farm_name = body.get('farm_name')
+                    resolution = float(body.get('resolution', 2.0))
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    pass
+
+            filename = f"field_{field_id}_taskdata.zip"
+            output_path = os.path.join(UPLOAD_DIR, filename)
+
+            export_taskdata(
+                field_id, output_path,
+                product_name=product_name,
+                resolution_m=resolution,
+                farm_name=farm_name,
+            )
+
+            self.set_header('Content-Type', 'application/zip')
+            self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
+
+            with open(output_path, 'rb') as f:
+                self.write(f.read())
+
+            os.remove(output_path)
+
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
 class FieldScansHandler(AuthenticatedRequestHandler):
     """Handler для получения списка сканов поля."""
 
