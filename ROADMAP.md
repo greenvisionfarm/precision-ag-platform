@@ -44,12 +44,18 @@
 - Генератор `ag-isoxml` producing невалидный XML (нет PRODUCTGROUP, BINAPPLICATIONZONE, GUID, TIME)
 - Формат неприемлем ни для John Deere, ни для Claas, ни для Case IH
 
+### Анализ экспорта из AgriPort (Agricon v4.9)
+- Формат: `TaskData.zip` → `TASKDATA/TASKDATA.xml` + `GRD00000.bin`
+- XML: ISO 11783 TaskData v3.3 (упрощённый)
+- Грид: 1 байт на ячейку = индекс Treatment Zone (0=нет, 1=вносить)
+- Структура: TSK → TZN → PDV (rate), GRD (grid file), PFD (field), PDT (product), VPN (units)
+
 ### Что делаем сейчас
-- [ ] **Переписать генератор по ISO 11783-10** — добавить все обязательные элементы: TIME, OPERATIONTECHNIQUE, VEHICLE, CONTROLLER, PRODUCTGROUP, PRODUCT, BINAPPLICATIONZONE, PRESCRIPTIONZONE, PROCESSDATA, GUID
-- [ ] **Генерировать TaskData.zip** — формат принимаемый всеми терминалами: TaskData.xml + Partfield.xml + TreatmentZone.xml + Product.xml (вместо裸 XML)
-- [ ] **Валидация перед выдачей** — XSD-валидатор ISO 11783-10; если файл невалиден — не отдавать, показать ошибку пользователю
+- [ ] **Переписать генератор по реальному формату AgriPort** — TASKDATA.xml + GRD*.bin; TSK/TZN/PDV/GRD/PFD/PDT/VPN элементы
+- [ ] **Генерировать бинарные гриды (.bin)** — 1 байт на ячейку = treatment zone index; row-major, NW corner
+- [ ] **Валидация перед выдачей** — проверка что все обязательные элементы заполнены
 - [ ] **Экспорт в Shapefile (.shp)** — альтернативный формат; геометрия в .shp, нормы в .dbf; принимается всеми терминалами без исключения
-- [ ] **Запросить эталонный файл у тестера** — попросить фермера с John Deere / Claas прислать USB с реальным TaskData.xml от дилера; разобрать структуру и переписать генератор по образцу
+- [ ] **Запросить эталонный файл у тестера** — попросить фермера с John Deere / Claas прислать USB с реальным TaskData.xml от дилера
 
 ### Порядок реализации
 1. Shapefile экспорт (быстрый, 100% совместимость)
