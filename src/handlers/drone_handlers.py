@@ -52,7 +52,6 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
         """Парсит multipart/form-data из временного файла.
 
         Возвращает (uploaded_filename, form_data, drone_file_path).
-        drone_file_path — путь к уже сохранённому файлу (или None).
         """
         self._upload_tmpfile.close()
         tmpfile_path = self._upload_tmpfile.name
@@ -63,81 +62,93 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                 raise ValueError("Нет boundary в Content-Type")
 
             boundary = content_type.split("boundary=")[-1].strip().encode()
+            boundary_marker = b"--" + boundary
             boundary_end = b"--" + boundary + b"--"
-            boundary_start = b"--" + boundary
 
             uploaded_filename = None
             form_data = {}
-            drone_file_path = None
+            drone_body_start = None
 
             with open(tmpfile_path, "rb") as f:
                 f.seek(0, 2)
                 file_size = f.tell()
 
-                # Читаем начало файла, чтобы найти drone_images headers
-                header_chunk = f.read(64 * 1024)
+                # 1. Читаем начало файла для парсинга всех полей
+                header_size = min(256 * 1024, file_size)
+                f.seek(0)
+                header_chunk = f.read(header_size)
 
-                # Находим начало drone_images поля (первое поле в multipart)
-                drone_sep = header_chunk.find(b"\r\n\r\n")
-                if drone_sep == -1:
-                    raise ValueError("Не найден разделитель заголовков для drone_images")
+                # Ищем все boundaries и парсим заголовки каждого поля
+                pos = 0
+                while True:
+                    bpos = header_chunk.find(boundary_marker, pos)
+                    if bpos == -1:
+                        break
 
-                headers_text = header_chunk[:drone_sep].decode("utf-8", errors="replace")
-                for token in headers_text.split(";"):
-                    token = token.strip()
-                    if token.startswith("filename="):
-                        uploaded_filename = token.split("=", 1)[1].strip('"')
+                    sep = header_chunk.find(b"\r\n\r\n", bpos)
+                    if sep == -1:
+                        break
 
-                drone_body_start = drone_sep + 4
+                    headers_text = header_chunk[bpos:sep].decode("utf-8", errors="replace")
+                    body_start = sep + 4
 
-                # data поле — в конце multipart (маленькое JSON после файла)
-                # Читаем последние 16KB чтобы найти boundary_end и data
-                tail_size = min(16 * 1024, file_size)
+                    if 'name="data"' in headers_text:
+                        # data поле — маленькое, ищем boundary после него
+                        data_end = header_chunk.find(boundary_marker, body_start)
+                        if data_end != -1:
+                            data_body = header_chunk[body_start:data_end]
+                            if data_body.endswith(b"\r\n"):
+                                data_body = data_body[:-2]
+                            try:
+                                form_data = json.loads(data_body)
+                            except Exception:
+                                pass
+
+                    elif 'name="drone_images"' in headers_text:
+                        for line in headers_text.split("\r\n"):
+                            if "filename=" in line:
+                                for token in line.split(";"):
+                                    token = token.strip()
+                                    if token.startswith("filename="):
+                                        uploaded_filename = token.split("=", 1)[1].strip().strip('"')
+                                        break
+                        drone_body_start = body_start
+
+                    pos = sep + 4
+
+                # 2. Читаем хвост файла для boundary_end
+                tail_size = min(64 * 1024, file_size)
                 f.seek(file_size - tail_size)
                 tail = f.read()
 
-                boundary_end = b"--" + boundary + b"--"
-                tail_pos = tail.rfind(boundary_end)
-                if tail_pos == -1:
+                tail_end_pos = tail.rfind(boundary_end)
+                if tail_end_pos == -1:
                     raise ValueError("Не найден boundary_end в multipart")
 
-                drone_body_end = file_size - tail_size + tail_pos
+                drone_body_end = file_size - tail_size + tail_end_pos
                 if drone_body_end > 0:
                     f.seek(drone_body_end - 2)
                     pre_end = f.read(2)
                     if pre_end == b"\r\n":
                         drone_body_end -= 2
 
-                # data field — между boundary и boundary_end в хвосте
-                boundary_marker = b"--" + boundary
-                data_boundary_pos = tail.rfind(boundary_marker, 0, tail_pos)
-                if data_boundary_pos != -1:
-                    data_sep_in_tail = tail.find(b"\r\n\r\n", data_boundary_pos)
-                    if data_sep_in_tail != -1:
-                        data_body = tail[data_sep_in_tail + 4:tail_pos]
-                        if data_body.endswith(b"\r\n"):
-                            data_body = data_body[:-2]
-                        try:
-                            form_data = json.loads(data_body)
-                        except Exception:
-                            pass
+                # 3. Копируем тело drone_images
+                if drone_body_start is not None and uploaded_filename:
+                    file_ext = os.path.splitext(uploaded_filename)[1] or ".zip"
+                    unique_filename = f"drone_{uuid.uuid4()}{file_ext}"
+                    drone_file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
-                # Копируем тело файла drone_images в финальный путь
-                file_ext = os.path.splitext(uploaded_filename or "")[1] or ".zip"
-                unique_filename = f"drone_{uuid.uuid4()}{file_ext}"
-                drone_file_path = os.path.join(UPLOAD_DIR, unique_filename)
-
-                f.seek(drone_body_start)
-                bytes_to_copy = drone_body_end - drone_body_start
-                with open(drone_file_path, "wb") as out_f:
-                    remaining = bytes_to_copy
-                    while remaining > 0:
-                        read_size = min(CHUNK_SIZE, remaining)
-                        chunk = f.read(read_size)
-                        if not chunk:
-                            break
-                        out_f.write(chunk)
-                        remaining -= len(chunk)
+                    f.seek(drone_body_start)
+                    bytes_to_copy = drone_body_end - drone_body_start
+                    with open(drone_file_path, "wb") as out_f:
+                        remaining = bytes_to_copy
+                        while remaining > 0:
+                            read_size = min(CHUNK_SIZE, remaining)
+                            chunk = f.read(read_size)
+                            if not chunk:
+                                break
+                            out_f.write(chunk)
+                            remaining -= len(chunk)
 
             return uploaded_filename, form_data, drone_file_path
 
