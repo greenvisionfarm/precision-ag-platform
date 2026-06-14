@@ -347,6 +347,14 @@ class TaskDataExportHandler(AuthenticatedRequestHandler):
             product_name = None
             farm_name = None
             resolution = 2.0
+            rate_mode = "variable"
+            constant_rate = None
+            rate_min = None
+            rate_max = None
+            nutrient = "nitrogen"
+            application_date = None
+            residual_pct = 1.0
+            product_group = "mineral"
             if self.request.method == 'POST':
                 try:
                     import json
@@ -354,6 +362,14 @@ class TaskDataExportHandler(AuthenticatedRequestHandler):
                     product_name = body.get('product_name')
                     farm_name = body.get('farm_name')
                     resolution = float(body.get('resolution', 2.0))
+                    rate_mode = body.get('rate_mode', 'variable')
+                    constant_rate = body.get('constant_rate')
+                    rate_min = body.get('rate_min')
+                    rate_max = body.get('rate_max')
+                    nutrient = body.get('nutrient', 'nitrogen')
+                    application_date = body.get('application_date')
+                    residual_pct = float(body.get('residual_pct', 1.0))
+                    product_group = body.get('product_group', 'mineral')
                 except (json.JSONDecodeError, TypeError, ValueError):
                     pass
 
@@ -365,6 +381,14 @@ class TaskDataExportHandler(AuthenticatedRequestHandler):
                 product_name=product_name,
                 resolution_m=resolution,
                 farm_name=farm_name,
+                rate_mode=rate_mode,
+                constant_rate=constant_rate,
+                rate_min=rate_min,
+                rate_max=rate_max,
+                nutrient=nutrient,
+                application_date=application_date,
+                residual_pct=residual_pct,
+                product_group=product_group,
             )
 
             self.set_header('Content-Type', 'application/zip')

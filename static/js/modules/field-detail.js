@@ -540,13 +540,181 @@ $(document).on('click', '#detail-export-isoxml', function(e) {
 });
 
 /**
- * Обработчик экспорта KMZ.
+ * Обработчик экспорта TaskData.zip (ISOXML v3.3).
  */
-$(document).on('click', '#detail-export-kmz', function(e) {
+$(document).on('click', '#detail-export-taskdata', function(e) {
   e.preventDefault();
   if (!currentFieldId) return;
 
-  downloadKmzWithSettings(currentFieldId);
+  const today = new Date().toISOString().split('T')[0];
+
+  Swal.fire({
+    title: "Экспорт TaskData",
+    html: `
+      <div style="text-align: left; display: flex; flex-direction: column; gap: 12px; font-size: 0.9em; max-height: 70vh; overflow-y: auto;">
+
+        <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+          <legend style="font-weight: 600; padding: 0 6px;">Продукт</legend>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="display: block; margin-bottom: 3px;">Группа:</label>
+              <select id="swal-td-group" class="swal2-select" style="margin: 0; width: 100%;">
+                <option value="mineral" selected>Минеральные</option>
+                <option value="organic">Органические</option>
+                <option value="mixed">Смешанные</option>
+              </select>
+            </div>
+            <div style="flex: 2;">
+              <label style="display: block; margin-bottom: 3px;">Продукт:</label>
+              <input type="text" id="swal-td-product" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" value="Аммиачная селитра" placeholder="Напр. Amofos, KCl">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+          <legend style="font-weight: 600; padding: 0 6px;">Общая информация</legend>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px;">
+              <label style="display: block; margin-bottom: 3px;">Целевой элемент:</label>
+              <select id="swal-td-nutrient" class="swal2-select" style="margin: 0; width: 100%;">
+                <option value="nitrogen" selected>Азот [кг N/га]</option>
+                <option value="phosphorus">Фосфор [кг P/га]</option>
+                <option value="potassium">Калий [кг K/га]</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+              <label style="display: block; margin-bottom: 3px;">Дата внесения:</label>
+              <input type="date" id="swal-td-date" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" value="${today}">
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <label style="display: block; margin-bottom: 3px;">Ферма:</label>
+            <input type="text" id="swal-td-farm" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" placeholder="Название хозяйства">
+          </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+          <legend style="font-weight: 600; padding: 0 6px;">Агрономия</legend>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px;">
+              <label style="display: block; margin-bottom: 3px;">Режим:</label>
+              <select id="swal-td-rate-mode" class="swal2-select" style="margin: 0; width: 100%;">
+                <option value="variable" selected>Переменный (VRA)</option>
+                <option value="constant">Константа</option>
+              </select>
+              <small style="color: #888;">VRA — разная норма по зонам NDVI</small>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+              <label style="display: block; margin-bottom: 3px;">Остаточный спрос [%]:</label>
+              <select id="swal-td-residual" class="swal2-select" style="margin: 0; width: 100%;">
+                <option value="0">0% — полное внесение</option>
+                <option value="1" selected>100% — норма из расчёта</option>
+                <option value="2">200% — двухкратная норма</option>
+              </select>
+              <small style="color: #888;">Коэффициент к расчётной норме</small>
+            </div>
+          </div>
+          <div id="swal-td-rates" style="margin-top: 8px;">
+            <label style="display: block; margin-bottom: 3px; font-weight: 500;">Норма [кг/га]:</label>
+            <div style="display: flex; gap: 10px;">
+              <div style="flex: 1;">
+                <label style="font-size: 0.85em; color: #888;">Минимум:</label>
+                <input type="number" id="swal-td-rate-min" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" value="100" min="0">
+              </div>
+              <div style="flex: 1;">
+                <label style="font-size: 0.85em; color: #888;">Максимум:</label>
+                <input type="number" id="swal-td-rate-max" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" value="400" min="0">
+              </div>
+              <div style="flex: 1;" id="swal-td-const-wrap" style="display: none;">
+                <label style="font-size: 0.85em; color: #888;">Постоянная:</label>
+                <input type="number" id="swal-td-rate-const" class="swal2-input" style="margin: 0; width: 100%; height: 34px;" value="250" min="0">
+              </div>
+            </div>
+            <small style="color: #888;">Для VRA: мин/макс ограничивают диапазон норм. NDVI зоны масштабируются в эти рамки.</small>
+          </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+          <legend style="font-weight: 600; padding: 0 6px;">Грид</legend>
+          <div>
+            <label style="display: block; margin-bottom: 3px;">Разрешение:</label>
+            <select id="swal-td-resolution" class="swal2-select" style="margin: 0; width: 100%;">
+              <option value="1">1 м — высокая точность, большой файл</option>
+              <option value="2" selected>2 м — стандарт (рекомендуется)</option>
+              <option value="5">5 м — быстрая генерация</option>
+              <option value="10">10 м — грубое, минимальный файл</option>
+            </select>
+            <small style="color: #888;">Размер ячейки грида. Техника меняет норму каждые N метров по GPS.</small>
+          </div>
+        </fieldset>
+
+        <div style="background: #f0f0f0; padding: 8px 10px; border-radius: 6px; font-size: 0.85em;">
+          <strong>Формат:</strong> TaskData.zip (ISO 11783 v3.3)<br>
+          <strong>Совместимость:</strong> Agricon, John Deere TaskData, Claas
+        </div>
+      </div>`,
+    width: "560px",
+    focusConfirm: false,
+    didOpen: () => {
+      const modeSelect = document.getElementById('swal-td-rate-mode');
+      const constWrap = document.getElementById('swal-td-const-wrap');
+      const rateMin = document.getElementById('swal-td-rate-min');
+      const rateMax = document.getElementById('swal-td-rate-max');
+      const rateConst = document.getElementById('swal-td-rate-const');
+
+      function updateRateMode() {
+        const isConst = modeSelect.value === 'constant';
+        constWrap.style.display = isConst ? 'block' : 'none';
+        rateMin.disabled = isConst;
+        rateMax.disabled = isConst;
+        rateMin.style.opacity = isConst ? '0.5' : '1';
+        rateMax.style.opacity = isConst ? '0.5' : '1';
+      }
+      modeSelect.addEventListener('change', updateRateMode);
+      updateRateMode();
+    },
+    preConfirm: () => {
+      const product = document.getElementById("swal-td-product").value.trim();
+      const farm = document.getElementById("swal-td-farm").value.trim();
+      const resolution = document.getElementById("swal-td-resolution").value;
+      const rateMode = document.getElementById("swal-td-rate-mode").value;
+      const nutrient = document.getElementById("swal-td-nutrient").value;
+      const date = document.getElementById("swal-td-date").value;
+      const residual = document.getElementById("swal-td-residual").value;
+      const rateMin = parseFloat(document.getElementById("swal-td-rate-min").value) || 100;
+      const rateMax = parseFloat(document.getElementById("swal-td-rate-max").value) || 400;
+      const rateConst = parseFloat(document.getElementById("swal-td-rate-const").value) || 250;
+      const group = document.getElementById("swal-td-group").value;
+
+      if (!product) {
+        Swal.showValidationMessage("Введите название продукта");
+        return false;
+      }
+      return {
+        product_name: product,
+        product_group: group,
+        nutrient: nutrient,
+        application_date: date,
+        farm_name: farm || null,
+        resolution: parseFloat(resolution),
+        rate_mode: rateMode,
+        rate_min: rateMin,
+        rate_max: rateMax,
+        constant_rate: rateMode === 'constant' ? rateConst : null,
+        residual_pct: parseFloat(residual) || 1
+      };
+    }
+  }).then(res => {
+    if (!res.isConfirmed) return;
+
+    showMessage('Генерация TaskData.zip...', 'info');
+
+    API.exportTaskData(currentFieldId, res.value).then(blob => {
+      const filename = `field_${currentFieldId}_taskdata.zip`;
+      downloadBlob(blob, filename);
+      showMessage(`TaskData экспортирован: ${filename}`, 'success');
+    });
+  });
 });
 
 /**
@@ -559,48 +727,81 @@ $(document).on('click', '#detail-export-taskdata', function(e) {
   Swal.fire({
     title: "Экспорт TaskData",
     html: `
-      <div style="text-align: left; display: flex; flex-direction: column; gap: 16px;">
+      <div style="text-align: left; display: flex; flex-direction: column; gap: 14px; font-size: 0.92em;">
         <div>
-          <label for="swal-td-product" style="display: block; font-weight: 600; margin-bottom: 4px;">Продукт:</label>
-          <input type="text" id="swal-td-product" class="swal2-input" style="margin: 0; width: 100%;" value="Аммиачная селитра" placeholder="Напр. KCl, Amofos">
+          <label for="swal-td-product" style="display: block; font-weight: 600; margin-bottom: 3px;">Продукт:</label>
+          <input type="text" id="swal-td-product" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" value="Аммиачная селитра" placeholder="Напр. KCl, Amofos, Аммиачная селитра">
+          <small style="color: #888;">Название удобрения для техники</small>
         </div>
         <div>
-          <label for="swal-td-farm" style="display: block; font-weight: 600; margin-bottom: 4px;">Ферма:</label>
-          <input type="text" id="swal-td-farm" class="swal2-input" style="margin: 0; width: 100%;" placeholder="Название фермы">
+          <label for="swal-td-farm" style="display: block; font-weight: 600; margin-bottom: 3px;">Ферма:</label>
+          <input type="text" id="swal-td-farm" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" placeholder="Название хозяйства">
         </div>
         <div>
-          <label for="swal-td-resolution" style="display: block; font-weight: 600; margin-bottom: 4px;">Разрешение грида:</label>
+          <label style="display: block; font-weight: 600; margin-bottom: 3px;">Режим внесения:</label>
+          <div style="display: flex; gap: 8px;">
+            <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
+              <input type="radio" name="swal-td-rate-mode" value="variable" checked> VRA (переменный)
+            </label>
+            <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
+              <input type="radio" name="swal-td-rate-mode" value="constant"> Константа
+            </label>
+          </div>
+          <small style="color: #888;">VRA — разная норма по зонам (NDVI). Константа — одинаковая по всему полю.</small>
+        </div>
+        <div id="swal-td-constant-rate" style="display: none;">
+          <label for="swal-td-rate" style="display: block; font-weight: 600; margin-bottom: 3px;">Норма [кг/га]:</label>
+          <input type="number" id="swal-td-rate" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" value="250" min="0" max="1000">
+        </div>
+        <div>
+          <label for="swal-td-resolution" style="display: block; font-weight: 600; margin-bottom: 3px;">Разрешение грида:</label>
           <select id="swal-td-resolution" class="swal2-select" style="margin: 0; width: 100%;">
-            <option value="1">1 м (точное)</option>
+            <option value="1">1 м (точное, файл больше)</option>
             <option value="2" selected>2 м (стандарт)</option>
-            <option value="5">5 м (быстрое)</option>
+            <option value="5">5 м (быстрое, файл меньше)</option>
             <option value="10">10 м (грубое)</option>
           </select>
+          <small style="color: #888;">Размер ячейки грида. Техника меняет норму каждые N метров. 2м — оптимально для большинства полей.</small>
         </div>
         <div style="background: #f0f0f0; padding: 10px; border-radius: 6px; font-size: 0.85em;">
           <strong>Формат:</strong> TaskData.zip (ISO 11783 v3.3)<br>
           Совместим с: Agricon, John Deere TaskData, Claas
         </div>
       </div>`,
-    width: "500px",
+    width: "520px",
     focusConfirm: false,
+    didOpen: () => {
+      const modeRadios = document.querySelectorAll('input[name="swal-td-rate-mode"]');
+      const constantDiv = document.getElementById('swal-td-constant-rate');
+      modeRadios.forEach(r => r.addEventListener('change', () => {
+        constantDiv.style.display = r.value === 'constant' && r.checked ? 'block' : 'none';
+      }));
+    },
     preConfirm: () => {
       const product = document.getElementById("swal-td-product").value.trim();
       const farm = document.getElementById("swal-td-farm").value.trim();
       const resolution = document.getElementById("swal-td-resolution").value;
+      const rateMode = document.querySelector('input[name="swal-td-rate-mode"]:checked')?.value || 'variable';
+      const constantRate = parseFloat(document.getElementById("swal-td-rate")?.value) || 250;
       if (!product) {
         Swal.showValidationMessage("Введите название продукта");
         return false;
       }
-      return { product_name: product, farm_name: farm || null, resolution: parseFloat(resolution) };
+      return {
+        product_name: product,
+        farm_name: farm || null,
+        resolution: parseFloat(resolution),
+        rate_mode: rateMode,
+        constant_rate: rateMode === 'constant' ? constantRate : null
+      };
     }
   }).then(res => {
     if (!res.isConfirmed) return;
-    const { product_name, farm_name, resolution } = res.value;
+    const { product_name, farm_name, resolution, rate_mode, constant_rate } = res.value;
 
     showMessage('Генерация TaskData.zip...', 'info');
 
-    API.exportTaskData(currentFieldId, { product_name, farm_name, resolution }).then(blob => {
+    API.exportTaskData(currentFieldId, { product_name, farm_name, resolution, rate_mode, constant_rate }).then(blob => {
       const filename = `field_${currentFieldId}_taskdata.zip`;
       downloadBlob(blob, filename);
       showMessage(`TaskData экспортирован: ${filename}`, 'success');

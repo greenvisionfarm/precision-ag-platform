@@ -126,6 +126,8 @@ def _build_taskdata_xml(
     grid_meta: Dict[str, float],
     farm_name: str = "",
     timestamp: Optional[str] = None,
+    nutrient: str = "nitrogen",
+    product_group: str = "mineral",
 ) -> str:
     """Генерирует TASKDATA.xml по формату ISO 11783 TaskData v3.3."""
 
@@ -138,6 +140,12 @@ def _build_taskdata_xml(
     farm_ref = "FRM1"
     vpn_ref = "VPN1"
     grid_file = "GRD00000"
+
+    nutrient_labels = {
+        "nitrogen": "Azote [kg N/ha]",
+        "phosphorus": "Phosphore [kg P/ha]",
+        "potassium": "Potassium [kg K/ha]",
+    }
 
     xml_parts = [
         '<?xml version="1.0" encoding="utf-8"?>',
