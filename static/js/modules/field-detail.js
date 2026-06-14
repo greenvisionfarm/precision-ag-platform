@@ -497,21 +497,21 @@ $(document).on('click', '#detail-export-isoxml', function(e) {
   Swal.fire({
     title: "Настройки экспорта ISOXML",
     html: `
-      <div class="kmz-settings-grid">
-        <div class="kmz-field">
-          <label for="swal-product-name">Название продукта:</label>
-          <input type="text" id="swal-product-name" class="swal2-input" value="Аммиачная селитра" placeholder="Напр. Аммиачная селитра">
+      <div style="text-align: left; display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label for="swal-product-name" style="display: block; font-weight: 600; margin-bottom: 4px;">Название продукта:</label>
+          <input type="text" id="swal-product-name" class="swal2-input" style="margin: 0; width: 100%;" value="Аммиачная селитра" placeholder="Напр. Аммиачная селитра">
         </div>
-        <div class="kmz-field">
-          <label for="swal-product-type">Тип продукта:</label>
-          <select id="swal-product-type" class="swal2-select">
+        <div>
+          <label for="swal-product-type" style="display: block; font-weight: 600; margin-bottom: 4px;">Тип продукта:</label>
+          <select id="swal-product-type" class="swal2-select" style="margin: 0; width: 100%;">
             <option value="nitrogen" selected>Azote (nitrogen)</option>
             <option value="npk">NPK</option>
             <option value="phosphorus">Phosphore (phosphorus)</option>
             <option value="potassium">Potassium</option>
             <option value="organic">Organique (organic)</option>
           </select>
-          <small>Тип удобрения для ISOXML TaskData.</small>
+          <small style="color: #888; font-size: 0.8em;">Тип удобрения для ISOXML TaskData.</small>
         </div>
       </div>`,
     width: "500px",
