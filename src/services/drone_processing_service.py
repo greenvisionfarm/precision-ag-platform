@@ -100,10 +100,16 @@ class DroneProcessingService:
         gy = np.linspace(maxy, miny, height)
         grid_x, grid_y = np.meshgrid(gx, gy)
         
+        from scipy.ndimage import gaussian_filter
+
         points_xy = np.column_stack((gdf_m.geometry.x, gdf_m.geometry.y))
-        grid_linear = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='linear')
-        grid_nearest = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='nearest')
-        grid_values = np.where(np.isnan(grid_linear), grid_nearest, grid_linear)
+
+        # nearest для разреженных drone-точек даёт диаграмму Вороного (без треугольников)
+        grid_values = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='nearest')
+
+        # Гауссово сглаживание для мягких границ зон
+        sigma_px = max(3, min(width, height) // 15)
+        grid_values = gaussian_filter(grid_values, sigma=sigma_px)
 
         # 3. Сохранение в TIF
         transform = from_origin(minx, maxy, res_m, res_m)
