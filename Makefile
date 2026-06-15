@@ -130,7 +130,7 @@ deploy: ## Задеплоить на домашний сервер (pre-check �
 	@echo "$(BLUE)1/8 Pre-deploy checks...$(NC)"
 	@PYTHONPYCACHEPREFIX=/tmp/pycache ./venv/bin/python -m pytest tests/test_raster_upload.py tests/test_isoxml_export.py tests/test_auth.py -q 2>&1 | tail -3
 	@node -c static/js/modules/api.js && node -c static/js/modules/field-detail.js && echo "$(GREEN)JS OK$(NC)"
-	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
+	@if [ -n "$$(git status --porcelain -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения в коде! Сначала сделай git commit.$(NC)"; git status --short -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile; exit 1; fi
 	@echo "$(BLUE)2/8 Push в GitHub...$(NC)"
 	@git push upstream master 2>/dev/null || echo "$(YELLOW)⚠️  Push пропущен$(NC)"
 	@echo "$(BLUE)3/8 Backup БД + Git pull...$(NC)"
@@ -160,7 +160,7 @@ deploy: ## Задеплоить на домашний сервер (pre-check �
 
 deploy-quick: ## Быстрый деплой без build (только pull + restart)
 	@echo "$(YELLOW)Быстрый деплой...$(NC)"
-	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
+	@if [ -n "$$(git status --porcelain -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения в коде! Сначала сделай git commit.$(NC)"; git status --short -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile; exit 1; fi
 	@git push upstream master 2>/dev/null || echo "$(YELLOW)⚠️  Push пропущен$(NC)"
 	$(call remote,git pull --rebase)
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart)
@@ -168,7 +168,7 @@ deploy-quick: ## Быстрый деплой без build (только pull + r
 
 deploy-rollback: ## Откатить на предыдущий коммит
 	@echo "$(YELLOW)Откат...$(NC)"
-	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
+	@if [ -n "$$(git status --porcelain -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения в коде! Сначала сделай git commit.$(NC)"; git status --short -- src/ static/ app.py tasks.py db.py db_migrate.py Makefile; exit 1; fi
 	$(call remote,git log --oneline -1)
 	$(call remote,git reset --hard HEAD~1)
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
