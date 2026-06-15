@@ -185,8 +185,9 @@ class TestDroneUploadHandler:
     @patch('src.handlers.drone_handlers.FieldScan')
     @patch('src.handlers.drone_handlers.Field')
     @patch('src.handlers.drone_handlers.db_connection')
+    @patch('src.handlers.drone_handlers.os.path.getsize', return_value=1024)
     def test_orthomosaic_mode_routes_to_ortho_task(
-        self, mock_db_conn, mock_field, mock_scan,
+        self, mock_getsize, mock_db_conn, mock_field, mock_scan,
         mock_fast_task, mock_ortho_task
     ):
         """processing_mode=orthomosaic dispatches to orthomosaic task."""
@@ -214,6 +215,10 @@ class TestDroneUploadHandler:
         handler.set_status = MagicMock()
         handler.write = MagicMock()
         handler._current_user = MagicMock()
+        handler._upload_tmpfile = MagicMock()
+        handler._upload_tmpfile.name = '/tmp/fake_upload'
+        handler._upload_size = 1024
+        handler._parse_multipart = MagicMock(return_value=('test.zip', {'field_id': '1', 'processing_mode': 'orthomosaic'}, '/tmp/fake.zip'))
 
         handler.post()
 
@@ -225,8 +230,9 @@ class TestDroneUploadHandler:
     @patch('src.handlers.drone_handlers.FieldScan')
     @patch('src.handlers.drone_handlers.Field')
     @patch('src.handlers.drone_handlers.db_connection')
+    @patch('src.handlers.drone_handlers.os.path.getsize', return_value=1024)
     def test_fast_mode_routes_to_fast_task(
-        self, mock_db_conn, mock_field, mock_scan,
+        self, mock_getsize, mock_db_conn, mock_field, mock_scan,
         mock_fast_task, mock_ortho_task
     ):
         """processing_mode=fast dispatches to fast task."""
@@ -254,6 +260,10 @@ class TestDroneUploadHandler:
         handler.set_status = MagicMock()
         handler.write = MagicMock()
         handler._current_user = MagicMock()
+        handler._upload_tmpfile = MagicMock()
+        handler._upload_tmpfile.name = '/tmp/fake_upload'
+        handler._upload_size = 1024
+        handler._parse_multipart = MagicMock(return_value=('test.zip', {'field_id': '1', 'processing_mode': 'fast'}, '/tmp/fake.zip'))
 
         handler.post()
 

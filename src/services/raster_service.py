@@ -142,9 +142,15 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         simplify_tolerance = max(abs(out_transform.a), abs(out_transform.e)) * 2.0
         island_threshold = field_area * 0.002 if field_area > 0 else 0
 
-        results = []
-        zone_polys = []
+        back_project = None
+        if raster_crs != "EPSG:4326":
+            try:
+                back_project = pyproj.Transformer.from_crs(raster_crs, "EPSG:4326", always_xy=True).transform
+            except Exception:
+                pass
 
+        # Phase 1: Collect zone polygons in raster CRS, compute avg values
+        raw_zones = []
         for i in range(num_zones):
             mask = (labels == i).astype(np.uint8)
             if mask.sum() == 0:
@@ -171,39 +177,49 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
             if zone_union is None:
                 continue
 
-            for existing_poly in zone_polys:
-                overlap = zone_union.intersection(existing_poly)
-                if overlap.area > 0 and overlap.area / zone_union.area > 0.1:
-                    zone_union = zone_union.difference(existing_poly)
-                    if zone_union.is_empty:
-                        break
-
-            if zone_union.is_empty:
-                continue
-
-            zone_polys.append(zone_union)
-
             zone_idx_mask = (labels == i) & valid_mask
             avg_val = float(np.mean(data[zone_idx_mask])) if np.any(zone_idx_mask) else 0.0
 
-            if raster_crs != "EPSG:4326":
+            raw_zones.append((i, zone_union, avg_val))
+
+        # Phase 2: Transform all zones to EPSG:4326 first, then remove overlaps
+        projected = []
+        for i, zone_poly, avg_val in raw_zones:
+            if back_project:
                 try:
-                    back_project = pyproj.Transformer.from_crs(raster_crs, "EPSG:4326", always_xy=True).transform
-                    final_geom = shapely_transform(back_project, zone_union)
-                except:
-                    final_geom = zone_union
+                    geom_4326 = shapely_transform(back_project, zone_poly)
+                except Exception:
+                    geom_4326 = zone_poly
             else:
-                final_geom = zone_union
+                geom_4326 = zone_poly
+            projected.append((i, geom_4326, avg_val))
 
-            final_geom = final_geom.simplify(simplify_tolerance, preserve_topology=True)
-            if not final_geom.is_valid:
-                final_geom = final_geom.buffer(0)
+        results = []
+        kept_polys = []
 
+        for i, geom_4326, avg_val in projected:
+            geom_4326 = geom_4326.simplify(simplify_tolerance, preserve_topology=True)
+            if not geom_4326.is_valid:
+                geom_4326 = geom_4326.buffer(0)
+            if geom_4326.is_empty:
+                continue
+
+            for existing_poly in kept_polys:
+                overlap = geom_4326.intersection(existing_poly)
+                if overlap.area > 0 and overlap.area / geom_4326.area > 0.1:
+                    geom_4326 = geom_4326.difference(existing_poly)
+                    if geom_4326.is_empty:
+                        break
+
+            if geom_4326.is_empty:
+                continue
+
+            kept_polys.append(geom_4326)
             logger.info(f"Zone {i} ('{names[i]}'): NDVI={avg_val:.3f}")
 
             results.append({
                 "name": names[i],
-                "geometry_wkt": final_geom.wkt,
+                "geometry_wkt": geom_4326.wkt,
                 "avg_ndvi": avg_val,
                 "color": colors[i]
             })

@@ -266,12 +266,16 @@ def test_field_get_handler_excludes_unprocessed_scans(setup_field_with_scans):
 def test_field_get_handler_backward_compatibility(test_db, mock_ndvi_tif):
     """Тест: FieldGetHandler работает со старыми данными (без сканов)."""
     from db import Field, FieldScan, FieldZone
+    from src.models.auth import Company
+    
+    company = Company.create(name='Test Company', slug='test-company')
     
     with database.atomic():
         field = Field.create(
             name="Старое поле",
             geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
-            properties_json='{"area": 100}'
+            properties_json='{"area": 100}',
+            company_id=company.id
         )
         
         # Создаём старые зоны (без scan_id)
