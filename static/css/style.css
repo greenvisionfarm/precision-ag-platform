@@ -666,6 +666,10 @@ table.dataTable.display tbody tr:hover td {
     height: 32px;
 }
 
+.detail-map-toolbar .btn-icon i {
+    color: var(--text-color);
+}
+
 .detail-map-toolbar .btn-icon:hover {
     background-color: var(--hover-bg);
     border-color: var(--primary-color);

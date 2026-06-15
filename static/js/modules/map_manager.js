@@ -254,12 +254,13 @@ const MapManager = {
     document.body.appendChild(overlay);
 
     const toolbar = document.createElement('div');
+    toolbar.id = 'fs-toolbar';
     toolbar.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;display:flex;flex-direction:column;gap:4px;background:var(--card-bg);border-radius:8px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
     toolbar.innerHTML = `
-      <button id="fs-center-btn" class="btn-icon" title="Отцентрировать" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;">
+      <button id="fs-center-btn" class="btn-icon" title="Отцентрировать" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;color:var(--text-color);">
         <i class="fas fa-crosshairs"></i>
       </button>
-      <button id="fs-close-btn" class="btn-icon" title="Свернуть (Esc)" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;">
+      <button id="fs-close-btn" class="btn-icon" title="Свернуть (Esc)" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;color:var(--text-color);">
         <i class="fas fa-compress"></i>
       </button>
     `;
@@ -313,9 +314,8 @@ const MapManager = {
     const overlay = document.getElementById('map-fullscreen-overlay');
     if (overlay) overlay.remove();
 
-    document.querySelectorAll('[id^="fs-"]').forEach(el => {
-      if (el.parentElement === document.body) el.remove();
-    });
+    const toolbar = document.getElementById('fs-toolbar');
+    if (toolbar) toolbar.remove();
 
     if (MapManager._fullscreenKeyHandler) {
       document.removeEventListener('keydown', MapManager._fullscreenKeyHandler);
