@@ -87,8 +87,7 @@ class DroneProcessingService:
         minx, miny, maxx, maxy = gdf_m.total_bounds
         minx -= 20; miny -= 20; maxx += 20; maxy += 20
         
-        # Разрешение сетки - 2 метра (оптимально для техники)
-        res_m = 2.0
+        res_m = 1.0
         width = int((maxx - minx) / res_m)
         height = int((maxy - miny) / res_m)
         

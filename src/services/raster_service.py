@@ -139,8 +139,9 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         logger.info(f"Post-morphology: min_component={min_component_size}px")
 
         # Векторизация
-        simplify_tolerance = max(abs(out_transform.a), abs(out_transform.e)) * 2.0
-        island_threshold = field_area * 0.002 if field_area > 0 else 0
+        pixel_size = max(abs(out_transform.a), abs(out_transform.e))
+        simplify_tolerance = pixel_size * 0.5
+        island_threshold = field_area * 0.0005 if field_area > 0 else 0
 
         back_project = None
         if raster_crs != "EPSG:4326":
@@ -197,8 +198,15 @@ def process_ndvi_zones(tif_path, field_geometry_wkt, num_zones=3):
         results = []
         kept_polys = []
 
+        smooth_m = pixel_size * 0.3
+        if back_project:
+            deg_per_m = 1.0 / 111_000.0
+            smooth_deg = smooth_m * deg_per_m
+        else:
+            smooth_deg = smooth_m
+
         for i, geom_4326, avg_val in projected:
-            geom_4326 = geom_4326.simplify(simplify_tolerance, preserve_topology=True)
+            geom_4326 = geom_4326.buffer(smooth_deg, quad_segs=8).buffer(-smooth_deg, quad_segs=8)
             if not geom_4326.is_valid:
                 geom_4326 = geom_4326.buffer(0)
             if geom_4326.is_empty:
