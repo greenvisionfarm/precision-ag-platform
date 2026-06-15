@@ -109,7 +109,7 @@ seed-test-data: ## Создать тестовые данные
 # Конфигурация загружается из .deploy.env (не коммитится в git!)
 -include .deploy.env
 
-DEPLOY_SERVER ?= vbuianov@192.168.31.196
+DEPLOY_SERVER ?= user@YOUR_SERVER_IP
 DEPLOY_DIR ?= ~/field_mapper
 DEPLOY_COMPOSE ?= docker-compose.server.yml
 APP_CONTAINER ?= app
@@ -127,22 +127,23 @@ endef
 
 deploy: ## Задеплоить на домашний сервер (pre-check → build → migrate → health)
 	@echo "$(YELLOW)═══ Деплой на $(DEPLOY_SERVER) ═══$(NC)"
-	@echo "$(BLUE)1/7 Pre-deploy checks...$(NC)"
+	@echo "$(BLUE)1/8 Pre-deploy checks...$(NC)"
 	@PYTHONPYCACHEPREFIX=/tmp/pycache ./venv/bin/python -m pytest tests/test_raster_upload.py tests/test_isoxml_export.py tests/test_auth.py -q 2>&1 | tail -3
 	@node -c static/js/modules/api.js && node -c static/js/modules/field-detail.js && echo "$(GREEN)JS OK$(NC)"
-	@echo "$(BLUE)2/7 Push в GitHub...$(NC)"
+	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
+	@echo "$(BLUE)2/8 Push в GitHub...$(NC)"
 	@git push upstream master 2>/dev/null || echo "$(YELLOW)⚠️  Push пропущен$(NC)"
-	@echo "$(BLUE)3/7 Backup БД + Git pull...$(NC)"
+	@echo "$(BLUE)3/8 Backup БД + Git pull...$(NC)"
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) exec -T $(APP_CONTAINER) cp /app/data/fields.db /app/data/fields.db.bak 2>/dev/null || true)
 	$(call remote,git pull --rebase)
-	@echo "$(BLUE)4/7 Fix permissions...$(NC)"
+	@echo "$(BLUE)4/8 Fix permissions...$(NC)"
 	$(call remote,mkdir -p data uploads && chmod 777 data uploads 2>/dev/null || true)
-	@echo "$(BLUE)5/7 Docker build + up...$(NC)"
+	@echo "$(BLUE)5/8 Docker build + up...$(NC)"
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart nginx)
-	@echo "$(BLUE)6/7 Миграция БД...$(NC)"
+	@echo "$(BLUE)6/8 Миграция БД...$(NC)"
 	$(call container_exec,/opt/venv/bin/python src/db_migrate.py) || echo "$(YELLOW)⚠️  Миграция не требуется$(NC)"
-	@echo "$(BLUE)7/7 Health check ($(HEALTH_RETRIES) попыток)...$(NC)"
+	@echo "$(BLUE)7/8 Health check ($(HEALTH_RETRIES) попыток)...$(NC)"
 	@i=0; while [ $$i -lt $(HEALTH_RETRIES) ]; do \
 		i=$$((i+1)); \
 		sleep $(HEALTH_INTERVAL); \
@@ -153,17 +154,21 @@ deploy: ## Задеплоить на домашний сервер (pre-check �
 		echo "$(YELLOW) ⏳ Попытка $$i/$(HEALTH_RETRIES)...$(NC)"; \
 	done; \
 	curl -sf $(HEALTH_URL)/ > /dev/null 2>&1 || echo "$(RED)❌ Сервер не отвечает — проверь логи$(NC)"
+	@echo "$(BLUE)8/8 Cleanup...$(NC)"
 	$(call remote,docker image prune -f 2>/dev/null || true)
 	@echo "$(GREEN)═══ Деплой завершён! $(HEALTH_URL) ═══$(NC)"
 
 deploy-quick: ## Быстрый деплой без build (только pull + restart)
 	@echo "$(YELLOW)Быстрый деплой...$(NC)"
+	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
+	@git push upstream master 2>/dev/null || echo "$(YELLOW)⚠️  Push пропущен$(NC)"
 	$(call remote,git pull --rebase)
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) restart)
 	@sleep 3; curl -sf $(HEALTH_URL)/ > /dev/null && echo "$(GREEN)✅ OK$(NC)" || echo "$(YELLOW)⚠️  Проверь логи$(NC)"
 
 deploy-rollback: ## Откатить на предыдущий коммит
 	@echo "$(YELLOW)Откат...$(NC)"
+	@if [ -n "$$(git status --porcelain)" ]; then echo "$(RED)❌ Есть незакоммиченные изменения! Сначала сделай git commit.$(NC)"; git status --short; exit 1; fi
 	$(call remote,git log --oneline -1)
 	$(call remote,git reset --hard HEAD~1)
 	$(call remote,docker compose -f $(DEPLOY_COMPOSE) up -d --build)
