@@ -103,6 +103,10 @@
                 <div class="detail-header-row">
                     <h1 id="field-detail-name">Детали поля</h1>
                     <div class="field-actions">
+                        <label for="field-ndvi-input" class="btn btn-outline-primary" title="Загрузить NDVI снимок" style="cursor:pointer;">
+                            <i class="fas fa-cloud-upload-alt"></i> Загрузить NDVI
+                        </label>
+                        <input type="file" id="field-ndvi-input" accept=".tif,.tiff,.zip" style="display:none;">
                         <a href="#" id="detail-export-taskdata" class="btn btn-success" title="Экспорт TaskData для техники (Agricon, John Deere)">
                             <i class="fas fa-tractor"></i> TaskData
                         </a>
@@ -230,22 +234,6 @@
                         <div id="journal-empty" style="display:none;color:var(--text-muted);font-size:.9rem;">
                             Записей пока нет. Добавьте первую запись о посеве или внесении.
                         </div>
-                    </div>
-
-                    <div class="detail-card info-card">
-                        <h3><i class="fas fa-cloud-upload-alt"></i> Загрузка снимков NDVI</h3>
-                        <form id="field-upload-form" class="field-upload-form">
-                            <div class="file-input-wrapper">
-                                <input type="file" id="field-ndvi-input" accept=".tif,.tiff,.zip" class="file-input-hidden">
-                                <label for="field-ndvi-input" class="file-input-label">
-                                    <i class="fas fa-file-upload"></i> Выберите GeoTIFF или ZIP архив
-                                </label>
-                            </div>
-                            <button type="submit" id="field-upload-button" class="btn btn-primary btn-sm" style="display:none;">
-                                <i class="fas fa-upload"></i> Загрузить
-                            </button>
-                            <div id="field-upload-status" style="margin-top: 10px; font-size: 0.9em;"></div>
-                        </form>
                     </div>
                 </div>
 

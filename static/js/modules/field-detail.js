@@ -867,15 +867,24 @@ $(document).on('click', '#map-center-btn', function() {
 $(document).on('click', '#map-fullscreen-btn', function() {
   const section = $('.detail-map-section');
   const icon = $(this).find('i');
+  const map = window.MapManager?.detailInstance;
+
   section.toggleClass('fullscreen');
+
   if (section.hasClass('fullscreen')) {
     icon.removeClass('fa-expand').addClass('fa-compress');
-    icon.parent().attr('title', 'Свернуть');
+    $(this).attr('title', 'Свернуть');
   } else {
     icon.removeClass('fa-compress').addClass('fa-expand');
-    icon.parent().attr('title', 'На весь экран');
+    $(this).attr('title', 'На весь экран');
   }
-  setTimeout(() => window.MapManager?.detailInstance?.invalidateSize(), 200);
+
+  if (map) {
+    setTimeout(() => {
+      map.invalidateSize();
+      map.invalidateSize();
+    }, 300);
+  }
 });
 
 $(document).on('keydown', function(e) {
@@ -913,28 +922,12 @@ $(document).on('click', '#detail-delete-field', function() {
   });
 });
 
-// ===== NDVI Upload on Field Page =====
+// ===== NDVI Upload from Header =====
 $(document).on('change', '#field-ndvi-input', function() {
-  const hasFiles = this.files.length > 0;
-  const label = $(this).siblings('.file-input-label');
-  if (hasFiles) {
-    const name = this.files.length > 1 ? `${this.files.length} файлов` : this.files[0].name;
-    label.html(`<i class="fas fa-file-image"></i> ${name}`);
-  } else {
-    label.html('<i class="fas fa-file-upload"></i> Выберите GeoTIFF или ZIP архив');
-  }
-  $('#field-upload-button').toggle(hasFiles);
-});
+  const file = this.files[0];
+  if (!file || !currentFieldId) return;
 
-$(document).on('submit', '#field-upload-form', function(e) {
-  e.preventDefault();
-  const file = $('#field-ndvi-input')[0].files[0];
-  if (!file) return;
-
-  const statusDiv = $('#field-upload-status');
-  const btn = $('#field-upload-button');
-  statusDiv.html('<i class="fas fa-spinner fa-spin"></i> Загрузка...');
-  btn.prop('disabled', true);
+  showMessage('Загрузка NDVI...', 'info');
 
   const formData = new FormData();
   formData.append('raster_file', file);
@@ -946,21 +939,14 @@ $(document).on('submit', '#field-upload-form', function(e) {
     processData: false,
     contentType: false,
     success: (res) => {
-      statusDiv.html('<i class="fas fa-check" style="color: var(--success-color);"></i> Загружен! Обработка зон...');
+      showMessage('NDVI загружен! Зоны появятся через несколько секунд.', 'success');
       loadFieldScans(currentFieldId);
       $('#field-ndvi-input').val();
-      $('#field-upload-button').hide();
-      setTimeout(() => {
-        statusDiv.empty();
-        btn.prop('disabled', false);
-      }, 5000);
-      showMessage('NDVI файл загружен. Зоны появятся через несколько секунд.', 'success');
     },
     error: (xhr) => {
       const err = xhr.responseJSON?.error || 'Ошибка загрузки';
-      statusDiv.html(`<i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> ${err}`);
-      btn.prop('disabled', false);
       showMessage(err, 'error');
+      $('#field-ndvi-input').val();
     }
   });
 });
