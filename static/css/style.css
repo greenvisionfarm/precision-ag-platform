@@ -1041,46 +1041,7 @@ table.dataTable.display tbody tr:hover td {
     display: none;
 }
 
-/* Полноэкранный режим карты */
-.detail-map-section.fullscreen {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 9999 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #1a1a2e !important;
-    overflow: hidden !important;
-}
-
-.detail-map-section.fullscreen #field-detail-map {
-    width: 100% !important;
-    height: 100% !important;
-    border-radius: 0 !important;
-    border: none !important;
-}
-
-.detail-map-section.fullscreen .detail-map-toolbar {
-    position: fixed !important;
-    top: 12px !important;
-    right: 12px !important;
-    z-index: 10000 !important;
-}
-
-.detail-map-section.fullscreen .zones-legend {
-    position: fixed !important;
-    bottom: 20px !important;
-    left: 20px !important;
-    z-index: 10000 !important;
-    background: var(--card-bg);
-    padding: var(--spacing-md);
-    border-radius: var(--radius);
-    box-shadow: var(--card-shadow);
-    max-height: 200px;
-    overflow-y: auto;
-}
+/* Fullscreen is handled by JS-created overlay */
 
 .scan-select:focus {
     outline: none;

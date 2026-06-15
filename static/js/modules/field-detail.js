@@ -865,6 +865,10 @@ $(document).on('click', '#map-center-btn', function() {
 });
 
 $(document).on('click', '#map-fullscreen-btn', function() {
+  window.MapManager?.enterFullscreen();
+});
+
+$(document).on('click', '#map-fullscreen-btn', function() {
   const section = $('.detail-map-section');
   const icon = $(this).find('i');
   const map = window.MapManager?.detailInstance;
@@ -884,14 +888,6 @@ $(document).on('click', '#map-fullscreen-btn', function() {
       map.invalidateSize();
       map.invalidateSize();
     }, 300);
-  }
-});
-
-$(document).on('keydown', function(e) {
-  if (e.key === 'Escape' && $('.detail-map-section').hasClass('fullscreen')) {
-    $('.detail-map-section').removeClass('fullscreen');
-    $('#map-fullscreen-btn i').removeClass('fa-compress').addClass('fa-expand');
-    setTimeout(() => window.MapManager?.detailInstance?.invalidateSize(), 200);
   }
 });
 

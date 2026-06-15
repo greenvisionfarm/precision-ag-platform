@@ -3,6 +3,7 @@ const MapManager = {
   editableLayers: null,
   baseLayers: {},
   detailInstance: null,
+  fullscreenMap: null,
 
   initMainMap: (containerId, onCreated, onEdited, onDeleted) => {
     if ($(`#${containerId}`).length === 0 || MapManager.instance) return;
@@ -242,6 +243,88 @@ const MapManager = {
   updateFieldGeometry: (geometry, zones = []) => {
     MapManager.currentFieldGeometry = geometry;
     MapManager.updateZones(zones);
+  },
+
+  enterFullscreen: () => {
+    if (MapManager.fullscreenMap) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'map-fullscreen-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#1a1a2e;';
+    document.body.appendChild(overlay);
+
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;display:flex;flex-direction:column;gap:4px;background:var(--card-bg);border-radius:8px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    toolbar.innerHTML = `
+      <button id="fs-center-btn" class="btn-icon" title="Отцентрировать" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;">
+        <i class="fas fa-crosshairs"></i>
+      </button>
+      <button id="fs-close-btn" class="btn-icon" title="Свернуть (Esc)" style="background:var(--card-bg);border:1px solid var(--border-color);cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;">
+        <i class="fas fa-compress"></i>
+      </button>
+    `;
+    document.body.appendChild(toolbar);
+
+    MapManager.fullscreenMap = L.map(overlay, {
+      zoomControl: false,
+      attributionControl: true
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(MapManager.fullscreenMap);
+
+    if (MapManager.currentFieldGeometry) {
+      L.geoJSON(MapManager.currentFieldGeometry, {
+        style: { color: "#007BFF", weight: 3, fillOpacity: 0 }
+      }).addTo(MapManager.fullscreenMap);
+
+      if (MapManager.currentZones && MapManager.currentZones.length > 0) {
+        MapManager.currentZones.forEach(zone => {
+          L.geoJSON(zone.geometry, {
+            style: { color: zone.color, weight: 1, fillOpacity: 0.6 }
+          }).addTo(MapManager.fullscreenMap);
+        });
+      }
+
+      const bounds = L.geoJSON(MapManager.currentFieldGeometry).getBounds();
+      MapManager.fullscreenMap.fitBounds(bounds, { padding: [40, 40] });
+    }
+
+    setTimeout(() => MapManager.fullscreenMap.invalidateSize(), 100);
+
+    document.getElementById('fs-close-btn').onclick = () => MapManager.exitFullscreen();
+    document.getElementById('fs-center-btn').onclick = () => {
+      if (MapManager.currentFieldGeometry) {
+        const b = L.geoJSON(MapManager.currentFieldGeometry).getBounds();
+        MapManager.fullscreenMap.fitBounds(b, { padding: [40, 40] });
+      }
+    };
+
+    MapManager._fullscreenKeyHandler = (e) => {
+      if (e.key === 'Escape') MapManager.exitFullscreen();
+    };
+    document.addEventListener('keydown', MapManager._fullscreenKeyHandler);
+  },
+
+  exitFullscreen: () => {
+    if (!MapManager.fullscreenMap) return;
+    MapManager.fullscreenMap.remove();
+    MapManager.fullscreenMap = null;
+
+    const overlay = document.getElementById('map-fullscreen-overlay');
+    if (overlay) overlay.remove();
+
+    document.querySelectorAll('[id^="fs-"]').forEach(el => {
+      if (el.parentElement === document.body) el.remove();
+    });
+
+    if (MapManager._fullscreenKeyHandler) {
+      document.removeEventListener('keydown', MapManager._fullscreenKeyHandler);
+      MapManager._fullscreenKeyHandler = null;
+    }
+
+    if (MapManager.detailInstance) {
+      setTimeout(() => MapManager.detailInstance.invalidateSize(), 200);
+    }
   }
 };
 
