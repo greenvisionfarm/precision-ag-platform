@@ -717,98 +717,6 @@ $(document).on('click', '#detail-export-taskdata', function(e) {
   });
 });
 
-/**
- * Обработчик экспорта TaskData.zip (ISOXML v3.3).
- */
-$(document).on('click', '#detail-export-taskdata', function(e) {
-  e.preventDefault();
-  if (!currentFieldId) return;
-
-  Swal.fire({
-    title: "Экспорт TaskData",
-    html: `
-      <div style="text-align: left; display: flex; flex-direction: column; gap: 14px; font-size: 0.92em;">
-        <div>
-          <label for="swal-td-product" style="display: block; font-weight: 600; margin-bottom: 3px;">Продукт:</label>
-          <input type="text" id="swal-td-product" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" value="Аммиачная селитра" placeholder="Напр. KCl, Amofos, Аммиачная селитра">
-          <small style="color: #888;">Название удобрения для техники</small>
-        </div>
-        <div>
-          <label for="swal-td-farm" style="display: block; font-weight: 600; margin-bottom: 3px;">Ферма:</label>
-          <input type="text" id="swal-td-farm" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" placeholder="Название хозяйства">
-        </div>
-        <div>
-          <label style="display: block; font-weight: 600; margin-bottom: 3px;">Режим внесения:</label>
-          <div style="display: flex; gap: 8px;">
-            <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
-              <input type="radio" name="swal-td-rate-mode" value="variable" checked> VRA (переменный)
-            </label>
-            <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
-              <input type="radio" name="swal-td-rate-mode" value="constant"> Константа
-            </label>
-          </div>
-          <small style="color: #888;">VRA — разная норма по зонам (NDVI). Константа — одинаковая по всему полю.</small>
-        </div>
-        <div id="swal-td-constant-rate" style="display: none;">
-          <label for="swal-td-rate" style="display: block; font-weight: 600; margin-bottom: 3px;">Норма [кг/га]:</label>
-          <input type="number" id="swal-td-rate" class="swal2-input" style="margin: 0; width: 100%; height: 36px;" value="250" min="0" max="1000">
-        </div>
-        <div>
-          <label for="swal-td-resolution" style="display: block; font-weight: 600; margin-bottom: 3px;">Разрешение грида:</label>
-          <select id="swal-td-resolution" class="swal2-select" style="margin: 0; width: 100%;">
-            <option value="1">1 м (точное, файл больше)</option>
-            <option value="2" selected>2 м (стандарт)</option>
-            <option value="5">5 м (быстрое, файл меньше)</option>
-            <option value="10">10 м (грубое)</option>
-          </select>
-          <small style="color: #888;">Размер ячейки грида. Техника меняет норму каждые N метров. 2м — оптимально для большинства полей.</small>
-        </div>
-        <div style="background: #f0f0f0; padding: 10px; border-radius: 6px; font-size: 0.85em;">
-          <strong>Формат:</strong> TaskData.zip (ISO 11783 v3.3)<br>
-          Совместим с: Agricon, John Deere TaskData, Claas
-        </div>
-      </div>`,
-    width: "520px",
-    focusConfirm: false,
-    didOpen: () => {
-      const modeRadios = document.querySelectorAll('input[name="swal-td-rate-mode"]');
-      const constantDiv = document.getElementById('swal-td-constant-rate');
-      modeRadios.forEach(r => r.addEventListener('change', () => {
-        constantDiv.style.display = r.value === 'constant' && r.checked ? 'block' : 'none';
-      }));
-    },
-    preConfirm: () => {
-      const product = document.getElementById("swal-td-product").value.trim();
-      const farm = document.getElementById("swal-td-farm").value.trim();
-      const resolution = document.getElementById("swal-td-resolution").value;
-      const rateMode = document.querySelector('input[name="swal-td-rate-mode"]:checked')?.value || 'variable';
-      const constantRate = parseFloat(document.getElementById("swal-td-rate")?.value) || 250;
-      if (!product) {
-        Swal.showValidationMessage("Введите название продукта");
-        return false;
-      }
-      return {
-        product_name: product,
-        farm_name: farm || null,
-        resolution: parseFloat(resolution),
-        rate_mode: rateMode,
-        constant_rate: rateMode === 'constant' ? constantRate : null
-      };
-    }
-  }).then(res => {
-    if (!res.isConfirmed) return;
-    const { product_name, farm_name, resolution, rate_mode, constant_rate } = res.value;
-
-    showMessage('Генерация TaskData.zip...', 'info');
-
-    API.exportTaskData(currentFieldId, { product_name, farm_name, resolution, rate_mode, constant_rate }).then(blob => {
-      const filename = `field_${currentFieldId}_taskdata.zip`;
-      downloadBlob(blob, filename);
-      showMessage(`TaskData экспортирован: ${filename}`, 'success');
-    });
-  });
-});
-
 // ===== Field Journal =====
 
 const CROP_LABELS = {
@@ -933,5 +841,126 @@ $(document).on('click', '#journal-add-btn', function() {
       loadJournal(currentFieldId);
       showMessage('Запись добавлена', 'success');
     });
+  });
+});
+
+// ===== Tabs =====
+$(document).on('click', '.tab-btn', function() {
+  const tabId = $(this).data('tab');
+  $('.tab-btn').removeClass('active');
+  $(this).addClass('active');
+  $('.tab-panel').removeClass('active');
+  $(`#${tabId}`).addClass('active');
+  if (window.MapManager?.detailInstance) {
+    setTimeout(() => window.MapManager.detailInstance.invalidateSize(), 100);
+  }
+});
+
+// ===== Map Controls =====
+$(document).on('click', '#map-center-btn', function() {
+  if (window.MapManager?.detailInstance && window.MapManager.currentFieldGeometry) {
+    const bounds = L.geoJSON(window.MapManager.currentFieldGeometry).getBounds();
+    window.MapManager.detailInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+  }
+});
+
+$(document).on('click', '#map-fullscreen-btn', function() {
+  const section = $('.detail-map-section');
+  const icon = $(this).find('i');
+  section.toggleClass('fullscreen');
+  if (section.hasClass('fullscreen')) {
+    icon.removeClass('fa-expand').addClass('fa-compress');
+    icon.parent().attr('title', 'Свернуть');
+  } else {
+    icon.removeClass('fa-compress').addClass('fa-expand');
+    icon.parent().attr('title', 'На весь экран');
+  }
+  setTimeout(() => window.MapManager?.detailInstance?.invalidateSize(), 200);
+});
+
+$(document).on('keydown', function(e) {
+  if (e.key === 'Escape' && $('.detail-map-section').hasClass('fullscreen')) {
+    $('.detail-map-section').removeClass('fullscreen');
+    $('#map-fullscreen-btn i').removeClass('fa-compress').addClass('fa-expand');
+    setTimeout(() => window.MapManager?.detailInstance?.invalidateSize(), 200);
+  }
+});
+
+// ===== KMZ Export =====
+$(document).on('click', '#detail-export-kmz', function(e) {
+  e.preventDefault();
+  if (!currentFieldId || !downloadKmzWithSettings) return;
+  downloadKmzWithSettings(currentFieldId);
+});
+
+// ===== Delete Field =====
+$(document).on('click', '#detail-delete-field', function() {
+  if (!currentFieldId) return;
+  Swal.fire({
+    title: 'Удалить поле?',
+    text: 'Все сканы и зоны будут удалены. Это действие необратимо.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    confirmButtonText: 'Да, удалить',
+    cancelButtonText: 'Отмена'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    API.deleteField(currentFieldId).then(() => {
+      showMessage('Поле удалено', 'success');
+      window.location.hash = '#fields';
+    });
+  });
+});
+
+// ===== NDVI Upload on Field Page =====
+$(document).on('change', '#field-ndvi-input', function() {
+  const hasFiles = this.files.length > 0;
+  const label = $(this).siblings('.file-input-label');
+  if (hasFiles) {
+    const name = this.files.length > 1 ? `${this.files.length} файлов` : this.files[0].name;
+    label.html(`<i class="fas fa-file-image"></i> ${name}`);
+  } else {
+    label.html('<i class="fas fa-file-upload"></i> Выберите GeoTIFF или ZIP архив');
+  }
+  $('#field-upload-button').toggle(hasFiles);
+});
+
+$(document).on('submit', '#field-upload-form', function(e) {
+  e.preventDefault();
+  const file = $('#field-ndvi-input')[0].files[0];
+  if (!file) return;
+
+  const statusDiv = $('#field-upload-status');
+  const btn = $('#field-upload-button');
+  statusDiv.html('<i class="fas fa-spinner fa-spin"></i> Загрузка...');
+  btn.prop('disabled', true);
+
+  const formData = new FormData();
+  formData.append('raster_file', file);
+
+  $.ajax({
+    url: '/api/raster/upload',
+    type: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: (res) => {
+      statusDiv.html('<i class="fas fa-check" style="color: var(--success-color);"></i> Загружен! Обработка зон...');
+      loadFieldScans(currentFieldId);
+      $('#field-ndvi-input').val();
+      $('#field-upload-button').hide();
+      setTimeout(() => {
+        statusDiv.empty();
+        btn.prop('disabled', false);
+      }, 5000);
+      showMessage('NDVI файл загружен. Зоны появятся через несколько секунд.', 'success');
+    },
+    error: (xhr) => {
+      const err = xhr.responseJSON?.error || 'Ошибка загрузки';
+      statusDiv.html(`<i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> ${err}`);
+      btn.prop('disabled', false);
+      showMessage(err, 'error');
+    }
   });
 });

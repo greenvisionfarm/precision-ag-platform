@@ -99,29 +99,50 @@
         <!-- View: Детали поля -->
         <div id="view-field-detail" class="view-section hidden">
             <div class="detail-header">
-                <a href="#fields" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку полей</a>
-                <h1 id="field-detail-name">Детали поля</h1>
-                <div class="field-actions">
-                    <a href="#" id="detail-export-taskdata" class="btn btn-success" title="Экспорт TaskData для техники (Agricon, John Deere)">
-                        <i class="fas fa-tractor"></i> TaskData
-                    </a>
-                    <a href="#" id="detail-export-isoxml" class="btn btn-outline-success" title="Экспорт ISOXML (старый формат)">
-                        <i class="fas fa-file-code"></i> ISOXML
-                    </a>
-                    <a href="#" id="detail-export-kmz" class="btn btn-primary" title="Экспорт KMZ для DJI">
-                        <i class="fas fa-file-export"></i> DJI KMZ
-                    </a>
+                <a href="#fields" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку</a>
+                <div class="detail-header-row">
+                    <h1 id="field-detail-name">Детали поля</h1>
+                    <div class="field-actions">
+                        <a href="#" id="detail-export-taskdata" class="btn btn-success" title="Экспорт TaskData для техники (Agricon, John Deere)">
+                            <i class="fas fa-tractor"></i> TaskData
+                        </a>
+                        <a href="#" id="detail-export-isoxml" class="btn btn-outline-success" title="Экспорт ISOXML (старый формат)">
+                            <i class="fas fa-file-code"></i> ISOXML
+                        </a>
+                        <a href="#" id="detail-export-kmz" class="btn btn-primary" title="Экспорт KMZ для DJI">
+                            <i class="fas fa-file-export"></i> DJI KMZ
+                        </a>
+                    </div>
                 </div>
             </div>
 
-            <div class="detail-grid">
-                <div class="detail-card map-card">
-                    <div class="map-header">
-                        <h3>Карта поля</h3>
-                        <button id="map-fullscreen-btn" class="btn-icon" title="На весь экран">
-                            <i class="fas fa-expand"></i>
-                        </button>
-                    </div>
+            <div class="detail-map-section">
+                <div class="detail-map-toolbar">
+                    <button id="map-center-btn" class="btn-icon" title="Отцентрировать поле">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
+                    <button id="map-fullscreen-btn" class="btn-icon" title="На весь экран">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+                <div id="field-detail-map"></div>
+                <div id="zones-legend" class="zones-legend"></div>
+            </div>
+
+            <div class="detail-tabs">
+                <button class="tab-btn active" data-tab="tab-ndvi">
+                    <i class="fas fa-seedling"></i> NDVI
+                </button>
+                <button class="tab-btn" data-tab="tab-fieldwork">
+                    <i class="fas fa-tractor"></i> Полевые работы
+                </button>
+                <button class="tab-btn" data-tab="tab-info">
+                    <i class="fas fa-info-circle"></i> Информация
+                </button>
+            </div>
+
+            <div class="detail-tab-content">
+                <div id="tab-ndvi" class="tab-panel active">
                     <div id="scans-selector" class="scans-selector" style="display: none;">
                         <label><i class="fas fa-satellite"></i> Снимки NDVI:</label>
                         <div id="scan-list" class="scan-list"></div>
@@ -133,43 +154,28 @@
                             </p>
                         </div>
                     </div>
-                    <div id="field-detail-map"></div>
-                    <div id="zones-legend" class="zones-legend"></div>
-                    </div>
 
                     <div class="detail-card info-card">
-                    <h3>Аналитика NDVI</h3>
-                    <div class="analytics-container" style="height: 250px; position: relative; margin-bottom: 20px;">
-                        <canvas id="ndvi-history-chart"></canvas>
-                    </div>
-                    <div id="comparison-result" class="comparison-result" style="display: none; border-top: 1px solid #eee; padding-top: 15px;">
-                        <h4>Результат сравнения</h4>
-                        <div class="comparison-stats" style="display: flex; gap: 20px; margin-top: 10px;">
-                            <div class="stat-item">
-                                <span class="stat-label" style="color: #666; font-size: 0.9em;">Изменение NDVI:</span>
-                                <div id="compare-delta-value" style="font-size: 1.2em; font-weight: bold;">--</div>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label" style="color: #666; font-size: 0.9em;">Тренд:</span>
-                                <div id="compare-trend-icon" style="font-size: 1.2em;">--</div>
+                        <h3>Аналитика NDVI</h3>
+                        <div class="analytics-container" style="height: 250px; position: relative; margin-bottom: 20px;">
+                            <canvas id="ndvi-history-chart"></canvas>
+                        </div>
+                        <div id="comparison-result" class="comparison-result" style="display: none; border-top: 1px solid #eee; padding-top: 15px;">
+                            <h4>Результат сравнения</h4>
+                            <div class="comparison-stats" style="display: flex; gap: 20px; margin-top: 10px;">
+                                <div class="stat-item">
+                                    <span class="stat-label" style="color: #666; font-size: 0.9em;">Изменение NDVI:</span>
+                                    <div id="compare-delta-value" style="font-size: 1.2em; font-weight: bold;">--</div>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label" style="color: #666; font-size: 0.9em;">Тренд:</span>
+                                    <div id="compare-trend-icon" style="font-size: 1.2em;">--</div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    </div>
 
                     <div class="detail-card info-card">
-                    <h3>Информация</h3>
-                    <table id="field-detail-info-table" class="info-table">
-                        <tr><th>Площадь</th><td id="field-detail-area"></td></tr>
-                        <tr><th>Владелец</th><td id="field-detail-owner"></td></tr>
-                        <tr><th>Статус</th><td id="field-detail-status"></td></tr>
-                        <tr><th>Кадастровый номер</th><td id="field-detail-parcel"></td></tr>
-                    </table>
-                    <div class="detail-actions">
-                        <button id="detail-delete-field" class="btn-danger">Удалить поле</button>
-                    </div>
-
-                    <div id="zones-stats" class="zones-stats">
                         <div id="crop-prediction" class="crop-prediction-box" style="display: none;">
                             <div class="prediction-icon"><i class="fas fa-seedling"></i></div>
                             <div class="prediction-details">
@@ -183,44 +189,80 @@
                             </div>
                         </div>
                         <h4>Зоны внесения</h4>
-                        <table class="zones-table">
-                            <thead>
-                                <tr>
-                                    <th>Зона</th>
-                                    <th>NDVI</th>
-                                    <th>Норма</th>
-                                </tr>
-                            </thead>
-                            <tbody id="zones-table-body"></tbody>
-                        </table>
+                        <div id="zones-stats" class="zones-stats">
+                            <table class="zones-table">
+                                <thead>
+                                    <tr>
+                                        <th>Зона</th>
+                                        <th>NDVI</th>
+                                        <th>Норма</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="zones-table-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Journal Card -->
-                <div class="detail-card info-card" id="journal-card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                        <h3 style="margin:0;">Журнал полевых работ</h3>
-                        <button id="journal-add-btn" class="btn btn-sm btn-primary" style="display:none;">
-                            <i class="fas fa-plus"></i> Добавить запись
-                        </button>
+                <div id="tab-fieldwork" class="tab-panel">
+                    <div class="detail-card info-card" id="journal-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                            <h3 style="margin:0;">Журнал полевых работ</h3>
+                            <button id="journal-add-btn" class="btn btn-sm btn-primary" style="display:none;">
+                                <i class="fas fa-plus"></i> Добавить запись
+                            </button>
+                        </div>
+                        <div id="journal-entries" style="display:none;">
+                            <table class="info-table" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Культура</th>
+                                        <th>Посадка</th>
+                                        <th>Продукт</th>
+                                        <th>Норма</th>
+                                        <th>Урожай</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="journal-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div id="journal-empty" style="display:none;color:var(--text-muted);font-size:.9rem;">
+                            Записей пока нет. Добавьте первую запись о посеве или внесении.
+                        </div>
                     </div>
-                    <div id="journal-entries" style="display:none;">
-                        <table class="info-table" style="width:100%;">
-                            <thead>
-                                <tr>
-                                    <th>Культура</th>
-                                    <th>Посадка</th>
-                                    <th>Продукт</th>
-                                    <th>Норма</th>
-                                    <th>Урожай</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="journal-table-body"></tbody>
+
+                    <div class="detail-card info-card">
+                        <h3><i class="fas fa-cloud-upload-alt"></i> Загрузка снимков NDVI</h3>
+                        <form id="field-upload-form" class="field-upload-form">
+                            <div class="file-input-wrapper">
+                                <input type="file" id="field-ndvi-input" accept=".tif,.tiff,.zip" class="file-input-hidden">
+                                <label for="field-ndvi-input" class="file-input-label">
+                                    <i class="fas fa-file-upload"></i> Выберите GeoTIFF или ZIP архив
+                                </label>
+                            </div>
+                            <button type="submit" id="field-upload-button" class="btn btn-primary btn-sm" style="display:none;">
+                                <i class="fas fa-upload"></i> Загрузить
+                            </button>
+                            <div id="field-upload-status" style="margin-top: 10px; font-size: 0.9em;"></div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="tab-info" class="tab-panel">
+                    <div class="detail-card info-card">
+                        <h3>Информация о поле</h3>
+                        <table id="field-detail-info-table" class="info-table">
+                            <tr><th>Площадь</th><td id="field-detail-area"></td></tr>
+                            <tr><th>Владелец</th><td id="field-detail-owner"></td></tr>
+                            <tr><th>Статус</th><td id="field-detail-status"></td></tr>
+                            <tr><th>Кадастровый номер</th><td id="field-detail-parcel"></td></tr>
                         </table>
-                    </div>
-                    <div id="journal-empty" style="display:none;color:var(--text-muted);font-size:.9rem;">
-                        Записей пока нет. Добавьте первую запись о посеве или внесении.
+                        <div class="detail-actions">
+                            <button id="detail-delete-field" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Удалить поле
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
