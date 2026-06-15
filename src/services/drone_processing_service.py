@@ -101,8 +101,9 @@ class DroneProcessingService:
         grid_x, grid_y = np.meshgrid(gx, gy)
         
         points_xy = np.column_stack((gdf_m.geometry.x, gdf_m.geometry.y))
-        grid_values = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='linear')
-        grid_values = np.nan_to_num(grid_values, nan=0.0)
+        grid_linear = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='linear')
+        grid_nearest = griddata(points_xy, gdf_m['health'], (grid_x, grid_y), method='nearest')
+        grid_values = np.where(np.isnan(grid_linear), grid_nearest, grid_linear)
 
         # 3. Сохранение в TIF
         transform = from_origin(minx, maxy, res_m, res_m)
