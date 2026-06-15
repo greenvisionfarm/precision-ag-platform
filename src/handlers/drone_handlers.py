@@ -231,14 +231,14 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
 
             # 2. Запускаем фоновую задачу
             if processing_mode == 'orthomosaic':
-                task = process_orthomosaic_task.delay(
+                task = process_orthomosaic_task(
                     zip_path=zip_path,
                     field_id=field_id,
                     total_fertilizer_kg=total_fertilizer_kg,
                     scan_id=scan.id
                 )
             else:
-                task = process_drone_fast_task.delay(
+                task = process_drone_fast_task(
                     zip_path=zip_path,
                     field_id=field_id,
                     total_fertilizer_kg=total_fertilizer_kg,

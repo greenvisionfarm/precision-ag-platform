@@ -200,7 +200,7 @@ class TestDroneUploadHandler:
 
         mock_task = MagicMock()
         mock_task.id = "task-123"
-        mock_ortho_task.delay.return_value = mock_task
+        mock_ortho_task.return_value = mock_task
 
         handler = DroneUploadHandler.__new__(DroneUploadHandler)
         handler.request = MagicMock()
@@ -217,8 +217,8 @@ class TestDroneUploadHandler:
 
         handler.post()
 
-        mock_ortho_task.delay.assert_called_once()
-        mock_fast_task.delay.assert_not_called()
+        mock_ortho_task.assert_called_once()
+        mock_fast_task.assert_not_called()
 
     @patch('src.handlers.drone_handlers.process_orthomosaic_task')
     @patch('src.handlers.drone_handlers.process_drone_fast_task')
@@ -240,7 +240,7 @@ class TestDroneUploadHandler:
 
         mock_task = MagicMock()
         mock_task.id = "task-456"
-        mock_fast_task.delay.return_value = mock_task
+        mock_fast_task.return_value = mock_task
 
         handler = DroneUploadHandler.__new__(DroneUploadHandler)
         handler.request = MagicMock()
@@ -257,8 +257,8 @@ class TestDroneUploadHandler:
 
         handler.post()
 
-        mock_fast_task.delay.assert_called_once()
-        mock_ortho_task.delay.assert_not_called()
+        mock_fast_task.assert_called_once()
+        mock_ortho_task.assert_not_called()
 
 
 if __name__ == "__main__":
