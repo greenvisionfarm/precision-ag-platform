@@ -1,192 +1,139 @@
 /**
- * Обработчик ошибок API.
- * @param {jqXHR} xhr - Объект XMLHttpRequest.
- * @param {string} status - Статус ошибки.
- * @param {string} error - Текст ошибки.
+ * API client — централизованный доступ к бэкенду.
+ * Использует jQuery $.ajax для обратной совместимости.
  */
-export function handleApiError(xhr, status, error) {
-  // 401 — пользователь не авторизован, показываем форму входа
+
+function handleApiError(xhr, status, error) {
   if (xhr.status === 401) {
-    if (window.AuthModule) {
-      window.AuthModule.openLogin();
-    }
+    if (window.AuthModule) window.AuthModule.openLogin();
     return Promise.reject({ xhr, status, error });
   }
 
-  const errorMsg = xhr.responseJSON?.error || error || 'Неизвестная ошибка';
+  const errorMsg = xhr.responseJSON?.error || error || "Неизвестная ошибка";
   console.error(`API Error: ${xhr.status} ${status}`, errorMsg);
 
-  // Показываем уведомление пользователю
-  if (typeof window.showMessage !== 'undefined') {
-    window.showMessage(`Ошибка: ${errorMsg}`, 'error');
+  if (typeof window.showMessage !== "undefined") {
+    window.showMessage(`Ошибка: ${errorMsg}`, "error");
   } else {
-    // Fallback: используем alert если showMessage недоступна
     alert(`Ошибка: ${errorMsg}`);
   }
 
   return Promise.reject({ xhr, status, error });
 }
 
-// NOTE: $.ajaxSetup({ xhrFields: { withCredentials: true } }) уже установлен в main.js
+class APIClient {
+  // --- Fields ---
+  getFields() { return $.getJSON("/api/fields").catch(handleApiError); }
+  getFieldsData() { return $.getJSON("/api/fields_data").catch(handleApiError); }
+  getField(id) { return $.getJSON(`/api/field/${id}`).catch(handleApiError); }
 
-const API = {
-  getFields: () => $.getJSON("/api/fields").catch(handleApiError),
-  getFieldsData: () => $.getJSON("/api/fields_data").catch(handleApiError),
-  getField: (id) => $.getJSON(`/api/field/${id}`).catch(handleApiError),
-  getOwners: () => $.getJSON("/api/owners").catch(handleApiError),
+  addField(geometry, name) {
+    return $.ajax({
+      url: "/api/field/add", type: "POST", contentType: "application/json",
+      data: JSON.stringify({ geometry, name })
+    }).catch(handleApiError);
+  }
 
-  addOwner: (name) => $.ajax({
-    url: "/api/owner/add", type: "POST", contentType: "application/json",
-    data: JSON.stringify({ name: name })
-  }).catch(handleApiError),
+  deleteField(id) {
+    return $.ajax({ url: `/api/field/delete/${id}`, type: "DELETE" }).catch(handleApiError);
+  }
 
-  deleteOwner: (id) => $.ajax({ 
-    url: `/api/owner/delete/${id}`, type: "DELETE" 
-  }).catch(handleApiError),
+  updateField(id, action, data) {
+    return $.ajax({
+      url: `/api/field/${action}/${id}`, type: "PUT", contentType: "application/json",
+      data: JSON.stringify(data)
+    }).catch(handleApiError);
+  }
 
-  addField: (geometry, name) => $.ajax({
-    url: "/api/field/add", type: "POST", contentType: "application/json",
-    data: JSON.stringify({ geometry: geometry, name: name })
-  }).catch(handleApiError),
+  // --- Owners ---
+  getOwners() { return $.getJSON("/api/owners").catch(handleApiError); }
 
-  deleteField: (id) => $.ajax({ 
-    url: `/api/field/delete/${id}`, type: "DELETE" 
-  }).catch(handleApiError),
+  addOwner(name) {
+    return $.ajax({
+      url: "/api/owner/add", type: "POST", contentType: "application/json",
+      data: JSON.stringify({ name })
+    }).catch(handleApiError);
+  }
 
-  updateField: (id, action, data) => $.ajax({
-    url: `/api/field/${action}/${id}`, type: "PUT", contentType: "application/json",
-    data: JSON.stringify(data)
-  }).catch(handleApiError),
-  
-  /**
-   * Загрузка файла (GeoTIFF или Shapefile).
-   * @param {FormData} formData - Данные формы с файлом.
-   * @returns {Promise} Promise с результатом загрузки.
-   */
-  uploadFile: (formData) => $.ajax({
-    url: "/upload",
-    type: "POST",
-    data: formData,
-    processData: false,
-    contentType: false
-  }).catch(handleApiError),
-  
-  /**
-   * Получение статуса фоновой задачи.
-   * @param {string} taskId - ID задачи.
-   * @returns {Promise} Promise со статусом задачи.
-   */
-  getTaskStatus: (taskId) => $.getJSON(`/api/task/${taskId}`).catch(handleApiError),
-  
-  /**
-   * Экспорт поля в KMZ.
-   * @param {number} fieldId - ID поля.
-   * @param {Object} params - Параметры экспорта (height, overlap_h, overlap_w, direction).
-   * @returns {Promise} Promise с данными KMZ.
-   */
-  exportKmz: (fieldId, params = {}) => $.ajax({
-    url: `/api/field/export/kmz/${fieldId}`,
-    type: "GET",
-    data: params,
-    xhrFields: { responseType: 'blob' }
-  }).catch(handleApiError),
-  
-  /**
-   * Массовый экспорт всех полей в KMZ (ZIP).
-   * @param {Object} params - Параметры экспорта.
-   * @returns {Promise} Promise с ZIP-архивом.
-   */
-  exportAllKmz: (params = {}) => $.ajax({
-    url: "/api/field/export/kmz/all",
-    type: "GET",
-    data: params,
-    xhrFields: { responseType: 'blob' }
-  }).catch(handleApiError),
+  deleteOwner(id) {
+    return $.ajax({ url: `/api/owner/delete/${id}`, type: "DELETE" }).catch(handleApiError);
+  }
 
-  /**
-   * Получение списка сканов поля.
-   * @param {number} fieldId - ID поля.
-   * @returns {Promise} Promise со списком сканов.
-   */
-  getFieldScans: (fieldId) => $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError),
+  // --- Uploads ---
+  uploadFile(formData) {
+    return $.ajax({
+      url: "/upload", type: "POST", data: formData,
+      processData: false, contentType: false
+    }).catch(handleApiError);
+  }
 
-  /**
-   * Сравнение двух сканов поля.
-   * @param {number} fieldId - ID поля.
-   * @param {number} scan1Id - ID первого скана.
-   * @param {number} scan2Id - ID второго скана.
-   * @returns {Promise} Promise с результатом сравнения.
-   */
-  compareScans: (fieldId, scan1Id, scan2Id) => 
-    $.getJSON(`/api/field/${fieldId}/compare?scan1=${scan1Id}&scan2=${scan2Id}`).catch(handleApiError),
+  // --- Tasks ---
+  getTaskStatus(taskId) {
+    return $.getJSON(`/api/task/${taskId}`).catch(handleApiError);
+  }
 
-  /**
-   * Удаление скана.
-   * @param {number} fieldId - ID поля.
-   * @param {number} scanId - ID скана.
-   * @returns {Promise} Promise с результатом удаления.
-   */
-  deleteScan: (fieldId, scanId) => $.ajax({
-    url: `/api/field/${fieldId}/scans/${scanId}`,
-    type: "DELETE"
-  }).catch(handleApiError),
+  // --- Scans ---
+  getFieldScans(fieldId) {
+    return $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError);
+  }
 
-  /**
-   * Получение зон скана.
-   * @param {number} scanId - ID скана.
-   * @returns {Promise} Promise с зонами.
-   */
-  getScanZones: (scanId) => $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError),
+  compareScans(fieldId, scan1Id, scan2Id) {
+    return $.getJSON(`/api/field/${fieldId}/compare?scan1=${scan1Id}&scan2=${scan2Id}`).catch(handleApiError);
+  }
 
-  /**
-   * Получение списка всех доступных культур.
-   * @returns {Promise} Promise со списком культур.
-   */
-  getCrops: () => $.getJSON("/api/crops").catch(handleApiError),
+  deleteScan(fieldId, scanId) {
+    return $.ajax({ url: `/api/field/${fieldId}/scans/${scanId}`, type: "DELETE" }).catch(handleApiError);
+  }
 
-  /**
-   * Обновление типа культуры скана.
-   * @param {number} scanId - ID скана.
-   * @param {string} cropType - Тип культуры.
-   * @returns {Promise} Promise с результатом обновления.
-   */
-  updateScanCrop: (scanId, cropType) => $.ajax({
-    url: `/api/scan/${scanId}/update_crop`,
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify({ crop_type: cropType })
-  }).catch(handleApiError),
+  getScanZones(scanId) {
+    return $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError);
+  }
 
-  /**
-   * Экспорт поля в ISOXML (TaskFile для техники).
-   * @param {number} fieldId - ID поля.
-   * @param {Object} params - Параметры (product_name, product_type).
-   * @returns {Promise} Promise с XML-файлом.
-   */
-  exportIsoxml: (fieldId, params = {}) => $.ajax({
-    url: `/api/field/export/isoxml/${fieldId}`,
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify(params),
-    dataType: 'binary',
-    xhrFields: { responseType: 'blob' }
-  }).catch(handleApiError),
+  updateScanCrop(scanId, cropType) {
+    return $.ajax({
+      url: `/api/scan/${scanId}/update_crop`, type: "POST",
+      contentType: "application/json", data: JSON.stringify({ crop_type: cropType })
+    }).catch(handleApiError);
+  }
 
-  /**
-   * Экспорт поля в TaskData.zip (ISO 11783 v3.3).
-   * @param {number} fieldId - ID поля.
-   * @param {Object} params - Параметры (product_name, farm_name, resolution).
-   * @returns {Promise} Promise с ZIP-файлом.
-   */
-  exportTaskData: (fieldId, params = {}) => $.ajax({
-    url: `/api/field/export/taskdata/${fieldId}`,
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify(params),
-    xhrFields: { responseType: 'blob' }
-  }).catch(handleApiError),
-};
+  // --- Crops ---
+  getCrops() { return $.getJSON("/api/crops").catch(handleApiError); }
 
+  // --- Export ---
+  exportKmz(fieldId, params = {}) {
+    return $.ajax({
+      url: `/api/field/export/kmz/${fieldId}`, type: "GET", data: params,
+      xhrFields: { responseType: "blob" }
+    }).catch(handleApiError);
+  }
+
+  exportAllKmz(params = {}) {
+    return $.ajax({
+      url: "/api/field/export/kmz/all", type: "GET", data: params,
+      xhrFields: { responseType: "blob" }
+    }).catch(handleApiError);
+  }
+
+  exportIsoxml(fieldId, params = {}) {
+    return $.ajax({
+      url: `/api/field/export/isoxml/${fieldId}`, type: "POST",
+      contentType: "application/json", data: JSON.stringify(params),
+      dataType: "binary", xhrFields: { responseType: "blob" }
+    }).catch(handleApiError);
+  }
+
+  exportTaskData(fieldId, params = {}) {
+    return $.ajax({
+      url: `/api/field/export/taskdata/${fieldId}`, type: "POST",
+      contentType: "application/json", data: JSON.stringify(params),
+      xhrFields: { responseType: "blob" }
+    }).catch(handleApiError);
+  }
+}
+
+const API = new APIClient();
+
+export { handleApiError };
 export default API;
 window.API = API;
 window.handleApiError = handleApiError;
