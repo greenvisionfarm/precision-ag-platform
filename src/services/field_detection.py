@@ -82,18 +82,20 @@ def detect_field_from_gps(
                     gps_info = {"source": "EXIF", "lat": meta["lat"], "lon": meta["lon"]}
                     detected_point = Point(meta["lon"], meta["lat"])
 
-                # Ищем поле, содержащее точку
+                # Ищем поле, содержащее точку, или ближайшие поля
                 if detected_point:
                     with db_connection():
-                        for field in Field.select().where(Field.company_id == company_id):
+                        fields = list(Field.select().where(Field.company_id == company_id))
+
+                        # Проверяем containment
+                        for field in fields:
                             field_geom = wkt_loads(field.geometry_wkt)
                             if field_geom.contains(detected_point):
                                 return field.id, gps_info, []
 
-                    # Точка не попала ни в одно поле — собираем список с расстояниями
-                    with db_connection():
+                        # Точка не попала ни в одно поле — собираем список с расстояниями
                         fields_list = []
-                        for field in Field.select().where(Field.company_id == company_id):
+                        for field in fields:
                             field_geom = wkt_loads(field.geometry_wkt)
                             dist_m = field_geom.distance(detected_point) * 111000
                             fields_list.append({"id": field.id, "name": field.name, "distance_m": round(dist_m)})
