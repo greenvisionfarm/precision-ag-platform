@@ -1,6 +1,5 @@
 """Тесты сервиса обработки NDVI."""
 import os
-import tempfile
 
 import numpy as np
 import pytest
@@ -10,36 +9,9 @@ from src.services.raster_service import process_ndvi_zones
 
 
 @pytest.fixture
-def sample_geotiff():
+def sample_geotiff(make_geotiff):
     """Создаёт тестовый GeoTIFF файл 100x100 с тремя зонами."""
-    with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
-        path = tmp.name
-
-    # Создаем данные: 3 зоны (0.2, 0.5, 0.8)
-    data = np.zeros((100, 100), dtype=np.float32)
-    data[:33, :] = 0.2   # Зона 1 (низкая)
-    data[33:66, :] = 0.5 # Зона 2 (средняя)
-    data[66:, :] = 0.8   # Зона 3 (высокая)
-
-    # Добавляем немного шума
-    data += np.random.normal(0, 0.02, (100, 100))
-
-    # Координаты: запад, юг, восток, север
-    transform = rasterio.transform.from_bounds(18.7, 48.1, 18.8, 48.2, 100, 100)
-
-    with rasterio.open(
-        path, 'w', driver='GTiff',
-        height=100, width=100,
-        count=1, dtype='float32',
-        crs='EPSG:4326',
-        transform=transform
-    ) as dst:
-        dst.write(data, 1)
-
-    yield path
-    
-    if os.path.exists(path):
-        os.remove(path)
+    return make_geotiff(rows=100, cols=100, zones=[0.2, 0.5, 0.8], noise_std=0.02)
 
 
 def test_process_ndvi_zones_basic(sample_geotiff):

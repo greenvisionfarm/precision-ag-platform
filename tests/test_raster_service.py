@@ -12,51 +12,15 @@ from src.services.raster_service import process_ndvi_zones
 
 
 @pytest.fixture
-def sample_tiff_path(tmp_path):
+def sample_tiff_path(make_geotiff):
     """Создаёт тестовый GeoTIFF с фиктивными NDVI данными."""
-    tiff_path = tmp_path / "test_ndvi.tif"
-    
-    # Создаём простой растр 100x100 с градиентом NDVI
-    width, height = 100, 100
-    bounds = (18.72, 48.20, 18.74, 48.22)  # Координаты в Венгрии
-    
-    # Генерируем данные с тремя различными зонами NDVI
-    x = np.linspace(0, 1, width)
-    y = np.linspace(0, 1, height)
-    xx, yy = np.meshgrid(x, y)
-    
-    # Создаём три зоны с разным NDVI
-    ndvi_data = np.zeros((height, width), dtype=np.float32)
-    ndvi_data[yy < 0.33] = 0.3  # Низкая зона
-    ndvi_data[(yy >= 0.33) & (yy < 0.66)] = 0.5  # Средняя зона
-    ndvi_data[yy >= 0.66] = 0.8  # Высокая зона
-    
-    # Добавляем немного шума
-    ndvi_data += np.random.normal(0, 0.05, ndvi_data.shape)
-    ndvi_data = np.clip(ndvi_data, -1, 1)
-    
-    # Сохраняем как GeoTIFF
-    transform = from_bounds(*bounds, width, height)
-    with rasterio.open(
-        tiff_path, 'w',
-        driver='GTiff',
-        height=height,
-        width=width,
-        count=1,
-        dtype=ndvi_data.dtype,
-        crs='EPSG:4326',
-        transform=transform,
-        nodata=-9999
-    ) as dst:
-        dst.write(ndvi_data, 1)
-    
-    return str(tiff_path)
+    return make_geotiff(rows=100, cols=100, zones=[0.3, 0.5, 0.8],
+                        bounds=(18.72, 48.20, 18.74, 48.22), nodata=-9999)
 
 
 @pytest.fixture
 def sample_field_geometry():
     """Геометрия тестового поля."""
-    # Полигон в тех же координатах что и тестовый растр
     return box(18.72, 48.20, 18.74, 48.22).wkt
 
 

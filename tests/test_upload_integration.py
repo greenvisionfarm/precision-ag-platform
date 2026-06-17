@@ -19,53 +19,24 @@ from db import database
 
 
 @pytest.fixture
-def mock_ndvi_tif():
+def mock_ndvi_tif(make_geotiff):
     """Создает временный GeoTIFF файл 100x100 с тремя четкими зонами NDVI."""
-    with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
-        path = tmp.name
-
-    # Создаем данные: 3 зоны (0.2, 0.5, 0.8)
-    data = np.zeros((100, 100), dtype=np.float32)
-    data[:33, :] = 0.2  # Зона 1 (низкая)
-    data[33:66, :] = 0.5  # Зона 2 (средняя)
-    data[66:, :] = 0.8  # Зона 3 (высокая)
-
-    # Добавляем немного шума
-    data += np.random.normal(0, 0.05, (100, 100))
-
-    # Координаты: запад, юг, восток, север
-    transform = rasterio.transform.from_bounds(18.7, 48.1, 18.8, 48.2, 100, 100)
-
-    with rasterio.open(
-        path, 'w', driver='GTiff',
-        height=100, width=100,
-        count=1, dtype='float32',
-        crs='EPSG:4326',
-        transform=transform
-    ) as dst:
-        dst.write(data, 1)
-
-    yield path
-    # Не удаляем файл сразу — он может понадобиться для отладки
-    # if os.path.exists(path):
-    #     os.remove(path)
+    return make_geotiff(rows=100, cols=100, zones=[0.2, 0.5, 0.8])
 
 
 @pytest.fixture
-def setup_field(test_db):
+def setup_field(test_db, test_company):
     """Создает тестовое поле в БД."""
-    from src.models.auth import Company
-    company = Company.create(name='Upload Co', slug='upload-co')
-    
+    from tests.conftest import TEST_WKT_POLYGON
+
     with database.atomic():
         field = Field.create(
             name="Тестовое поле",
-            geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
+            geometry_wkt=TEST_WKT_POLYGON,
             properties_json='{"area": 100}',
-            company=company
+            company=test_company
         )
     yield field
-    # Очищаем после теста
     with database.atomic():
         FieldZone.delete().where(FieldZone.field == field).execute()
         Field.delete().where(Field.id == field.id).execute()
