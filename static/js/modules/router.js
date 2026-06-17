@@ -1,54 +1,86 @@
 /**
- * Маршрутизация и навигация по приложению.
- * Использует прямые импорты вместо window.* для надёжности.
+ * Централизованный роутер с управлением жизненным циклом view.
+ * Каждый view — экземпляр класса View с mount/update/unmount.
  */
-import { initFieldsTable } from './tables.js';
-import { initOwnersTable } from './tables.js';
-import { openFieldModal } from './modals.js';
-import { showFieldDetail } from './field-detail.js';
-import { initStatsView } from './stats.js';
-import { loadMapData } from './map-callbacks.js';
+export class Router {
+  constructor() {
+    this.views = new Map();
+    this.currentView = null;
+    this.currentParams = {};
+  }
 
-/**
- * Обработчик изменения маршрута.
- * @param {string} [forcedHash] - Принудительный hash для навигации.
- */
-export function handleRoute(forcedHash) {
-    const hash = forcedHash || window.location.hash || '#map';
-    document.body.setAttribute('data-route', hash);
+  /**
+     * Регистрирует view для маршрута.
+     * @param {string} pattern - Строка '#map', '#fields' или '#field/:id'.
+     * @param {import('./view.js').View} view
+     */
+  register(pattern, view) {
+    this.views.set(pattern, view);
+  }
 
-    // Скрываем все секции и деактивируем навигацию
-    $('.view-section').addClass('hidden');
-    $('.nav-link').removeClass('active');
+  /**
+     * Обрабатывает изменение hash.
+     * @param {string} [forcedHash]
+     */
+  handleRoute(forcedHash) {
+    const hash = forcedHash || window.location.hash || "#map";
+    document.body.setAttribute("data-route", hash);
 
-    if (hash === '#map') {
-        $('#view-map').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#map"]').addClass('active');
-        window.MapManager?.instance?.invalidateSize();
-        // Загружаем данные полей на карту
-        loadMapData();
-    } else if (hash === '#fields') {
-        $('#view-fields').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#fields"]').addClass('active');
-        // Прямой вызов — не через window.*
-        initFieldsTable();
-    } else if (hash.startsWith('#field/')) {
-        const fieldId = hash.split('/')[1];
-        $('#view-field-detail').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#fields"]').addClass('active');
-        showFieldDetail(fieldId);
-    } else if (hash === '#owners') {
-        $('#view-owners').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#owners"]').addClass('active');
-        // Прямой вызов — не через window.*
-        initOwnersTable();
-    } else if (hash === '#stats') {
-        $('#view-stats').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#stats"]').addClass('active');
-        // Прямой вызов — не через window.*
-        initStatsView();
-    } else if (hash === '#uploads') {
-        $('#view-uploads').removeClass('hidden').css('display', 'flex');
-        $('.nav-link[href="#uploads"]').addClass('active');
+    const { pattern, params } = this._match(hash);
+    if (!pattern) return;
+
+    // Если переключаемся на другой view — unmount текущего
+    if (this.currentView && this.currentView !== this.views.get(pattern)) {
+      this.currentView.hide();
     }
+
+    const view = this.views.get(pattern);
+    this.currentView = view;
+    this.currentParams = params;
+    view.show(params);
+  }
+
+  /**
+     * Возвращает текущий view.
+     */
+  getCurrentView() {
+    return this.currentView;
+  }
+
+  /**
+     * Принудительно unmount текущего view.
+     */
+  unmountCurrent() {
+    if (this.currentView) {
+      this.currentView.hide();
+      this.currentView = null;
+    }
+  }
+
+  // --- Internal ---
+
+  /**
+     * Матчит hash на зарегистрированный pattern.
+     * Поддерживает: '#map' (точное), '#field/:id' (параметры).
+     */
+  _match(hash) {
+    // Точное совпадение
+    if (this.views.has(hash)) {
+      return { pattern: hash, params: {} };
+    }
+
+    // Параметризованные маршруты (например #field/:id)
+    for (const [pattern] of this.views) {
+      if (pattern.includes("/:")) {
+        const prefix = pattern.split("/:")[0] + "/";
+        if (hash.startsWith(prefix)) {
+          const paramValue = hash.slice(prefix.length);
+          const paramName = pattern.split("/:")[1];
+          return { pattern, params: { [paramName]: paramValue } };
+        }
+      }
+    }
+
+    return { pattern: null, params: {} };
+  }
 }
