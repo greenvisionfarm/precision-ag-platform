@@ -21,6 +21,9 @@ from shapely.geometry import box, Point
 from shapely.ops import unary_union
 from shapely import wkt as shapely_wkt
 
+from src.models.field import Field, FieldZone, FieldScan
+from src.services.rate_resolver import resolve_zone_rate
+
 logger = logging.getLogger(__name__)
 
 # Вторичная проекция для точных метрических расчетов
@@ -224,9 +227,6 @@ def export_taskdata(
     Returns:
         Путь к созданному ZIP файлу
     """
-    from src.models.field import Field, FieldZone, FieldScan
-    from src.services.crop_classifier import CROP_PROFILES, CropType
-
     field = Field.get_by_id(field_id)
     zones_query = list(FieldZone.select().where(FieldZone.field == field))
 
@@ -249,25 +249,11 @@ def export_taskdata(
     # Подготавливаем данные зон
     zones_data = []
     for zone in zones_query:
-        rate = zone.rate_kg_ha
-        if rate is None:
-            default_rates = [150, 250, 350]
-            if zone.scan and getattr(zone.scan, 'crop_type', None):
-                try:
-                    crop_enum = CropType(zone.scan.crop_type)
-                    if crop_enum in CROP_PROFILES:
-                        default_rates = CROP_PROFILES[crop_enum].default_rates
-                except (ValueError, KeyError):
-                    pass
-            if zone.avg_ndvi:
-                if zone.avg_ndvi < 0.4:
-                    rate = default_rates[0]
-                elif zone.avg_ndvi < 0.6:
-                    rate = default_rates[1]
-                else:
-                    rate = default_rates[2]
-            else:
-                rate = default_rates[1]
+        rate = resolve_zone_rate(
+            rate_kg_ha=zone.rate_kg_ha,
+            avg_ndvi=zone.avg_ndvi,
+            crop_type=getattr(zone.scan, 'crop_type', None) if zone.scan else None,
+        )
 
         zones_data.append({
             "name": zone.name,

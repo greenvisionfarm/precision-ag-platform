@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from ag_isoxml import ISOXMLGenerator
 from src.models.field import Field, FieldZone
+from src.services.rate_resolver import resolve_zone_rate
 
 
 # Маппинг типов продуктов на ISOXML ProductType (ISO 11783-10)
@@ -70,29 +71,11 @@ def export_isoxml(
         # Подготавливаем данные для библиотеки
         lib_zones = []
         for zone in zones_query:
-            rate = zone.rate_kg_ha
-
-            if rate is None:
-                from src.services.crop_classifier import CROP_PROFILES, CropType
-                default_rates = [150, 250, 350]
-
-                if zone.scan and getattr(zone.scan, 'crop_type', None):
-                    try:
-                        crop_enum = CropType(zone.scan.crop_type)
-                        if crop_enum in CROP_PROFILES:
-                            default_rates = CROP_PROFILES[crop_enum].default_rates
-                    except (ValueError, KeyError):
-                        pass
-
-                if zone.avg_ndvi:
-                    if zone.avg_ndvi < 0.4:
-                        rate = default_rates[0]
-                    elif zone.avg_ndvi < 0.6:
-                        rate = default_rates[1]
-                    else:
-                        rate = default_rates[2]
-                else:
-                    rate = default_rates[1]
+            rate = resolve_zone_rate(
+                rate_kg_ha=zone.rate_kg_ha,
+                avg_ndvi=zone.avg_ndvi,
+                crop_type=getattr(zone.scan, 'crop_type', None) if zone.scan else None,
+            )
 
             # Используем продукт из зоны или общий
             z_product_name = zone.product_name or zone_product_name
