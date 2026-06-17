@@ -180,17 +180,21 @@ class TestDJIProvider:
 class TestDroneUploadHandler:
     """Tests for DroneUploadHandler processing_mode routing."""
 
-    @patch('src.handlers.drone_handlers.process_orthomosaic_task')
-    @patch('src.handlers.drone_handlers.process_drone_fast_task')
+    @pytest.mark.parametrize("mode,expected_task,not_expected_task", [
+        ("orthomosaic", "mock_ortho_task", "mock_fast_task"),
+        ("fast", "mock_fast_task", "mock_ortho_task"),
+    ])
+    @patch('src.handlers.drone_handlers.process_orthomosaic_task', new_callable=MagicMock)
+    @patch('src.handlers.drone_handlers.process_drone_fast_task', new_callable=MagicMock)
     @patch('src.handlers.drone_handlers.FieldScan')
     @patch('src.handlers.drone_handlers.Field')
     @patch('src.handlers.drone_handlers.db_connection')
     @patch('src.handlers.drone_handlers.os.path.getsize', return_value=1024)
-    def test_orthomosaic_mode_routes_to_ortho_task(
+    def test_processing_mode_routes_to_correct_task(
         self, mock_getsize, mock_db_conn, mock_field, mock_scan,
-        mock_fast_task, mock_ortho_task
+        mock_fast_task, mock_ortho_task, mode, expected_task, not_expected_task
     ):
-        """processing_mode=orthomosaic dispatches to orthomosaic task."""
+        """processing_mode dispatches to the correct task."""
         from src.handlers.drone_handlers import DroneUploadHandler
 
         mock_field_inst = MagicMock()
@@ -201,7 +205,8 @@ class TestDroneUploadHandler:
 
         mock_task = MagicMock()
         mock_task.id = "task-123"
-        mock_ortho_task.return_value = mock_task
+        task_map = {"orthomosaic": mock_ortho_task, "fast": mock_fast_task}
+        task_map[mode].return_value = mock_task
 
         handler = DroneUploadHandler.__new__(DroneUploadHandler)
         handler.request = MagicMock()
@@ -210,7 +215,7 @@ class TestDroneUploadHandler:
         }
         handler.get_argument = MagicMock(return_value=json.dumps({
             'field_id': 1,
-            'processing_mode': 'orthomosaic',
+            'processing_mode': mode,
         }))
         handler.set_status = MagicMock()
         handler.write = MagicMock()
@@ -218,57 +223,15 @@ class TestDroneUploadHandler:
         handler._upload_tmpfile = MagicMock()
         handler._upload_tmpfile.name = '/tmp/fake_upload'
         handler._upload_size = 1024
-        handler._parse_multipart = MagicMock(return_value=('test.zip', {'field_id': '1', 'processing_mode': 'orthomosaic'}, '/tmp/fake.zip'))
+        handler._parse_multipart = MagicMock(return_value=(
+            'test.zip', {'field_id': '1', 'processing_mode': mode}, '/tmp/fake.zip'
+        ))
 
         handler.post()
 
-        mock_ortho_task.assert_called_once()
-        mock_fast_task.assert_not_called()
-
-    @patch('src.handlers.drone_handlers.process_orthomosaic_task')
-    @patch('src.handlers.drone_handlers.process_drone_fast_task')
-    @patch('src.handlers.drone_handlers.FieldScan')
-    @patch('src.handlers.drone_handlers.Field')
-    @patch('src.handlers.drone_handlers.db_connection')
-    @patch('src.handlers.drone_handlers.os.path.getsize', return_value=1024)
-    def test_fast_mode_routes_to_fast_task(
-        self, mock_getsize, mock_db_conn, mock_field, mock_scan,
-        mock_fast_task, mock_ortho_task
-    ):
-        """processing_mode=fast dispatches to fast task."""
-        from src.handlers.drone_handlers import DroneUploadHandler
-
-        mock_field_inst = MagicMock()
-        mock_field.get_by_id.return_value = mock_field_inst
-        mock_scan_inst = MagicMock()
-        mock_scan_inst.id = 11
-        mock_scan.create.return_value = mock_scan_inst
-
-        mock_task = MagicMock()
-        mock_task.id = "task-456"
-        mock_fast_task.return_value = mock_task
-
-        handler = DroneUploadHandler.__new__(DroneUploadHandler)
-        handler.request = MagicMock()
-        handler.request.files = {
-            'drone_images': [{'filename': 'test.zip', 'body': b'data'}]
-        }
-        handler.get_argument = MagicMock(return_value=json.dumps({
-            'field_id': 1,
-            'processing_mode': 'fast',
-        }))
-        handler.set_status = MagicMock()
-        handler.write = MagicMock()
-        handler._current_user = MagicMock()
-        handler._upload_tmpfile = MagicMock()
-        handler._upload_tmpfile.name = '/tmp/fake_upload'
-        handler._upload_size = 1024
-        handler._parse_multipart = MagicMock(return_value=('test.zip', {'field_id': '1', 'processing_mode': 'fast'}, '/tmp/fake.zip'))
-
-        handler.post()
-
-        mock_fast_task.assert_called_once()
-        mock_ortho_task.assert_not_called()
+        task_map[mode].assert_called_once()
+        other = mock_ortho_task if mode == "fast" else mock_fast_task
+        other.assert_not_called()
 
 
 if __name__ == "__main__":

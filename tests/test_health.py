@@ -28,32 +28,20 @@ class TestHealthHandler:
             assert written["checks"]["redis"]["status"] == "ok"
             assert "uptime_seconds" in written["checks"]["app"]
 
-    def test_health_returns_503_on_db_failure(self):
-        """Health endpoint returns 503 when DB check fails."""
+    @pytest.mark.parametrize("db_status,redis_status", [
+        ({"status": "error", "message": "connection refused"}, {"status": "ok"}),
+        ({"status": "ok"}, {"status": "error", "message": "timeout"}),
+    ])
+    def test_health_returns_503_on_check_failure(self, db_status, redis_status):
+        """Health endpoint returns 503 when any check fails."""
         from src.handlers.health_handler import HealthHandler
 
         handler = HealthHandler.__new__(HealthHandler)
         handler.set_status = MagicMock()
         handler.write = MagicMock()
 
-        with patch.object(handler, '_check_db', return_value={"status": "error", "message": "connection refused"}), \
-             patch.object(handler, '_check_redis', return_value={"status": "ok"}):
-            handler.get()
-
-            handler.set_status.assert_called_once_with(503)
-            written = handler.write.call_args[0][0]
-            assert written["status"] == "degraded"
-
-    def test_health_returns_503_on_redis_failure(self):
-        """Health endpoint returns 503 when Redis check fails."""
-        from src.handlers.health_handler import HealthHandler
-
-        handler = HealthHandler.__new__(HealthHandler)
-        handler.set_status = MagicMock()
-        handler.write = MagicMock()
-
-        with patch.object(handler, '_check_db', return_value={"status": "ok"}), \
-             patch.object(handler, '_check_redis', return_value={"status": "error", "message": "timeout"}):
+        with patch.object(handler, '_check_db', return_value=db_status), \
+             patch.object(handler, '_check_redis', return_value=redis_status):
             handler.get()
 
             handler.set_status.assert_called_once_with(503)
