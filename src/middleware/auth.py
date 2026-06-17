@@ -99,8 +99,11 @@ class AuthenticatedRequestHandler(tornado.web.RequestHandler):
     """
     Базовый класс для всех handlers, требующих авторизации.
     Автоматически проверяет авторизацию и предоставляет доступ к пользователю.
+    Установите _require_auth = False для публичных endpoints (login, register).
     """
-    
+
+    _require_auth = True
+
     def prepare(self) -> None:
         """
         Вызывается перед каждым запросом.
@@ -112,69 +115,94 @@ class AuthenticatedRequestHandler(tornado.web.RequestHandler):
         request_id_var.set(req_id)
         self.set_header("X-Request-ID", req_id)
 
+        if not self._require_auth:
+            return
+
         user = self.get_current_user()
-        
+
         if not user:
-            # Для API запросов возвращаем JSON ошибку
             if self.request.path.startswith('/api/'):
                 self.set_status(401)
                 self.write({'error': True, 'message': 'Unauthorized'})
                 self.finish()
                 return
             else:
-                # Для обычных запросов редиректим на страницу входа
                 self.redirect('/login')
                 return
-        
-        # Проверяем, активна ли компания
+
         if not user.company.is_active:
             self.set_status(403)
             self.write({'error': True, 'message': 'Company is deactivated'})
             self.finish()
             return
-        
-        # Сохраняем пользователя для доступа в handlers
+
         self._current_user = user
-    
+
     def get_current_user(self) -> Optional[User]:
         """
-        Получает текущего пользователя из токена.
-        Переопределяет метод из RequestHandler.
+        Получает текущего пользователя из токена в cookie или заголовке Authorization.
         """
-        # Пробуем получить токен из cookie
-        raw_cookie = self.request.cookies.get('session_token')
-        logger.debug(f"Raw cookie: {raw_cookie is not None}")
-        
         token = self.get_secure_cookie('session_token')
-        logger.debug(f"Secure cookie decoded: {token is not None}")
-        
+
         if not token:
-            # Пробуем из заголовка Authorization
             auth_header = self.request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
                 token = auth_header[7:].encode('utf-8')
-        
+
         if not token:
             return None
-        
+
         try:
             return get_current_user_from_token(token.decode('utf-8'))
         except Exception as e:
             logger.error(f"Ошибка получения пользователя: {e}")
             return None
-    
+
+    def set_auth_cookie(self, token: str, remember: bool = False) -> None:
+        """
+        Устанавливает cookie с токеном сессии.
+        """
+        expires_days = 30 if remember else 1
+        self.set_secure_cookie(
+            'session_token',
+            token,
+            expires_days=expires_days,
+            httponly=True,
+            samesite='Lax'
+        )
+
+    def clear_auth_cookie(self) -> None:
+        """Очищает cookie с токеном сессии."""
+        self.clear_cookie('session_token')
+
+    def write_error_json(self, status_code: int, message: str, details: str = None) -> None:
+        """Форматирует ошибку в JSON."""
+        self.set_status(status_code)
+        self.set_header('Content-Type', 'application/json')
+        response = {'error': True, 'status': status_code, 'message': message}
+        if details:
+            response['details'] = details
+        self.write(response)
+
+    def write_error(self, status_code: int, **kwargs) -> None:
+        """Форматирует ответ об ошибке в JSON формате."""
+        self.set_header('Content-Type', 'application/json')
+        exc_info = kwargs.get('exc_info')
+        error_response = {
+            'error': True,
+            'status': status_code,
+            'message': self._reason,
+        }
+        if exc_info and isinstance(exc_info[1], Exception):
+            error_response['details'] = str(exc_info[1])
+        self.write(error_response)
+
     @property
     def current_user(self) -> Optional[User]:
-        """
-        Возвращает текущего пользователя.
-        """
         return getattr(self, '_current_user', None)
-    
+
     @property
     def current_company_id(self) -> Optional[int]:
-        """
-        Возвращает ID компании текущего пользователя.
-        """
         user = self.current_user
         return user.company.id if user else None
 

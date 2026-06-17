@@ -7,10 +7,9 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-import tornado.web
-
+from src.middleware.auth import AuthenticatedRequestHandler
 from src.models.auth import Company, User, UserRole
-from src.utils.auth import get_current_user_from_token, session_manager
+from src.utils.auth import session_manager
 from src.utils.i18n import t
 from src.utils.validators import validate_email
 
@@ -26,78 +25,13 @@ def _to_iso(value) -> Optional[str]:
     return value.isoformat()
 
 
-class AuthHandler(tornado.web.RequestHandler):
-    """Базовый класс для handlers аутентификации."""
-    
-    def get_current_user(self) -> Optional[User]:
-        """
-        Получает текущего пользователя из токена в cookie или заголовке.
-        
-        Returns:
-            Пользователь или None
-        """
-        # Пробуем получить токен из cookie
-        token = self.get_secure_cookie('session_token')
-        if not token:
-            # Пробуем из заголовка Authorization
-            auth_header = self.request.headers.get('Authorization', '')
-            if auth_header.startswith('Bearer '):
-                token = auth_header[7:].encode('utf-8')
-        
-        if not token:
-            return None
-        
-        try:
-            return get_current_user_from_token(token.decode('utf-8'))
-        except Exception as e:
-            logger.error(f"Ошибка получения пользователя: {e}")
-            return None
-    
-    def set_auth_cookie(self, token: str, remember: bool = False) -> None:
-        """
-        Устанавливает cookie с токеном сессии.
-        
-        Args:
-            token: Токен сессии
-            remember: Если True, cookie будет действовать 30 дней
-        """
-        expires_days = 30 if remember else 1
-        self.set_secure_cookie(
-            'session_token',
-            token,
-            expires_days=expires_days,
-            httponly=True,
-            samesite='Lax'
-        )
-    
-    def clear_auth_cookie(self) -> None:
-        """Очищает cookie с токеном сессии."""
-        self.clear_cookie('session_token')
-    
-    def write_error(self, status_code: int, **kwargs: Any) -> None:
-        """
-        Форматирует ответ об ошибке в JSON формате.
-        """
-        self.set_header('Content-Type', 'application/json')
-        exc_info = kwargs.get('exc_info')
-        
-        error_response = {
-            'error': True,
-            'status': status_code,
-            'message': self._reason,
-        }
-        
-        if exc_info and isinstance(exc_info[1], Exception):
-            error_response['details'] = str(exc_info[1])
-        
-        self.write(json.dumps(error_response))
-
-
-class LoginHandler(AuthHandler):
+class LoginHandler(AuthenticatedRequestHandler):
     """
     Handler для входа пользователя.
     POST /api/auth/login
     """
+
+    _require_auth = False
     
     def post(self) -> None:
         """
@@ -188,11 +122,13 @@ class LoginHandler(AuthHandler):
         })
 
 
-class RegisterHandler(AuthHandler):
+class RegisterHandler(AuthenticatedRequestHandler):
     """
     Handler для регистрации нового пользователя и компании.
     POST /api/auth/register
     """
+
+    _require_auth = False
     
     def post(self) -> None:
         """
@@ -310,7 +246,7 @@ class RegisterHandler(AuthHandler):
             self.write({'error': True, 'message': 'Registration failed'})
 
 
-class LogoutHandler(AuthHandler):
+class LogoutHandler(AuthenticatedRequestHandler):
     """
     Handler для выхода пользователя.
     POST /api/auth/logout
@@ -333,7 +269,7 @@ class LogoutHandler(AuthHandler):
         })
 
 
-class ProfileHandler(AuthHandler):
+class ProfileHandler(AuthenticatedRequestHandler):
     """
     Handler для управления профилем пользователя.
     GET/PUT /api/auth/profile
@@ -436,7 +372,7 @@ class ProfileHandler(AuthHandler):
         })
 
 
-class CompanyHandler(AuthHandler):
+class CompanyHandler(AuthenticatedRequestHandler):
     """
     Handler для управления компанией.
     GET/PUT /api/auth/company
