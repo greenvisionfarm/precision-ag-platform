@@ -18,6 +18,7 @@ from typing import Optional
 from src.constants import UPLOAD_DIR
 from src.middleware.auth import AuthenticatedRequestHandler
 from src.models.field import Field, FieldScan
+from src.services.field_detection import detect_field_from_gps
 from src.tasks import process_drone_fast_task, process_orthomosaic_task
 from src.utils.db_utils import db_connection
 
@@ -196,7 +197,9 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
 
             # Если field_id не указан — пытаемся определить по GPS из первого снимка
             if not field_id:
-                field_id, gps_info, nearby_fields = self._detect_field_from_gps(zip_path)
+                field_id, gps_info, nearby_fields = detect_field_from_gps(
+                    zip_path, self.current_user.company_id
+                )
                 if not field_id:
                     # os.remove(zip_path)  # Временно отключено для отладки
                     error_parts = ["Не удалось определить поле по GPS."]
@@ -272,81 +275,3 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
             logger.error(f"Ошибка в DroneUploadHandler: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
-
-    def _detect_field_from_gps(self, zip_path: str):
-        """
-        Пытается определить поле по GPS координатам.
-        Приоритет: PPK (.MRK) > EXIF/XMP из TIF.
-        @return (field_id, gps_info_dict, fields_list) — field_id может быть None
-        """
-        import zipfile
-
-        from shapely.geometry import Point
-        from shapely.wkt import loads as wkt_loads
-
-        from src.services.provider_dji import DJIProvider
-        
-        provider = DJIProvider()
-        gps_info = None
-        detected_point = None
-        
-        try:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(tmpdir)
-
-                    # Приоритет 1: PPK GPS из .MRK файла (точность ±2см)
-                    mrk_path = provider.find_mrk_file(tmpdir)
-                    if mrk_path:
-                        ppk_data = provider.parse_ppk_timestamps(mrk_path)
-                        if ppk_data:
-                            first = ppk_data[0]
-                            lat, lon = first['lat'], first['lon']
-                            if lat != 0.0 and lon != 0.0:
-                                gps_info = {"source": "PPK", "lat": lat, "lon": lon,
-                                            "quality": first.get('quality', ''),
-                                            "sigma": f"{first['sigma_n']:.2f}/{first['sigma_e']:.2f}/{first['sigma_u']:.2f}cm"}
-                                logger.info(f"PPK GPS: lat={lat}, lon={lon}, quality={first['quality']}, sigma={first['sigma_n']:.2f}/{first['sigma_e']:.2f}/{first['sigma_u']:.2f}cm")
-                                detected_point = Point(lon, lat)
-
-                    # Приоритет 2: EXIF/XMP из первого TIF файла
-                    if not detected_point:
-                        files = [f for f in zip_ref.namelist() 
-                                if f.lower().endswith(('.tif', '.tiff'))]
-                        
-                        if not files:
-                            return None, gps_info, []
-                        
-                        first_file = files[0]
-                        img_path = os.path.join(tmpdir, first_file)
-                        
-                        meta = provider.extract_dji_meta(img_path)
-                        
-                        if meta["lat"] == 0.0 or meta["lon"] == 0.0:
-                            return None, gps_info, []
-                        
-                        gps_info = {"source": "EXIF", "lat": meta["lat"], "lon": meta["lon"]}
-                        detected_point = Point(meta["lon"], meta["lat"])
-
-                    # Ищем поле, содержащее точку
-                    if detected_point:
-                        with db_connection():
-                            for field in Field.select().where(Field.company == self.current_user.company):
-                                field_geom = wkt_loads(field.geometry_wkt)
-                                if field_geom.contains(detected_point):
-                                    return field.id, gps_info, []
-                        
-                        # Точка не попала ни в одно поле — собираем список полей с расстояниями
-                        with db_connection():
-                            fields_list = []
-                            for field in Field.select().where(Field.company == self.current_user.company):
-                                field_geom = wkt_loads(field.geometry_wkt)
-                                dist_m = field_geom.distance(detected_point) * 111000  # грубое метры
-                                fields_list.append({"id": field.id, "name": field.name, "distance_m": round(dist_m)})
-                            fields_list.sort(key=lambda f: f["distance_m"])
-                            return None, gps_info, fields_list[:5]
-        
-        except Exception as e:
-            logger.error(f"Ошибка определения поля по GPS: {e}")
-        
-        return None, gps_info, []
