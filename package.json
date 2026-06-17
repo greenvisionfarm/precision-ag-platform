@@ -16,7 +16,11 @@
     "lint:js": "eslint ."
   },
   "jest": {
-    "testEnvironment": "jsdom"
+    "testEnvironment": "jsdom",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ]
   },
   "keywords": [],
   "author": "",
