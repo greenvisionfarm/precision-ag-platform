@@ -10,44 +10,40 @@ import pytest
 
 from db import database
 from src.models.field import Field, FieldZone
-from src.models.auth import Company
 from src.services.isoxml_service import export_isoxml
+from tests.conftest import TEST_WKT_POLYGON
 
-# Namespace для ISOXML
 ISOXML_NS = '{http://www.isobus.net/isobus/TaskFile}'
 
 
 @pytest.fixture
-def setup_field_with_zones(test_db):
+def setup_field_with_zones(test_db, test_company):
     """Создаёт тестовое поле с зонами."""
-    company = Company.create(name='ISOXML Co', slug='isoxml-co')
-    
     with database.atomic():
         field = Field.create(
             name="Тестовое поле для ISOXML",
-            geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
+            geometry_wkt=TEST_WKT_POLYGON,
             properties_json='{"area": 100}',
-            company=company
+            company=test_company
         )
-        
-        # Создаём 3 зоны с разными NDVI
+
         zones_data = [
             {"name": "Низкая", "avg_ndvi": 0.25, "color": "#ff4d4d"},
             {"name": "Средняя", "avg_ndvi": 0.55, "color": "#ffcc00"},
             {"name": "Высокая", "avg_ndvi": 0.78, "color": "#2eb82e"},
         ]
-        
+
         for z in zones_data:
             FieldZone.create(
                 field=field,
                 name=z['name'],
-                geometry_wkt="POLYGON ((18.72 48.12, 18.78 48.12, 18.78 48.18, 18.72 48.18, 18.72 48.12))",
+                geometry_wkt=TEST_WKT_POLYGON,
                 avg_ndvi=z['avg_ndvi'],
                 color=z['color']
             )
-    
+
     yield field
-    
+
     with database.atomic():
         FieldZone.delete().where(FieldZone.field == field).execute()
         Field.delete().where(Field.id == field.id).execute()

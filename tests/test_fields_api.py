@@ -12,24 +12,16 @@ from db import Field
 
 
 @pytest.fixture
-def company_with_fields(test_db):
-    """Создаёт компанию, пользователя и 3 тестовых поля."""
-    from src.models.auth import Company, User, UserRole
+def company_with_fields(test_db, test_company, test_user):
+    """Создаёт 3 тестовых поля для test_company."""
+    Field.create(name='Поле A', area=10.5, company_id=test_company.id,
+                 geometry_wkt='POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')
+    Field.create(name='Поле B', area=20.3, company_id=test_company.id,
+                 geometry_wkt='POLYGON((2 0, 3 0, 3 1, 2 1, 2 0))')
+    Field.create(name='Поле C', area=5.0, company_id=test_company.id,
+                 geometry_wkt='POLYGON((4 0, 5 0, 5 1, 4 1, 4 0))')
 
-    company = Company.create(name='Test Agro', slug='test-agro')
-    user = User.create_user(
-        email='farmer@test.com',
-        password='farm123',
-        company=company,
-        role=UserRole.OWNER
-    )
-
-    # Создаём поля
-    Field.create(name='Поле A', area=10.5, company_id=company.id, geometry_wkt='POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')
-    Field.create(name='Поле B', area=20.3, company_id=company.id, geometry_wkt='POLYGON((2 0, 3 0, 3 1, 2 1, 2 0))')
-    Field.create(name='Поле C', area=5.0, company_id=company.id, geometry_wkt='POLYGON((4 0, 5 0, 5 1, 4 1, 4 0))')
-
-    return {'user': user, 'company': company}
+    return {'user': test_user, 'company': test_company}
 
 
 class TestFieldsApiAuth:
