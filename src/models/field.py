@@ -69,6 +69,11 @@ class Field(BaseModel):
     def __str__(self) -> str:
         return self.name or f"Field {self.id}"
 
+    @classmethod
+    def for_company(cls, company):
+        """Возвращает выборку полей для компании."""
+        return cls.select().where(cls.company == company)
+
 
 class FieldScan(BaseModel):
     """Модель скана поля (NDVI TIFF файл с датой загрузки)."""
