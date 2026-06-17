@@ -3,6 +3,7 @@
 *$py.class
 # AI Contexts (temporary files)
 .ai-contexts/*.tmp
+.mimocode/
 .coverage
 # Database
 *.db
