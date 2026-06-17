@@ -584,5 +584,3 @@ if (document.readyState === "loading") {
 } else {
   authModule.init();
 }
-
-export default authModule;

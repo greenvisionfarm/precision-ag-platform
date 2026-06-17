@@ -1582,3 +1582,195 @@ body.sidebar-open #upload-badge-trigger {
         width: auto;
     }
 }
+
+/* === Help Wiki === */
+.help-layout {
+    display: flex;
+    height: 100%;
+}
+
+.help-sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border-color);
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+
+.help-sidebar h2 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.help-search {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--input-bg);
+    color: var(--text-color);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-lg);
+    box-sizing: border-box;
+}
+
+.help-nav-category {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-xs);
+    font-weight: 600;
+}
+
+.help-nav-item {
+    display: block;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--text-color);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.help-nav-item:hover {
+    background: var(--hover-bg);
+}
+
+.help-nav-item.active {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 500;
+}
+
+.help-content {
+    flex: 1;
+    padding: var(--spacing-2xl);
+    overflow-y: auto;
+    max-width: 800px;
+}
+
+.help-article h1 {
+    font-size: 1.6rem;
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.help-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.help-section h2 {
+    font-size: 1.15rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--primary-color);
+}
+
+.help-body {
+    line-height: 1.7;
+    color: var(--text-color);
+}
+
+.help-body ul, .help-body ol {
+    padding-left: var(--spacing-xl);
+    margin-top: var(--spacing-sm);
+}
+
+.help-body li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.help-body strong {
+    color: var(--text-color);
+}
+
+/* === Help Tooltip === */
+.help-tooltip {
+    position: fixed;
+    z-index: 10000;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: var(--spacing-md);
+    max-width: 280px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    font-size: var(--font-size-sm);
+}
+
+.help-tooltip.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.help-tooltip.above {
+    transform: translateY(-100%);
+}
+
+.help-tooltip-content {
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.5;
+}
+
+.help-tooltip-link {
+    display: inline-block;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.help-tooltip-link:hover {
+    text-decoration: underline;
+}
+
+/* Inline help icon */
+[data-help]::after,
+[data-help-text]::after {
+    content: "?";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-left: 4px;
+    cursor: help;
+    vertical-align: super;
+    transition: background 0.15s;
+}
+
+[data-help]:hover::after,
+[data-help-text]:hover::after {
+    background: var(--primary-color);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .help-layout {
+        flex-direction: column;
+    }
+    .help-sidebar {
+        width: 100%;
+        min-width: 0;
+        max-height: 200px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .help-content {
+        padding: var(--spacing-lg);
+    }
+}

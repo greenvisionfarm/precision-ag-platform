@@ -17,6 +17,8 @@ import { FieldDetailView } from "./modules/views/field-detail-view.js";
 import { OwnersView } from "./modules/views/owners-view.js";
 import { StatsView, setStatsViewRef } from "./modules/stats.js";
 import { UploadsView } from "./modules/views/uploads-view.js";
+import { HelpView } from "./modules/views/help-view.js";
+import { initTooltips } from "./modules/tooltip.js";
 
 // Глобальная настройка jQuery для отправки cookie (авторизация)
 $.ajaxSetup({
@@ -96,6 +98,7 @@ class FieldMapperApp {
     this.ownersView = new OwnersView();
     this.statsView = new StatsView();
     this.uploadsView = new UploadsView();
+    this.helpView = new HelpView();
   }
 
   async init() {
@@ -115,6 +118,7 @@ class FieldMapperApp {
     this.router.register("#owners", this.ownersView);
     this.router.register("#stats", this.statsView);
     this.router.register("#uploads", this.uploadsView);
+    this.router.register("#help", this.helpView);
 
     // Sidebar
     $("#sidebar-toggle").on("click", this.toggleSidebar.bind(this));
@@ -126,6 +130,9 @@ class FieldMapperApp {
 
     // Связываем StatsView с theme.js
     setStatsViewRef(this.statsView);
+
+    // Тултипы
+    initTooltips();
 
     // Маршрутизация
     $(window).on("hashchange", () => this.onHashChange());
