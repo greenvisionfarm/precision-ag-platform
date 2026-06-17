@@ -11,7 +11,7 @@ export function loadScanZones(scanId, state) {
     const zones = data.zones || [];
     window.MapManager.updateZones(zones);
     renderZonesStats(zones, state);
-  }).fail(err => {
+  }).catch(err => {
     console.error("Ошибка загрузки зон:", err);
     showMessage("Не удалось загрузить зоны для этого скана", "error");
   });

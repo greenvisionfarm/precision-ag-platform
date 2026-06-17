@@ -73,7 +73,7 @@ export function compareSelectedScans(fieldId) {
     const trendIcon = delta > 0.05 ? "📈 Улучшение" : (delta < -0.05 ? "📉 Ухудшение" : "➡️ Стабильно");
     $("#compare-trend-icon").text(trendIcon);
     showMessage(`Сравнение завершено. Изменение NDVI: ${deltaText}`, "info");
-  }).fail(err => {
+  }).catch(err => {
     console.error("Ошибка сравнения:", err);
     showMessage("Не удалось выполнить сравнение", "error");
   });

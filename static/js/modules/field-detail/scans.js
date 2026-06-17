@@ -110,7 +110,7 @@ export function loadFieldScans(fieldId, state) {
     if (state.currentScanId) {
       loadScanZones(state.currentScanId, state);
     }
-  }).fail(err => {
+  }).catch(err => {
     console.error("Ошибка загрузки сканов:", err);
   });
 }
@@ -136,7 +136,7 @@ function startProcessingPoll(fieldId, state) {
         state.processingPollInterval = null;
         $("#ndvi-processing-msg").hide();
       }
-    }).fail(err => {
+    }).catch(err => {
       console.error("Ошибка polling:", err);
     });
   }, 10000);
@@ -171,7 +171,7 @@ export function deleteScan(fieldId, scanId, state) {
           state.currentScanId = null;
           state.currentScan = null;
         }
-      }).fail(err => {
+      }).catch(err => {
         console.error("Ошибка удаления скана:", err);
         showMessage("Не удалось удалить скан", "error");
       });
