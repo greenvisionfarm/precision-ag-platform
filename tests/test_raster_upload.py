@@ -16,35 +16,9 @@ from src.models.auth import Company, User, UserRole
 
 
 @pytest.fixture
-def mock_geotiff_file():
+def mock_geotiff_file(make_geotiff):
     """Создает временный GeoTIFF файл с тестовыми данными NDVI."""
-    with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
-        path = tmp.name
-
-    # Создаем данные NDVI (диапазон -1.0 до 1.0)
-    data = np.zeros((50, 50), dtype=np.float32)
-    data[:, :] = 0.5  # Средний NDVI
-
-    # Добавляем немного шума
-    data += np.random.normal(0, 0.02, (50, 50))
-
-    # Координаты: запад, юг, восток, север
-    transform = rasterio.transform.from_bounds(18.7, 48.1, 18.8, 48.2, 50, 50)
-
-    with rasterio.open(
-        path, 'w', driver='GTiff',
-        height=50, width=50,
-        count=1, dtype='float32',
-        crs='EPSG:4326',
-        transform=transform
-    ) as dst:
-        dst.write(data, 1)
-
-    yield path
-    
-    # Cleanup
-    if os.path.exists(path):
-        os.remove(path)
+    return make_geotiff(rows=50, cols=50, zones=[0.5], noise_std=0.02)
 
 
 @pytest.fixture
@@ -54,28 +28,7 @@ def mock_geotiff_bytes(mock_geotiff_file):
         return f.read()
 
 
-@pytest.fixture
-def test_company(test_db):
-    """Создает тестовую компанию."""
-    company = Company.create(name='Raster Test Co', slug='raster-test-co')
-    yield company
-    # Cleanup
-    with database.atomic():
-        User.delete().where(User.company == company).execute()
-        Company.delete().where(Company.id == company.id).execute()
-
-
-@pytest.fixture
-def test_user(test_db, test_company):
-    """Создает тестового пользователя."""
-    user = User.create_user(
-        email='raster-test@test.com',
-        password='testpassword123',
-        company=test_company,
-        role=UserRole.OWNER
-    )
-    yield user
-    # Cleanup выполняется автоматически через test_company
+# test_company и test_user берутся из conftest.py
 
 
 @pytest.fixture

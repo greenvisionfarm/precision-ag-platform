@@ -4,30 +4,15 @@ import rasterio
 from rasterio.transform import from_origin
 import os
 
-# Импорты из твоего проекта
 from src.services.core_math import calculate_index_from_arrays, calculate_vra_redistribution
 from src.services.raster_service import process_ndvi_zones
 
-# Фикстура для создания временного GeoTIFF в памяти (точнее, временного файла)
+
 @pytest.fixture
-def mock_geotiff(tmp_path):
-    path = tmp_path / "test_field.tif"
-    # Создаем градиентное поле (имитируем реальную вариативность NDVI)
-    # 100x100 пикселей, значения от 0.1 до 0.9
-    rows, cols = 100, 100
-    data = np.linspace(0.1, 0.9, rows * cols).reshape(rows, cols).astype(np.float32)
-    
-    # Добавим немного "шума" для реалистичности кластеризации
-    data += np.random.normal(0, 0.05, (rows, cols))
-    data = np.clip(data, 0.1, 0.9).astype(np.float32)
-    
-    with rasterio.open(
-        path, 'w', driver='GTiff', height=rows, width=cols, count=1,
-        dtype=np.float32, crs='EPSG:4326',
-        transform=from_origin(30.0, 50.0, 0.0001, 0.0001)
-    ) as dst:
-        dst.write(data, 1)
-    return str(path)
+def mock_geotiff(make_geotiff):
+    """Создаёт тестовый GeoTIFF с градиентом NDVI."""
+    return make_geotiff(rows=100, cols=100, zones=[0.1, 0.5, 0.9],
+                        bounds=(30.0, 49.99, 30.01, 50.0))
 
 # 1. Тест математики индексов
 def test_ndvi_math_sanity():
