@@ -2,6 +2,7 @@
  * Journal — журнал операций на поле.
  */
 import { showMessage } from "../utils.js";
+import { fetchApi } from "../api.js";
 
 const CROP_LABELS = {
   wheat: "Пшеница", corn: "Кукуруза", sunflower: "Подсолнечник",
@@ -12,7 +13,7 @@ const CROP_LABELS = {
 let _boundDelegation = false;
 
 export function loadJournal(fieldId) {
-  $.getJSON(`/api/field/${fieldId}/journal`).then(data => {
+  fetchApi(`/api/field/${fieldId}/journal`).then(data => {
     const entries = data.entries || [];
     if (entries.length === 0) {
       $("#journal-entries").hide();
@@ -54,7 +55,7 @@ export function loadJournal(fieldId) {
 
 export function deleteJournalEntry(fieldId, entryId) {
   if (!confirm("Удалить запись журнала?")) return;
-  $.ajax({ url: `/api/field/${fieldId}/journal/${entryId}`, type: "DELETE" })
+  fetchApi(`/api/field/${fieldId}/journal/${entryId}`, { method: "DELETE" })
     .then(() => { loadJournal(fieldId); showMessage("Запись удалена", "success"); });
 }
 
@@ -128,15 +129,11 @@ export function initJournalAddHandler(getFieldId) {
       }
     }).then(res => {
       if (!res.isConfirmed) return;
-      $.ajax({
-        url: `/api/field/${fieldId}/journal/add`,
-        type: "POST",
-        contentType: "application/json",
-        data: JSON.stringify(res.value)
-      }).then(() => {
-        loadJournal(fieldId);
-        showMessage("Запись добавлена", "success");
-      });
+      fetchApi(`/api/field/${fieldId}/journal/add`, { method: "POST", body: res.value })
+        .then(() => {
+          loadJournal(fieldId);
+          showMessage("Запись добавлена", "success");
+        });
     });
   });
 }

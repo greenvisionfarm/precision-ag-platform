@@ -1,7 +1,7 @@
 /**
  * Export — экспорт поля в various форматы.
  */
-import API from "../api.js";
+import API, { fetchApi } from "../api.js";
 import { showMessage } from "../utils.js";
 import { downloadKmzWithSettings } from "../modals.js";
 
@@ -249,20 +249,14 @@ export function initExportHandlers(getFieldId) {
     const formData = new FormData();
     formData.append("raster_file", file);
 
-    $.ajax({
-      url: "/api/raster/upload",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      success: () => {
+    fetchApi("/api/raster/upload", { method: "POST", body: formData })
+      .then(() => {
         showMessage("NDVI загружен! Зоны появятся через несколько секунд.", "success");
         $("#field-ndvi-input").val();
-      },
-      error: (xhr) => {
-        showMessage(xhr.responseJSON?.error || "Ошибка загрузки", "error");
+      })
+      .catch((err) => {
+        showMessage(err.message || "Ошибка загрузки", "error");
         $("#field-ndvi-input").val();
-      }
-    });
+      });
   });
 }

@@ -2,7 +2,7 @@
  * Загрузка файлов (GeoTIFF, Shapefile) и обработка задач.
  */
 import { showMessage } from "./utils.js";
-import API from "./api.js";
+import API, { fetchApi } from "./api.js";
 import { register, updateProgress, complete } from "./upload-manager.js";
 
 /**
@@ -27,13 +27,8 @@ export function initShapefileUpload() {
     statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка...");
     btn.prop("disabled", true);
 
-    $.ajax({
-      url: "/upload",
-      type: "POST",
-      data: new FormData(this),
-      processData: false,
-      contentType: false,
-      success: (res) => {
+    fetchApi("/upload", { method: "POST", body: new FormData(this) })
+      .then((res) => {
         statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Успешно загружено!");
         window.loadMapData?.();
         window.getFieldsTable?.()?.ajax.reload();
@@ -45,14 +40,13 @@ export function initShapefileUpload() {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
         }, 3000);
-      },
-      error: () => {
+      })
+      .catch(() => {
         statusDiv.addClass("text-danger").html("<i class=\"fas fa-exclamation-triangle\"></i> Ошибка загрузки");
         btn.prop("disabled", false);
         showMessage("Ошибка загрузки файла", "error");
         if (uploadId) complete(uploadId, { status: "error", message: "Ошибка загрузки" });
-      }
-    });
+      });
   });
 }
 
@@ -81,21 +75,15 @@ export function initRasterUpload() {
     const formData = new FormData();
     formData.append("raster_file", file);
 
-    $.ajax({
-      url: "/api/raster/upload",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      success: (res) => {
+    fetchApi("/api/raster/upload", { method: "POST", body: formData })
+      .then((res) => {
         statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> NDVI загружен! Обработка зон...");
         window.loadMapData?.();
 
-        // Если открыта детальная страница поля, обновляем сканы
         if (window.loadFieldScans && res.field_id) {
           setTimeout(() => {
             window.loadFieldScans(res.field_id);
-          }, 2000); // Ждем 2 секунды чтобы worker успел обработать
+          }, 2000);
         }
 
         form.reset();
@@ -108,15 +96,14 @@ export function initRasterUpload() {
         }, 5000);
 
         showMessage("NDVI файл загружен. Зоны появятся через несколько секунд.", "success");
-      },
-      error: (xhr) => {
-        const err = xhr.responseJSON?.error || "Ошибка загрузки";
-        statusDiv.addClass("text-danger").html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
+      })
+      .catch((err) => {
+        const errMsg = err.message || "Ошибка загрузки";
+        statusDiv.addClass("text-danger").html(`<i class=\"fas fa-exclamation-triangle\"></i> ${errMsg}`);
         btn.prop("disabled", false);
-        showMessage(err, "error");
-        if (uploadId) complete(uploadId, { status: "error", message: err });
-      }
-    });
+        showMessage(errMsg, "error");
+        if (uploadId) complete(uploadId, { status: "error", message: errMsg });
+      });
   });
 }
 

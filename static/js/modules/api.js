@@ -1,139 +1,142 @@
 /**
  * API client — централизованный доступ к бэкенду.
- * Использует jQuery $.ajax для обратной совместимости.
+ * Использует fetch с единым обработчиком ошибок.
  */
 
-function handleApiError(xhr, status, error) {
-  if (xhr.status === 401) {
+function handleApiError(status, message) {
+  if (status === 401) {
     if (window.AuthModule) window.AuthModule.openLogin();
-    return Promise.reject({ xhr, status, error });
+    return Promise.reject({ status, message });
   }
 
-  const errorMsg = xhr.responseJSON?.error || error || "Неизвестная ошибка";
-  console.error(`API Error: ${xhr.status} ${status}`, errorMsg);
+  console.error(`API Error: ${status}`, message);
 
   if (typeof window.showMessage !== "undefined") {
-    window.showMessage(`Ошибка: ${errorMsg}`, "error");
+    window.showMessage(`Ошибка: ${message}`, "error");
   } else {
-    alert(`Ошибка: ${errorMsg}`);
+    alert(`Ошибка: ${message}`);
   }
 
-  return Promise.reject({ xhr, status, error });
+  return Promise.reject({ status, message });
+}
+
+async function fetchApi(url, options = {}) {
+  const defaults = {
+    credentials: "include",
+    headers: {},
+  };
+
+  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+    defaults.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+
+  const config = { ...defaults, ...options, headers: { ...defaults.headers, ...options.headers } };
+
+  try {
+    const resp = await fetch(url, config);
+
+    if (!resp.ok) {
+      let message = resp.statusText;
+      try {
+        const err = await resp.json();
+        message = err.error || err.message || message;
+      } catch {}
+      return handleApiError(resp.status, message);
+    }
+
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      return resp.json();
+    }
+    return resp;
+  } catch (e) {
+    return handleApiError(0, e.message || "Сетевая ошибка");
+  }
 }
 
 class APIClient {
-  // --- Fields ---
-  getFields() { return $.getJSON("/api/fields").catch(handleApiError); }
-  getFieldsData() { return $.getJSON("/api/fields_data").catch(handleApiError); }
-  getField(id) { return $.getJSON(`/api/field/${id}`).catch(handleApiError); }
+  getFields() { return fetchApi("/api/fields"); }
+  getFieldsData() { return fetchApi("/api/fields_data"); }
+  getField(id) { return fetchApi(`/api/field/${id}`); }
 
   addField(geometry, name) {
-    return $.ajax({
-      url: "/api/field/add", type: "POST", contentType: "application/json",
-      data: JSON.stringify({ geometry, name })
-    }).catch(handleApiError);
+    return fetchApi("/api/field/add", { method: "POST", body: { geometry, name } });
   }
 
   deleteField(id) {
-    return $.ajax({ url: `/api/field/delete/${id}`, type: "DELETE" }).catch(handleApiError);
+    return fetchApi(`/api/field/delete/${id}`, { method: "DELETE" });
   }
 
   updateField(id, action, data) {
-    return $.ajax({
-      url: `/api/field/${action}/${id}`, type: "PUT", contentType: "application/json",
-      data: JSON.stringify(data)
-    }).catch(handleApiError);
+    return fetchApi(`/api/field/${action}/${id}`, { method: "PUT", body: data });
   }
 
-  // --- Owners ---
-  getOwners() { return $.getJSON("/api/owners").catch(handleApiError); }
+  getOwners() { return fetchApi("/api/owners"); }
 
   addOwner(name) {
-    return $.ajax({
-      url: "/api/owner/add", type: "POST", contentType: "application/json",
-      data: JSON.stringify({ name })
-    }).catch(handleApiError);
+    return fetchApi("/api/owner/add", { method: "POST", body: { name } });
   }
 
   deleteOwner(id) {
-    return $.ajax({ url: `/api/owner/delete/${id}`, type: "DELETE" }).catch(handleApiError);
+    return fetchApi(`/api/owner/delete/${id}`, { method: "DELETE" });
   }
 
-  // --- Uploads ---
   uploadFile(formData) {
-    return $.ajax({
-      url: "/upload", type: "POST", data: formData,
-      processData: false, contentType: false
-    }).catch(handleApiError);
+    return fetchApi("/upload", { method: "POST", body: formData });
   }
 
-  // --- Tasks ---
   getTaskStatus(taskId) {
-    return $.getJSON(`/api/task/${taskId}`).catch(handleApiError);
+    return fetchApi(`/api/task/${taskId}`);
   }
 
-  // --- Scans ---
   getFieldScans(fieldId) {
-    return $.getJSON(`/api/field/${fieldId}/scans`).catch(handleApiError);
+    return fetchApi(`/api/field/${fieldId}/scans`);
   }
 
   compareScans(fieldId, scan1Id, scan2Id) {
-    return $.getJSON(`/api/field/${fieldId}/compare?scan1=${scan1Id}&scan2=${scan2Id}`).catch(handleApiError);
+    return fetchApi(`/api/field/${fieldId}/compare?scan1=${scan1Id}&scan2=${scan2Id}`);
   }
 
   deleteScan(fieldId, scanId) {
-    return $.ajax({ url: `/api/field/${fieldId}/scans/${scanId}`, type: "DELETE" }).catch(handleApiError);
+    return fetchApi(`/api/field/${fieldId}/scans/${scanId}`, { method: "DELETE" });
   }
 
   getScanZones(scanId) {
-    return $.getJSON(`/api/scan/${scanId}/zones`).catch(handleApiError);
+    return fetchApi(`/api/scan/${scanId}/zones`);
   }
 
   updateScanCrop(scanId, cropType) {
-    return $.ajax({
-      url: `/api/scan/${scanId}/update_crop`, type: "POST",
-      contentType: "application/json", data: JSON.stringify({ crop_type: cropType })
-    }).catch(handleApiError);
+    return fetchApi(`/api/scan/${scanId}/update_crop`, { method: "POST", body: { crop_type: cropType } });
   }
 
-  // --- Crops ---
-  getCrops() { return $.getJSON("/api/crops").catch(handleApiError); }
+  getCrops() { return fetchApi("/api/crops"); }
 
-  // --- Export ---
-  exportKmz(fieldId, params = {}) {
-    return $.ajax({
-      url: `/api/field/export/kmz/${fieldId}`, type: "GET", data: params,
-      xhrFields: { responseType: "blob" }
-    }).catch(handleApiError);
+  async exportKmz(fieldId, params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const url = `/api/field/export/kmz/${fieldId}${qs ? "?" + qs : ""}`;
+    const resp = await fetchApi(url);
+    return resp.blob ? resp : resp;
   }
 
-  exportAllKmz(params = {}) {
-    return $.ajax({
-      url: "/api/field/export/kmz/all", type: "GET", data: params,
-      xhrFields: { responseType: "blob" }
-    }).catch(handleApiError);
+  async exportAllKmz(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const url = `/api/field/export/kmz/all${qs ? "?" + qs : ""}`;
+    return fetchApi(url);
   }
 
   exportIsoxml(fieldId, params = {}) {
-    return $.ajax({
-      url: `/api/field/export/isoxml/${fieldId}`, type: "POST",
-      contentType: "application/json", data: JSON.stringify(params),
-      dataType: "binary", xhrFields: { responseType: "blob" }
-    }).catch(handleApiError);
+    return fetchApi(`/api/field/export/isoxml/${fieldId}`, { method: "POST", body: params });
   }
 
   exportTaskData(fieldId, params = {}) {
-    return $.ajax({
-      url: `/api/field/export/taskdata/${fieldId}`, type: "POST",
-      contentType: "application/json", data: JSON.stringify(params),
-      xhrFields: { responseType: "blob" }
-    }).catch(handleApiError);
+    return fetchApi(`/api/field/export/taskdata/${fieldId}`, { method: "POST", body: params });
   }
 }
 
 const API = new APIClient();
 
-export { handleApiError };
+export { handleApiError, fetchApi };
 export default API;
 window.API = API;
 window.handleApiError = handleApiError;
