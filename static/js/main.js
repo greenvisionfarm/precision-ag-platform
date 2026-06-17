@@ -8,6 +8,7 @@ import { initFieldsTable, initOwnersTable, getFieldsTable } from './modules/tabl
 import { openFieldModal, downloadKmzWithSettings } from './modules/modals.js';
 import { showFieldDetail } from './modules/field-detail.js';
 import { initShapefileUpload, initRasterUpload, initDroneUpload } from './modules/uploads.js';
+import { initUploadManager } from './modules/upload-manager.js';
 import { initStatsView } from './modules/stats.js';
 import { initTheme } from './modules/theme.js';
 import { loadMapData, onFieldCreated, onFieldEdited, onFieldDeleted } from './modules/map-callbacks.js';
@@ -121,7 +122,10 @@ class FieldMapperApp {
         $('.main-content').on('click', this.closeSidebar.bind(this));
         $('#sidebar .nav-link').on('click', this.closeSidebar.bind(this));
 
-        // 7. Инициализация загрузок
+        // 7. Менеджер загрузок
+        initUploadManager();
+
+        // 8. Инициализация загрузок
         initShapefileUpload();
         initRasterUpload();
         initDroneUpload();

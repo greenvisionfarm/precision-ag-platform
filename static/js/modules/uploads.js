@@ -1,8 +1,9 @@
 /**
  * Загрузка файлов (GeoTIFF, Shapefile) и обработка задач.
  */
-import { showMessage } from './utils.js';
-import API from './api.js';
+import { showMessage } from "./utils.js";
+import API from "./api.js";
+import { register, updateProgress, complete } from "./upload-manager.js";
 
 /**
  * Инициализирует форму загрузки Shapefile.
@@ -20,6 +21,8 @@ export function initShapefileUpload() {
     const form = this;
     const statusDiv = $("#upload-status");
     const btn = $("#upload-button");
+    const file = this.shapefile_zip?.files[0];
+    const uploadId = file ? register({ type: "shapefile", filename: file.name }) : null;
 
     statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка...");
     btn.prop("disabled", true);
@@ -35,8 +38,9 @@ export function initShapefileUpload() {
         window.loadMapData?.();
         window.getFieldsTable?.()?.ajax.reload();
         form.reset();
-        $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP файл');
+        $(form).find(".file-input-label").html("<i class=\"fas fa-file-upload\"></i> Выберите ZIP файл");
         btn.addClass("hidden");
+        if (uploadId) complete(uploadId, { status: "completed", message: "Загружен" });
         setTimeout(() => {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
@@ -46,6 +50,7 @@ export function initShapefileUpload() {
         statusDiv.addClass("text-danger").html("<i class=\"fas fa-exclamation-triangle\"></i> Ошибка загрузки");
         btn.prop("disabled", false);
         showMessage("Ошибка загрузки файла", "error");
+        if (uploadId) complete(uploadId, { status: "error", message: "Ошибка загрузки" });
       }
     });
   });
@@ -67,12 +72,14 @@ export function initRasterUpload() {
     const form = this;
     const statusDiv = $("#raster-upload-status");
     const btn = $("#raster-upload-button");
+    const file = $("#raster-input")[0].files[0];
+    const uploadId = file ? register({ type: "raster", filename: file.name }) : null;
 
     statusDiv.removeClass("text-success text-danger").html("<i class=\"fas fa-spinner fa-spin\"></i> Загрузка...");
     btn.prop("disabled", true);
 
     const formData = new FormData();
-    formData.append("raster_file", $("#raster-input")[0].files[0]);
+    formData.append("raster_file", file);
 
     $.ajax({
       url: "/api/raster/upload",
@@ -92,20 +99,22 @@ export function initRasterUpload() {
         }
 
         form.reset();
-        $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите TIF файл');
+        $(form).find(".file-input-label").html("<i class=\"fas fa-file-upload\"></i> Выберите TIF файл");
         btn.addClass("hidden");
+        if (uploadId) complete(uploadId, { status: "completed", message: "Загружен" });
         setTimeout(() => {
           statusDiv.removeClass("text-success").html("");
           btn.prop("disabled", false);
         }, 5000);
 
-        showMessage(`NDVI файл загружен. Зоны появятся через несколько секунд.`, "success");
+        showMessage("NDVI файл загружен. Зоны появятся через несколько секунд.", "success");
       },
       error: (xhr) => {
         const err = xhr.responseJSON?.error || "Ошибка загрузки";
         statusDiv.addClass("text-danger").html(`<i class="fas fa-exclamation-triangle"></i> ${err}`);
         btn.prop("disabled", false);
         showMessage(err, "error");
+        if (uploadId) complete(uploadId, { status: "error", message: err });
       }
     });
   });
@@ -196,6 +205,9 @@ export function initDroneUpload() {
     xhr.open("POST", "/api/drone/upload", true);
     xhr.timeout = 3600000;
 
+    // Регистрируем в менеджере загрузок
+    const uploadId = register({ type: "drone", filename: file.name, xhr });
+
     // Прогресс загрузки файла
     xhr.upload.onprogress = function(e) {
       if (e.lengthComputable) {
@@ -204,28 +216,31 @@ export function initDroneUpload() {
         const totalMB = (e.total / 1024 / 1024).toFixed(0);
         progressFill.css("width", `${pct}%`);
         progressText.text(`${pct}% — ${loadedMB} / ${totalMB} MB`);
+        updateProgress(uploadId, { progress: pct, message: `${loadedMB} / ${totalMB} MB` });
       }
     };
 
     xhr.onload = function() {
       if (xhr.status >= 200 && xhr.status < 300) {
         const res = JSON.parse(xhr.responseText);
-        const modeLabel = res.processing_mode === 'orthomosaic' ? 'ортомозаика' : 'быстрая';
+        const modeLabel = res.processing_mode === "orthomosaic" ? "ортомозаика" : "быстрая";
 
         setStep(2, `Обработка (${modeLabel}) запущена`);
         progressFill.css("width", "100%");
         progressText.text("Готово");
+
+        updateProgress(uploadId, { status: "processing", progress: 100, message: `Обработка (${modeLabel})` });
 
         statusDiv.removeClass("text-danger").addClass("text-success")
           .html(`<i class="fas fa-check"></i> Архив принят! Обработка (${modeLabel}) запущена...`);
         statusDiv.show();
 
         if (res.task_id) {
-          pollDroneTaskStatus(res.task_id, res.field_id);
+          pollDroneTaskStatus(res.task_id, res.field_id, uploadId);
         }
 
         form.reset();
-        $(form).find(".file-input-label").html('<i class="fas fa-file-upload"></i> Выберите ZIP или снимки');
+        $(form).find(".file-input-label").html("<i class=\"fas fa-file-upload\"></i> Выберите ZIP или снимки");
       } else {
         let err;
         if (xhr.status === 413) {
@@ -246,27 +261,30 @@ export function initDroneUpload() {
         stepsDiv.addClass("hidden");
         btn.prop("disabled", false).removeClass("hidden");
         showMessage(err, "error");
+        complete(uploadId, { status: "error", message: err });
       }
     };
 
     xhr.onerror = function() {
       statusDiv.removeClass("text-success").addClass("text-danger")
-        .html('<i class="fas fa-exclamation-triangle"></i> Нет соединения с сервером. Проверьте интернет.');
+        .html("<i class=\"fas fa-exclamation-triangle\"></i> Нет соединения с сервером. Проверьте интернет.");
       statusDiv.show();
       progressDiv.addClass("hidden");
       stepsDiv.addClass("hidden");
       btn.prop("disabled", false).removeClass("hidden");
       showMessage("Нет соединения с сервером", "error");
+      complete(uploadId, { status: "error", message: "Нет соединения с сервером" });
     };
 
     xhr.ontimeout = function() {
       statusDiv.removeClass("text-success").addClass("text-danger")
-        .html('<i class="fas fa-exclamation-triangle"></i> Превышено время ожидания.');
+        .html("<i class=\"fas fa-exclamation-triangle\"></i> Превышено время ожидания.");
       statusDiv.show();
       progressDiv.addClass("hidden");
       stepsDiv.addClass("hidden");
       btn.prop("disabled", false).removeClass("hidden");
       showMessage("Превышено время ожидания", "error");
+      complete(uploadId, { status: "error", message: "Превышено время ожидания" });
     };
 
     // Симулируем серверные этапы после завершения загрузки
@@ -274,6 +292,7 @@ export function initDroneUpload() {
       setStep(1, "Сохранение на диск...");
       progressFill.css("width", "100%");
       progressText.text("Загрузка завершена, обработка...");
+      updateProgress(uploadId, { message: "Сохранение на диск..." });
     };
 
     xhr.send(formData);
@@ -300,7 +319,7 @@ function loadFieldsForDropdown() {
  * @param {string} taskId - ID задачи.
  * @param {string|number} fieldId - ID поля.
  */
-function pollDroneTaskStatus(taskId, fieldId) {
+function pollDroneTaskStatus(taskId, fieldId, uploadId) {
   const statusDiv = $("#drone-upload-status");
   const progressDiv = $("#drone-progress");
   const progressFill = progressDiv.find(".progress-fill");
@@ -328,8 +347,9 @@ function pollDroneTaskStatus(taskId, fieldId) {
         stepsDiv.find(".step").addClass("done");
         stepsDiv.find(".step-text").text("Готово!");
         statusDiv.removeClass("text-danger").addClass("text-success")
-          .html('<i class="fas fa-check-circle"></i> Обработка завершена! Зоны созданы.');
+          .html("<i class=\"fas fa-check-circle\"></i> Обработка завершена! Зоны созданы.");
         showMessage("Обработка завершена! Зоны NDVI созданы.", "success");
+        complete(uploadId, { status: "completed", message: "Обработка завершена" });
         
         setTimeout(() => {
           stepsDiv.addClass("hidden");
@@ -347,12 +367,14 @@ function pollDroneTaskStatus(taskId, fieldId) {
         statusDiv.removeClass("text-success").addClass("text-danger")
           .html(`<i class="fas fa-exclamation-triangle"></i> Ошибка: ${res.message || "Ошибка обработки"}`);
         showMessage(res.message || "Ошибка обработки дрон-данных", "error");
+        complete(uploadId, { status: "error", message: res.message || "Ошибка обработки" });
         
       } else {
         progress = Math.min(progress + 5, 95);
         progressFill.css("width", `${progress}%`);
         progressText.text(`${progress}% — ${res.message || "Обработка снимков..."}`);
         stepsDiv.find(".step-text").text(res.message || "Обработка снимков...");
+        updateProgress(uploadId, { progress, message: res.message || "Обработка снимков..." });
       }
     }).catch(() => {
       // Игнорируем ошибки сети, продолжаем опрос
