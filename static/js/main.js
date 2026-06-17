@@ -170,7 +170,6 @@ class FieldMapperApp {
     window.loadMapData = () => this.mapView._loadData();
     window.getFieldsTable = getFieldsTable;
     window.showFieldDetail = (id) => this.router.handleRoute(`#field/${id}`);
-    window.loadFieldScans = null;
     window.app = this;
   }
 }

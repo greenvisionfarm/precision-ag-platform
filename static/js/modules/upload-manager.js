@@ -135,7 +135,7 @@ function renderDropdown() {
         <div class="upload-panel-item-header">
           <span class="upload-panel-item-icon">${icon}</span>
           <span class="upload-panel-item-label">${label}: ${u.filename}</span>
-          ${showCancel ? `<button class="upload-panel-cancel" onclick="window.uploadManager.abort(${u.id})" title="Отменить"><i class="fas fa-times"></i></button>` : ""}
+          ${showCancel ? `<button class="upload-panel-cancel" data-upload-id="${u.id}" title="Отменить"><i class="fas fa-times"></i></button>` : ""}
         </div>
         ${showProgress ? `
           <div class="upload-panel-progress">
@@ -174,7 +174,14 @@ function initUploadManager() {
     }
   });
 
-  window.uploadManager = { register, updateProgress, complete, abort };
+  // Event delegation для кнопки отмены
+  document.addEventListener("click", (e) => {
+    const cancelBtn = e.target.closest(".upload-panel-cancel");
+    if (cancelBtn) {
+      const uploadId = parseInt(cancelBtn.dataset.uploadId);
+      if (uploadId) abort(uploadId);
+    }
+  });
 }
 
 export { initUploadManager };

@@ -3,9 +3,8 @@
  * Делегирует подмодулям: scans, zones, ndvi-chart, journal, export.
  */
 import API from "./api.js";
-import { loadFieldScans, selectScan as _selectScan, deleteScan as _deleteScan, cleanup as _cleanupScans } from "./scans.js";
+import { loadFieldScans, cleanup as _cleanupScans } from "./scans.js";
 import { renderZonesStats } from "./zones.js";
-import { compareSelectedScans } from "./ndvi-chart.js";
 import { loadJournal, deleteJournalEntry as _deleteJournalEntry, initJournalAddHandler } from "./journal.js";
 import { initExportHandlers } from "./export.js";
 
@@ -40,11 +39,8 @@ export function showFieldDetail(id) {
   });
 }
 
-// Обёртки для window.* (inline onclick в HTML)
-window.selectScan = (scanId) => _selectScan(scanId, state);
-window.deleteScan = (fieldId, scanId) => _deleteScan(fieldId, scanId, state);
-window.loadFieldScans = (fieldId) => loadFieldScans(fieldId, state);
-window.compareSelectedScans = () => compareSelectedScans(state.currentFieldId);
+// Обёртки для window.* (только то что реально нужно для inline onclick в HTML)
+// Убираем selectScan, deleteScan, loadFieldScans, compareSelectedScans — они теперь через event delegation
 window.deleteJournalEntry = _deleteJournalEntry;
 window.currentFieldDetail = { renderZonesStats: (zones) => renderZonesStats(zones, state) };
 

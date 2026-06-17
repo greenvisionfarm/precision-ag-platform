@@ -3,8 +3,10 @@
  */
 import API from "./api.js";
 import { showMessage } from "./utils.js";
-import { initNDVIChart, destroyChart } from "./ndvi-chart.js";
+import { initNDVIChart, destroyChart, compareSelectedScans } from "./ndvi-chart.js";
 import { loadScanZones } from "./zones.js";
+
+let _boundDelegation = false;
 
 export function loadFieldScans(fieldId, state) {
   API.getFieldScans(fieldId).then(data => {
@@ -22,7 +24,7 @@ export function loadFieldScans(fieldId, state) {
 
     if ($("#btn-compare-scans").length === 0) {
       $("#scans-selector label").after(`
-        <button id="btn-compare-scans" class="btn btn-sm btn-outline-primary" style="float: right; margin-top: -5px;" onclick="compareSelectedScans()">
+        <button id="btn-compare-scans" class="btn btn-sm btn-outline-primary" style="float: right; margin-top: -5px;">
           <i class="fas fa-columns"></i> Сравнить
         </button>
       `);
@@ -43,15 +45,15 @@ export function loadFieldScans(fieldId, state) {
       const $item = $(`
         <div class="scan-item ${index === 0 ? "active" : ""}" data-scan-id="${scan.id}">
           <div class="scan-checkbox-wrapper">
-            <input type="checkbox" class="scan-checkbox" value="${scan.id}" onclick="event.stopPropagation()">
+            <input type="checkbox" class="scan-checkbox" value="${scan.id}">
           </div>
-          <div class="scan-info" onclick="selectScan(${scan.id})">
+          <div class="scan-info">
             <span class="scan-status">${status}</span>
             <span class="scan-date">${date}</span>
             <span class="scan-zones">${zones}</span>
             <span class="scan-ndvi">${ndvi}</span>
           </div>
-          <button class="btn-delete-scan" onclick="deleteScan(${fieldId}, ${scan.id})" title="Удалить снимок">
+          <button class="btn-delete-scan" data-field-id="${fieldId}" data-scan-id="${scan.id}" title="Удалить снимок">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -65,6 +67,31 @@ export function loadFieldScans(fieldId, state) {
         $item.addClass("active").siblings().removeClass("active");
       }
     });
+
+    // Event delegation — привязываем один раз
+    if (!_boundDelegation) {
+      _boundDelegation = true;
+
+      $(document).on("click", "#scan-list .scan-info", function() {
+        const scanId = parseInt($(this).closest(".scan-item").data("scan-id"));
+        if (scanId) selectScan(scanId, state);
+      });
+
+      $(document).on("click", "#scan-list .btn-delete-scan", function(e) {
+        e.stopPropagation();
+        const fieldId = parseInt($(this).data("field-id"));
+        const scanId = parseInt($(this).data("scan-id"));
+        if (fieldId && scanId) deleteScan(fieldId, scanId, state);
+      });
+
+      $(document).on("click", "#scan-list .scan-checkbox", function(e) {
+        e.stopPropagation();
+      });
+
+      $(document).on("click", "#btn-compare-scans", function() {
+        compareSelectedScans(state.currentFieldId);
+      });
+    }
 
     initNDVIChart(state.allScans);
 

@@ -9,6 +9,8 @@ const CROP_LABELS = {
   sugar_beet: "Сахарная свекла", potato: "Картофель", other: "Другое"
 };
 
+let _boundDelegation = false;
+
 export function loadJournal(fieldId) {
   $.getJSON(`/api/field/${fieldId}/journal`).then(data => {
     const entries = data.entries || [];
@@ -33,10 +35,20 @@ export function loadJournal(fieldId) {
           <td>${product}</td>
           <td>${rate}</td>
           <td>${yld}</td>
-          <td><button class="btn btn-sm btn-danger" onclick="deleteJournalEntry(${fieldId}, ${e.id})" title="Удалить"><i class="fas fa-trash"></i></button></td>
+          <td><button class="btn btn-sm btn-danger btn-delete-journal" data-field-id="${fieldId}" data-entry-id="${e.id}" title="Удалить"><i class="fas fa-trash"></i></button></td>
         </tr>
       `);
     });
+
+    // Event delegation — один раз
+    if (!_boundDelegation) {
+      _boundDelegation = true;
+      $(document).on("click", ".btn-delete-journal", function() {
+        const fId = parseInt($(this).data("field-id"));
+        const eId = parseInt($(this).data("entry-id"));
+        if (fId && eId) deleteJournalEntry(fId, eId);
+      });
+    }
   });
 }
 
