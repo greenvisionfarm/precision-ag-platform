@@ -1,8 +1,8 @@
 /**
  * Scans — управление списком сканов поля.
  */
-import API from "./api.js";
-import { showMessage } from "./utils.js";
+import API from "../api.js";
+import { showMessage } from "../utils.js";
 import { initNDVIChart, destroyChart, compareSelectedScans } from "./ndvi-chart.js";
 import { loadScanZones } from "./zones.js";
 

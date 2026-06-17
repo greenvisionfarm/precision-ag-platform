@@ -1,7 +1,7 @@
 /**
  * Journal — журнал операций на поле.
  */
-import { showMessage } from "./utils.js";
+import { showMessage } from "../utils.js";
 
 const CROP_LABELS = {
   wheat: "Пшеница", corn: "Кукуруза", sunflower: "Подсолнечник",

@@ -3,10 +3,10 @@
  * Делегирует подмодулям: scans, zones, ndvi-chart, journal, export.
  */
 import API from "./api.js";
-import { loadFieldScans, cleanup as _cleanupScans } from "./scans.js";
-import { renderZonesStats } from "./zones.js";
-import { loadJournal, deleteJournalEntry as _deleteJournalEntry, initJournalAddHandler } from "./journal.js";
-import { initExportHandlers } from "./export.js";
+import { loadFieldScans, cleanup as _cleanupScans } from "./field-detail/scans.js";
+import { renderZonesStats } from "./field-detail/zones.js";
+import { loadJournal, deleteJournalEntry as _deleteJournalEntry, initJournalAddHandler } from "./field-detail/journal.js";
+import { initExportHandlers } from "./field-detail/export.js";
 
 // Разделяемое состояние view
 const state = {

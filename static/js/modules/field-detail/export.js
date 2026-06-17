@@ -1,8 +1,8 @@
 /**
  * Export — экспорт поля в various форматы.
  */
-import API from "./api.js";
-import { showMessage } from "./utils.js";
+import API from "../api.js";
+import { showMessage } from "../utils.js";
 import { downloadKmzWithSettings } from "../modals.js";
 
 function downloadBlob(blob, filename) {

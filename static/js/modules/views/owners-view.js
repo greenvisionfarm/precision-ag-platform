@@ -1,7 +1,7 @@
 /**
  * View: Владельцы — таблица владельцев.
  */
-import { View } from "./view.js";
+import { View } from "../view.js";
 import { initOwnersTable, getOwnersTable } from "../tables.js";
 
 export class OwnersView extends View {

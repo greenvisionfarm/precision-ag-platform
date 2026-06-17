@@ -1,7 +1,7 @@
 /**
  * View: Загрузки — формы загрузки файлов.
  */
-import { View } from "./view.js";
+import { View } from "../view.js";
 import { initShapefileUpload, initRasterUpload, initDroneUpload } from "../uploads.js";
 
 export class UploadsView extends View {

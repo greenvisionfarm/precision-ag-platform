@@ -1,8 +1,8 @@
 /**
  * Zones — отображение зон NDVI и статистика.
  */
-import API from "./api.js";
-import { showMessage } from "./utils.js";
+import API from "../api.js";
+import { showMessage } from "../utils.js";
 
 let availableCrops = [];
 

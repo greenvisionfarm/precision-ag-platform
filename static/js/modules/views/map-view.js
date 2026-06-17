@@ -1,7 +1,7 @@
 /**
  * View: Карта — главная карта с полями.
  */
-import { View } from "./view.js";
+import { View } from "../view.js";
 import { loadMapData } from "../map-callbacks.js";
 
 export class MapView extends View {

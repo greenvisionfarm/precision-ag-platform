@@ -1,7 +1,7 @@
 /**
  * View: Список полей — DataTables с инлайн-редактированием.
  */
-import { View } from "./view.js";
+import { View } from "../view.js";
 import { initFieldsTable, getFieldsTable } from "../tables.js";
 
 export class FieldsView extends View {

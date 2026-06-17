@@ -1,8 +1,8 @@
 /**
  * NDVI Chart — график истории NDVI и сравнение сканов.
  */
-import API from "./api.js";
-import { showMessage } from "./utils.js";
+import API from "../api.js";
+import { showMessage } from "../utils.js";
 
 let chartInstance = null;
 

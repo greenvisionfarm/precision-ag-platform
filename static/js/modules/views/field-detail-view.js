@@ -2,7 +2,7 @@
  * View: Детали поля — обёртка над field-detail.js с lifecycle.
  * Полный разбив на подмодули будет в T3.4.
  */
-import { View } from "./view.js";
+import { View } from "../view.js";
 import { showFieldDetail as _showFieldDetail } from "../field-detail.js";
 
 export class FieldDetailView extends View {
