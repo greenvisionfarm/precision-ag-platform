@@ -32,7 +32,7 @@ const ROLES = {
   viewer: { ru: "Наблюдатель", en: "Viewer", sk: "Pozorovateľ" },
 };
 
-export class AuthModule {
+class AuthModule {
   constructor() {
     this.currentUser = null;
     this.currentLanguage = "ru";

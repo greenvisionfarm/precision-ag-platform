@@ -22,18 +22,21 @@ export function initTooltips() {
   ensureTooltip();
 
   document.addEventListener("mouseenter", (e) => {
+    if (!e.target.closest) return;
     const target = e.target.closest("[data-help], [data-help-text]");
     if (!target) return;
     showTooltip(target);
   }, true);
 
   document.addEventListener("mouseleave", (e) => {
+    if (!e.target.closest) return;
     const target = e.target.closest("[data-help], [data-help-text]");
     if (!target) return;
     hideTooltip();
   }, true);
 
   document.addEventListener("click", (e) => {
+    if (!e.target.closest) return;
     if (e.target.closest(".help-tooltip")) return;
     hideTooltip();
   });
