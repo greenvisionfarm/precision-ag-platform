@@ -335,7 +335,6 @@ function pollDroneTaskStatus(taskId, fieldId) {
           stepsDiv.addClass("hidden");
           if (fieldId) {
             window.location.hash = `#field/${fieldId}`;
-            window.showFieldDetail?.(fieldId);
           }
           window.loadMapData?.();
           statusDiv.removeClass("text-success").html("");

@@ -23,11 +23,12 @@ function initNDVIChart(scans) {
     const ctx = document.getElementById('ndvi-history-chart');
     if (!ctx) return;
 
-    // Всегда уничтожаем старый график перед созданием нового
-    if (ndviHistoryChart) {
-        ndviHistoryChart.destroy();
-        ndviHistoryChart = null;
+    // Уничтожаем любой существующий график на этом canvas
+    const existing = Chart.getChart(ctx);
+    if (existing) {
+        existing.destroy();
     }
+    ndviHistoryChart = null;
 
     // Фильтруем только обработанные сканы и сортируем по дате
     const chartData = scans
