@@ -194,7 +194,7 @@ export function initDroneUpload() {
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/drone/upload", true);
-    xhr.timeout = 600000;
+    xhr.timeout = 3600000;
 
     // Прогресс загрузки файла
     xhr.upload.onprogress = function(e) {
