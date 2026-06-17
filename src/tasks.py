@@ -8,7 +8,6 @@ from typing import Optional
 
 from huey import RedisHuey
 
-from src.services.drone_processing_service import DroneProcessingService
 from src.utils.db_utils import db_connection
 
 # Настройка Huey
@@ -97,129 +96,12 @@ def process_drone_fast_task(
     zip_path: str,
     field_id: int,
     total_fertilizer_kg: Optional[float] = None,
-    scan_id: Optional[int] = None
+    scan_id: Optional[int] = None,
 ) -> dict:
-    """
-    Быстрая обработка снимков с дрона без создания ортомозаики.
-    """
-    import shutil
-    import tempfile
-    import zipfile
-
-    import numpy as np
-
-    from db import Field, FieldScan, FieldZone, database
-    from src.constants import UPLOAD_DIR
-    from src.services.crop_classifier import classify_from_raster
-    
+    """Быстрая обработка снимков с дрона без создания ортомозаики."""
+    from src.services.fast_drone_pipeline import FastDronePipeline
     logging.info(f"Запуск БЫСТРОЙ обработки дрона: {zip_path} для поля ID {field_id}")
-    
-    results = {"success": False, "error": None}
-    service = DroneProcessingService()
-    
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # 1. Распаковка
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(tmpdir)
-            
-            # 2. Сбор точек (NDVI/NDRE)
-            points = service.process_directory(tmpdir)
-            if not points:
-                raise ValueError("Не удалось найти валидные снимки с GPS и мультиспектром")
-            
-            with db_connection():
-                field = Field.get_by_id(field_id)
-                field_wkt = field.geometry_wkt
-            
-            # 3. Создание сетки и зонирование
-            temp_tif = os.path.join(tmpdir, "grid_temp.tif")
-            zones = service.create_grid_and_zone(points, field_wkt, temp_tif)
-            
-            # 4. Расчет VRA если нужно
-            if total_fertilizer_kg:
-                zones = service.calculate_vra_rates(zones, total_fertilizer_kg)
-            
-            # 5. Классификация культуры
-            crop_result = classify_from_raster(temp_tif)
-            crop_type = crop_result.get("crop_type")
-            crop_confidence = crop_result.get("confidence")
-            
-            # 6. Сохранение результатов
-            final_tif_name = f"fast_drone_{field_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tif"
-            final_tif_path = os.path.join(UPLOAD_DIR, final_tif_name)
-            os.makedirs(os.path.dirname(final_tif_path), exist_ok=True)
-            shutil.copy2(temp_tif, final_tif_path)
-            
-            with db_connection():
-                with database.atomic():
-                    # Создаем/обновляем скан
-                    scan = FieldScan.get_by_id(scan_id) if scan_id else None
-                    if not scan:
-                        scan = FieldScan.create(
-                            field=field,
-                            file_path=final_tif_path,
-                            filename=final_tif_name,
-                            uploaded_at=datetime.now(),
-                            processed='true',
-                            source='drone_fast'
-                        )
-                    else:
-                        scan.file_path = final_tif_path
-                        scan.filename = final_tif_name
-                        scan.processed = 'true'
-                        scan.source = 'drone_fast'
-
-                    # Расчет общих метрик для скана
-                    if points:
-                        ndvi_vals = [p.ndvi for p in points]
-                        scan.ndvi_min = float(np.min(ndvi_vals))
-                        scan.ndvi_max = float(np.max(ndvi_vals))
-                        scan.ndvi_avg = float(np.mean(ndvi_vals))
-                    
-                    # Сохраняем результаты классификации культуры
-                    if crop_type:
-                        scan.crop_type = crop_type
-                    if crop_confidence is not None:
-                        scan.crop_confidence = crop_confidence
-                    
-                    scan.save()
-                    
-                    # Удаляем старые зоны этого скана
-                    FieldZone.delete().where(FieldZone.scan == scan).execute()
-                    
-                    for z in zones:
-                        zone_name = z['name']
-                        rate = z.get('rate_kg_ha')
-
-                        FieldZone.create(
-                            field=field,
-                            scan=scan,
-                            name=zone_name,
-                            geometry_wkt=z['geometry_wkt'],
-                            avg_ndvi=z['avg_ndvi'],
-                            color=z['color'],
-                            rate_kg_ha=rate
-                        )
-            
-            results["success"] = True
-            results["zones_count"] = len(zones)
-            results["scan_id"] = scan.id
-            results["crop_type"] = crop_type
-            results["crop_confidence"] = crop_confidence
-            
-    except Exception as e:
-        logging.error(f"Ошибка в задаче fast_drone: {str(e)}", exc_info=True)
-        results["error"] = str(e)
-        if scan_id:
-            with db_connection():
-                FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
-    
-    # Удаляем временный ZIP
-    if os.path.exists(zip_path):
-        os.remove(zip_path)
-        
-    return results
+    return FastDronePipeline().run(zip_path, field_id, total_fertilizer_kg, scan_id)
 
 
 def _process_orthomosaic_impl(
@@ -229,121 +111,9 @@ def _process_orthomosaic_impl(
     scan_id: Optional[int] = None,
 ) -> dict:
     """Внутренняя реализация обработки ортомозаики."""
-    import shutil
-    import tempfile
-    import zipfile
-
-    import numpy as np
-
-    from db import Field, FieldScan, FieldZone, database
-    from src.constants import UPLOAD_DIR
-    from src.services.crop_classifier import classify_from_raster
-    from src.services.drone_processing_service import DroneProcessingService
-    from src.services.orthomosaic_service import OrthomosaicService
-
+    from src.services.orthomosaic_pipeline import OrthomosaicPipeline
     logging.info(f"Запуск ОРТОМОЗАИКИ: {zip_path} для поля ID {field_id}")
-
-    results = {"success": False, "error": None}
-    ortho_service = OrthomosaicService()
-    drone_service = DroneProcessingService()
-
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(tmpdir)
-
-            ortho_tif = os.path.join(tmpdir, "orthomosaic.tif")
-            stitch_result = ortho_service.process_directory(tmpdir, ortho_tif)
-
-            if not stitch_result.success:
-                raise ValueError(f"Ошибка склейки: {stitch_result.error}")
-
-            with db_connection():
-                field = Field.get_by_id(field_id)
-                field_wkt = field.geometry_wkt
-
-            points = drone_service.process_directory(tmpdir)
-
-            zones = []
-            if points:
-                temp_tif = os.path.join(tmpdir, "ndvi_grid.tif")
-                zones = drone_service.create_grid_and_zone(points, field_wkt, temp_tif)
-
-                if total_fertilizer_kg:
-                    zones = drone_service.calculate_vra_rates(zones, total_fertilizer_kg)
-
-            crop_result = classify_from_raster(ortho_tif)
-            crop_type = crop_result.get("crop_type")
-            crop_confidence = crop_result.get("confidence")
-
-            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-            final_tif_name = f"orthomosaic_{field_id}_{ts}.tif"
-            final_tif_path = os.path.join(UPLOAD_DIR, final_tif_name)
-            os.makedirs(os.path.dirname(final_tif_path), exist_ok=True)
-            shutil.copy2(ortho_tif, final_tif_path)
-
-            with db_connection():
-                with database.atomic():
-                    scan = FieldScan.get_by_id(scan_id) if scan_id else None
-                    if not scan:
-                        scan = FieldScan.create(
-                            field=field,
-                            file_path=final_tif_path,
-                            filename=final_tif_name,
-                            uploaded_at=datetime.now(),
-                            processed='true',
-                            source='drone_orthomosaic',
-                        )
-                    else:
-                        scan.file_path = final_tif_path
-                        scan.filename = final_tif_name
-                        scan.processed = 'true'
-                        scan.source = 'drone_orthomosaic'
-
-                    if points:
-                        ndvi_vals = [p.ndvi for p in points]
-                        scan.ndvi_min = float(np.min(ndvi_vals))
-                        scan.ndvi_max = float(np.max(ndvi_vals))
-                        scan.ndvi_avg = float(np.mean(ndvi_vals))
-
-                    if crop_type:
-                        scan.crop_type = crop_type
-                    if crop_confidence is not None:
-                        scan.crop_confidence = crop_confidence
-
-                    scan.save()
-
-                    FieldZone.delete().where(FieldZone.scan == scan).execute()
-
-                    for z in zones:
-                        FieldZone.create(
-                            field=field,
-                            scan=scan,
-                            name=z['name'],
-                            geometry_wkt=z['geometry_wkt'],
-                            avg_ndvi=z['avg_ndvi'],
-                            color=z['color'],
-                            rate_kg_ha=z.get('rate_kg_ha'),
-                        )
-
-            results["success"] = True
-            results["zones_count"] = len(zones)
-            results["scan_id"] = scan.id
-            results["crop_type"] = crop_type
-            results["crop_confidence"] = crop_confidence
-            results["orthomosaic_path"] = final_tif_path
-
-    except Exception as e:
-        logging.error(f"Ошибка в задаче orthomosaic: {str(e)}", exc_info=True)
-        results["error"] = str(e)
-        if scan_id:
-            with db_connection():
-                FieldScan.update(processed='false').where(FieldScan.id == scan_id).execute()
-
-    if os.path.exists(zip_path):
-        os.remove(zip_path)
-
-    return results
+    return OrthomosaicPipeline().run(zip_path, field_id, total_fertilizer_kg, scan_id)
 
 
 @huey.task()
