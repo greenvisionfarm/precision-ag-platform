@@ -64,9 +64,12 @@ export class Router {
      * Поддерживает: '#map' (точное), '#field/:id' (параметры).
      */
   _match(hash) {
+    // Убираем query string для матчинга (#help?article=x → #help)
+    const baseHash = hash.split("?")[0];
+
     // Точное совпадение
-    if (this.views.has(hash)) {
-      return { pattern: hash, params: {} };
+    if (this.views.has(baseHash)) {
+      return { pattern: baseHash, params: {} };
     }
 
     // Параметризованные маршруты (например #field/:id)
