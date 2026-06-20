@@ -255,6 +255,7 @@ class UploadHandler(AuthenticatedRequestHandler):
                     "area_ha": round(row.geometry.area / 10000, 2) if hasattr(row, 'geometry') else 0
                 })
             logger.info(f"Shapefile parsed: {len(features)} features, columns={list(gdf.columns)}, names={[f['name'] for f in features]}")
+            self.set_header("Content-Type", "application/json")
             self.write(json.dumps({"features": features}))
         except Exception as e:
             logger.error(f"Error processing shapefile: {e}")
@@ -335,6 +336,7 @@ class ConfirmShapefileImportHandler(AuthenticatedRequestHandler):
             if skipped:
                 msg += f", пропущено (дубли геометрии): {skipped}"
             logger.info(f"Import result: created={len(created)}, skipped={skipped}, skipped_names={skipped_names}")
+            self.set_header("Content-Type", "application/json")
             self.write(json.dumps({"message": msg, "ids": created, "skipped": skipped}))
         except Exception as e:
             logger.error(f"Error confirming shapefile import: {e}")
