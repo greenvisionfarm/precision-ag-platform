@@ -1644,7 +1644,9 @@ table.dataTable.display tbody tr:hover td {
 /* === Help Wiki === */
 .help-layout {
     display: flex;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .help-sidebar {
@@ -1654,6 +1656,7 @@ table.dataTable.display tbody tr:hover td {
     border-right: 1px solid var(--border-color);
     padding: var(--spacing-lg);
     overflow-y: auto;
+    flex-shrink: 0;
 }
 
 .help-sidebar h2 {
@@ -1709,6 +1712,7 @@ table.dataTable.display tbody tr:hover td {
 
 .help-content {
     flex: 1;
+    min-height: 0;
     padding: var(--spacing-2xl);
     overflow-y: auto;
     max-width: 800px;
