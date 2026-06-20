@@ -39,6 +39,30 @@ export class MapManager {
     if (onDeleted) this.instance.on(L.Draw.Event.DELETED, onDeleted);
 
     this.instance.locate({ setView: true, maxZoom: 16 });
+
+    const locateBtn = L.control({ position: "topleft" });
+    locateBtn.onAdd = () => {
+      const btn = L.DomUtil.create("button", "leaflet-bar leaflet-control leaflet-control-locate");
+      btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+      btn.title = "Моё местоположение";
+      btn.style.cssText = "width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#fff;border:none;cursor:pointer;font-size:16px;";
+      L.DomEvent.disableClickPropagation(btn);
+      btn.addEventListener("click", () => {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        this.instance.locate({ setView: true, maxZoom: 16 });
+      });
+      return btn;
+    };
+    locateBtn.addTo(this.instance);
+
+    this.instance.on("locationfound", () => {
+      const btn = document.querySelector(".leaflet-control-locate");
+      if (btn) btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+    });
+    this.instance.on("locationerror", () => {
+      const btn = document.querySelector(".leaflet-control-locate");
+      if (btn) btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+    });
   }
 
   updateTheme(isDark) {
