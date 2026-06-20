@@ -105,9 +105,8 @@ export class ModalManager {
 
       showMessage("Генерация KMZ...", "info");
 
-      API.exportKmz(fieldId, res.value).then(blob => {
-        console.log("[kmz] Downloaded blob:", blob?.constructor?.name, blob?.size);
-        const filename = `field_${fieldId}_dji.kmz`;
+      API.exportKmz(fieldId, res.value).then(({ blob, filename }) => {
+        console.log("[kmz] Downloaded blob:", blob?.constructor?.name, blob?.size, "filename:", filename);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;

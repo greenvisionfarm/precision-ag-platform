@@ -116,7 +116,13 @@ class APIClient {
     const qs = new URLSearchParams(params).toString();
     const url = `/api/field/export/kmz/${fieldId}${qs ? "?" + qs : ""}`;
     const resp = await fetchApi(url);
-    return resp.blob ? resp.blob() : resp;
+    if (resp.blob) {
+      const cd = resp.headers.get("content-disposition") || "";
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      const filename = match ? match[1] : `field_${fieldId}_dji.kmz`;
+      return { blob: await resp.blob(), filename };
+    }
+    return { blob: resp, filename: `field_${fieldId}_dji.kmz` };
   }
 
   async exportAllKmz(params = {}) {
