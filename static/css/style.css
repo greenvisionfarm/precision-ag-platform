@@ -1832,3 +1832,131 @@ table.dataTable.display tbody tr:hover td {
         padding: var(--spacing-lg);
     }
 }
+
+/* DJI RC Pro Enterprise (Mavic 3M) — 5.5" touchscreen */
+@media (max-width: 600px) {
+    :root {
+        --header-height: 52px;
+    }
+
+    #app-header {
+        height: var(--header-height);
+        padding: 0 8px;
+    }
+    .header-brand span { display: none; }
+    .header-nav-link span { display: none; }
+    .header-nav-link { padding: 8px 12px; font-size: 1.1em; }
+    .header-username { display: none; }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        padding: 0;
+    }
+    .leaflet-popup-content {
+        margin: 0;
+        min-width: 220px;
+    }
+    .leaflet-popup-content b {
+        font-size: 1.1em;
+        display: block;
+        padding: 12px 14px 4px;
+    }
+    .leaflet-popup-content button.btn-pop-kmz {
+        width: 100%;
+        padding: 16px;
+        font-size: 1.1em;
+        border-radius: 0 0 12px 12px;
+        margin: 8px 0 0;
+    }
+
+    .btn, .btn-primary, .btn-outline-primary {
+        min-height: 48px;
+        font-size: 1em;
+        padding: 12px 20px;
+        border-radius: 10px;
+    }
+
+    .swal2-popup {
+        border-radius: 12px !important;
+        padding: 20px !important;
+        width: 95vw !important;
+    }
+    .swal2-input {
+        font-size: 1.1em !important;
+        padding: 12px !important;
+        min-height: 48px !important;
+    }
+    .swal2-html-container {
+        font-size: 0.95em;
+    }
+    .swal2-actions {
+        gap: 10px;
+    }
+    .swal2-confirm, .swal2-cancel {
+        min-height: 48px !important;
+        font-size: 1em !important;
+        padding: 12px 24px !important;
+        border-radius: 10px !important;
+    }
+
+    .kmz-settings-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .kmz-settings-grid label {
+        font-size: 0.95em;
+        font-weight: 600;
+    }
+    .kmz-settings-grid small {
+        font-size: 0.8em;
+    }
+
+    #view-map {
+        position: relative;
+    }
+    #map {
+        width: 100%;
+        height: calc(100vh - var(--header-height));
+    }
+
+    .main-content {
+        padding-top: 0;
+    }
+}
+
+/* Quick export bar for DJI controller — shown on small screens */
+.quick-export-bar {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border-top: 2px solid var(--primary-color);
+    padding: 10px 12px;
+    z-index: 1001;
+    gap: 8px;
+    align-items: center;
+}
+.quick-export-bar.visible {
+    display: flex;
+}
+.quick-export-bar .field-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.95em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.quick-export-bar .btn {
+    min-height: 48px;
+    padding: 10px 16px;
+    white-space: nowrap;
+}
+@media (min-width: 601px) {
+    .quick-export-bar {
+        display: none !important;
+    }
+}
