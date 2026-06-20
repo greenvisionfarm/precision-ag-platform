@@ -155,7 +155,7 @@ class FieldMapperApp {
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("theme", next);
       this.updateThemeIcon(next);
-      if (window.MapManager.instance) window.MapManager.instance.updateTheme(next === "dark");
+      if (window.MapManager) window.MapManager.updateTheme(next === "dark");
     });
 
     // User menu dropdown
