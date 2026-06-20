@@ -57,8 +57,12 @@ export function initExportHandlers(getFieldId) {
       if (!res.isConfirmed) return;
       showMessage("Генерация ISOXML...", "info");
       API.exportIsoxml(fieldId, res.value).then(blob => {
+        console.log("[isoxml] Downloaded blob:", blob?.constructor?.name, blob?.size);
         downloadBlob(blob, `field_${fieldId}_isoxml.xml`);
         showMessage("ISOXML экспортирован", "success");
+      }).catch(err => {
+        console.error("[isoxml] Export failed:", err);
+        showMessage("Ошибка экспорта ISOXML", "error");
       });
     });
   });
@@ -204,8 +208,12 @@ export function initExportHandlers(getFieldId) {
       if (!res.isConfirmed) return;
       showMessage("Генерация TaskData.zip...", "info");
       API.exportTaskData(fieldId, res.value).then(blob => {
+        console.log("[taskdata] Downloaded blob:", blob?.constructor?.name, blob?.size);
         downloadBlob(blob, `field_${fieldId}_taskdata.zip`);
         showMessage("TaskData экспортирован", "success");
+      }).catch(err => {
+        console.error("[taskdata] Export failed:", err);
+        showMessage("Ошибка экспорта TaskData", "error");
       });
     });
   });

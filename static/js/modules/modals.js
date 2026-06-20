@@ -106,6 +106,7 @@ export class ModalManager {
       showMessage("Генерация KMZ...", "info");
 
       API.exportKmz(fieldId, res.value).then(blob => {
+        console.log("[kmz] Downloaded blob:", blob?.constructor?.name, blob?.size);
         const filename = `field_${fieldId}_dji.kmz`;
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -115,6 +116,9 @@ export class ModalManager {
         a.click();
         setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
         showMessage(`KMZ экспортирован: ${filename}`, "success");
+      }).catch(err => {
+        console.error("[kmz] Export failed:", err);
+        showMessage("Ошибка экспорта KMZ", "error");
       });
     });
   }

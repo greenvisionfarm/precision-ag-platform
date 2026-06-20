@@ -187,6 +187,9 @@ class UploadHandler(AuthenticatedRequestHandler):
             self.write({"error": "Требуется авторизация"})
             return
 
+        file_types = list(self.request.files.keys())
+        logger.info(f"Upload from user={user.id}, company={user.company_id}, files={file_types}")
+
         # 1. Обработка Shapefile
         if 'shapefile_zip' in self.request.files:
             return self.handle_shapefile(user.company_id)
@@ -202,6 +205,7 @@ class UploadHandler(AuthenticatedRequestHandler):
     def handle_shapefile(self, company_id: int) -> None:
         try:
             uploaded_file = self.request.files['shapefile_zip'][0]
+            logger.info(f"Shapefile upload: filename={uploaded_file['filename']}, size={len(uploaded_file['body'])} bytes, company={company_id}")
             with tempfile.TemporaryDirectory() as tmpdir:
                 zip_path = os.path.join(tmpdir, "up.zip")
                 with open(zip_path, 'wb') as f:
@@ -213,6 +217,7 @@ class UploadHandler(AuthenticatedRequestHandler):
                     None
                 )
                 if not shp_file:
+                    logger.error(f"No .shp found in archive. Files in zip: {os.listdir(tmpdir)}")
                     raise ValueError("No SHP")
                 shp_dir = os.path.dirname(shp_file)
                 shp_base = os.path.splitext(shp_file)[0]
@@ -221,6 +226,7 @@ class UploadHandler(AuthenticatedRequestHandler):
                 if os.path.exists(cpg_file):
                     with open(cpg_file, 'r') as cf:
                         encoding = cf.read().strip().lower()
+                logger.info(f"Reading shapefile: {os.path.basename(shp_file)}, encoding={encoding}")
                 gdf = gpd.read_file(shp_file, encoding=encoding).to_crs(epsg=4326)
                 gdf_proj = gdf.to_crs(epsg=3035)
                 gdf['area_sq_m'] = gdf_proj.geometry.area
@@ -248,6 +254,7 @@ class UploadHandler(AuthenticatedRequestHandler):
                     "properties": cleaned,
                     "area_ha": round(row.geometry.area / 10000, 2) if hasattr(row, 'geometry') else 0
                 })
+            logger.info(f"Shapefile parsed: {len(features)} features, columns={list(gdf.columns)}, names={[f['name'] for f in features]}")
             self.write(json.dumps({"features": features}))
         except Exception as e:
             logger.error(f"Error processing shapefile: {e}")
@@ -278,21 +285,25 @@ class ConfirmShapefileImportHandler(AuthenticatedRequestHandler):
             from shapely.wkt import loads as wkt_loads
             data = json.loads(self.request.body)
             features = data.get("features", [])
+            logger.info(f"Confirm import: user={user.id}, company={user.company_id}, features_count={len(features)}")
             if not features:
                 self.set_status(400)
                 self.write({"error": "Нет полей для сохранения"})
                 return
 
             created = []
+            skipped_names = []
             with db_connection():
                 existing_geoms = [
                     wkt_loads(f.geometry_wkt)
                     for f in Field.select(Field.geometry_wkt).where(Field.company == user.company_id)
                 ]
+                logger.info(f"Existing fields with geometry: {len(existing_geoms)}")
                 with database.atomic():
                     for feat in features:
                         geom_wkt = feat.get("geometry_wkt")
                         if not geom_wkt:
+                            skipped_names.append(feat.get('name', '?') + ' (no geometry)')
                             continue
                         new_poly = wkt_loads(geom_wkt)
                         is_dupe = False
@@ -304,6 +315,7 @@ class ConfirmShapefileImportHandler(AuthenticatedRequestHandler):
                                     is_dupe = True
                                     break
                         if is_dupe:
+                            skipped_names.append(feat.get('name', '?') + ' (geometry dupe)')
                             continue
                         name = feat.get("name", "Поле")
                         props = feat.get("properties", {})
@@ -317,10 +329,12 @@ class ConfirmShapefileImportHandler(AuthenticatedRequestHandler):
                         )
                         created.append(f.id)
                         existing_geoms.append(new_poly)
+                        logger.info(f"Created field: id={f.id}, name={name}")
             skipped = len(features) - len(created)
             msg = f"Создано полей: {len(created)}"
             if skipped:
                 msg += f", пропущено (дубли геометрии): {skipped}"
+            logger.info(f"Import result: created={len(created)}, skipped={skipped}, skipped_names={skipped_names}")
             self.write(json.dumps({"message": msg, "ids": created, "skipped": skipped}))
         except Exception as e:
             logger.error(f"Error confirming shapefile import: {e}")

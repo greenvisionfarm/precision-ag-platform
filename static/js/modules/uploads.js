@@ -29,15 +29,18 @@ export function initShapefileUpload() {
 
     fetchApi("/upload", { method: "POST", body: new FormData(this) })
       .then((res) => {
+        console.log("[upload] Server response:", res);
         if (res.features && res.features.length > 0) {
           showShapefilePreviewModal(res.features, uploadId);
         } else {
+          console.warn("[upload] No features found in response:", res);
           statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Файл загружен, но полей не найдено.");
           if (uploadId) complete(uploadId, { status: "completed", message: "Полей нет" });
         }
         btn.prop("disabled", false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[upload] Upload failed:", err);
         statusDiv.addClass("text-danger").html("<i class=\"fas fa-exclamation-triangle\"></i> Ошибка загрузки");
         btn.prop("disabled", false);
         showMessage("Ошибка загрузки файла", "error");
@@ -122,11 +125,13 @@ function showShapefilePreviewModal(features, uploadId) {
       showMessage("Все поля удалены, нечего сохранять", "warning");
       return;
     }
+    console.log("[import] Confirming import:", result.value.length, "features");
     fetchApi("/api/fields/confirm_import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ features: result.value })
     }).then((res) => {
+      console.log("[import] Server response:", res);
       showMessage(res.message || "Поля сохранены", "success");
       window.loadMapData?.();
       window.getFieldsTable?.()?.ajax.reload();
@@ -134,7 +139,8 @@ function showShapefilePreviewModal(features, uploadId) {
       statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Поля сохранены!");
       if (uploadId) complete(uploadId, { status: "completed", message: res.message });
       setTimeout(() => statusDiv.removeClass("text-success").html(""), 3000);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("[import] Confirm import failed:", err);
       showMessage("Ошибка сохранения полей", "error");
       if (uploadId) complete(uploadId, { status: "error", message: "Ошибка сохранения" });
     });
