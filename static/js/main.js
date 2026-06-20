@@ -42,8 +42,7 @@ async function checkAuthGate() {
   } catch (_) { /* network error — treat as not authenticated */ }
 
   gate.style.display = "flex";
-  document.getElementById("sidebar-toggle").style.display = "none";
-  document.getElementById("sidebar").style.display = "none";
+  document.getElementById("app-header").style.display = "none";
 
   const form = document.getElementById("auth-gate-form");
   const alertEl = document.getElementById("auth-gate-alert");
@@ -120,10 +119,8 @@ class FieldMapperApp {
     this.router.register("#uploads", this.uploadsView);
     this.router.register("#help", this.helpView);
 
-    // Sidebar
-    $("#sidebar-toggle").on("click", this.toggleSidebar.bind(this));
-    $(".main-content").on("click", this.closeSidebar.bind(this));
-    $("#sidebar .nav-link").on("click", this.closeSidebar.bind(this));
+    // Header navigation
+    this.initHeader();
 
     // Менеджер загрузок
     initUploadManager();
@@ -144,26 +141,59 @@ class FieldMapperApp {
 
   onHashChange() {
     this.router.handleRoute();
-    this.closeSidebar();
   }
 
-  toggleSidebar(forceOpen) {
-    const isOpen = $("body").hasClass("sidebar-open");
-    const shouldOpen = forceOpen !== undefined ? forceOpen : !isOpen;
+  initHeader() {
+    // Header nav active state
+    $(window).on("hashchange", () => this.updateHeaderNav());
+    this.updateHeaderNav();
 
-    $("body").toggleClass("sidebar-open", shouldOpen);
-    $("#sidebar").toggleClass("open", shouldOpen);
-    $("#sidebar-toggle").toggleClass("open", shouldOpen);
+    // Header theme toggle
+    $("#header-theme-toggle").on("click", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+      this.updateThemeIcon(next);
+      if (window.MapManager.instance) window.MapManager.instance.updateTheme();
+    });
 
-    setTimeout(() => {
-      if (window.MapManager.instance) {
-        window.MapManager.instance.invalidateSize();
-      }
-    }, 300);
+    // User menu dropdown
+    $(".header-user-btn").on("click", (e) => {
+      e.stopPropagation();
+      $(".header-user-dropdown").toggleClass("hidden");
+    });
+    $(document).on("click", () => $(".header-user-dropdown").addClass("hidden"));
+
+    // Header user info
+    this.updateHeaderUser();
+
+    // Logout
+    $("#header-logout").on("click", (e) => {
+      e.preventDefault();
+      if (window.AuthModule) AuthModule.logout();
+    });
   }
 
-  closeSidebar() {
-    this.toggleSidebar(false);
+  updateHeaderNav() {
+    const hash = window.location.hash || "#map";
+    $(".header-nav-link").each(function () {
+      const navHash = $(this).attr("href");
+      $(this).toggleClass("active", hash.startsWith(navHash));
+    });
+  }
+
+  updateThemeIcon(theme) {
+    const icon = $("#header-theme-toggle i");
+    icon.removeClass("fa-moon fa-sun").addClass(theme === "dark" ? "fa-sun" : "fa-moon");
+  }
+
+  updateHeaderUser() {
+    const user = window.AuthModule?.getCurrentUser?.();
+    if (!user) return;
+    const name = user.first_name || user.email?.split("@")[0] || "U";
+    $(".header-avatar").text(name.charAt(0).toUpperCase());
+    $(".header-username").text(name);
   }
 
   /**

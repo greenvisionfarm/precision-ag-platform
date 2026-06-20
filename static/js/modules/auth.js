@@ -291,59 +291,27 @@ class AuthModule {
   }
 
   _updateUserMenu() {
-    const sidebar = document.getElementById("sidebar");
-    if (!sidebar) return;
+    const dropdown = document.querySelector("#header-user-menu .header-user-dropdown");
+    if (!dropdown) return;
 
-    const existing = sidebar.querySelector(".user-menu");
-    if (existing) existing.remove();
+    dropdown.innerHTML = "";
 
     if (!this.currentUser) {
       const btn = document.createElement("button");
       btn.className = "btn btn-primary btn-block";
       btn.textContent = "Войти";
       btn.onclick = () => this.openLogin();
-      const container = document.createElement("div");
-      container.className = "user-menu";
-      container.appendChild(btn);
-      sidebar.appendChild(container);
+      dropdown.appendChild(btn);
       return;
     }
 
     const u = this.currentUser;
-    const initials = `${u.first_name?.[0] || ""}${u.last_name?.[0] || ""}`.toUpperCase() || "U";
-
-    const menu = document.createElement("div");
-    menu.className = "user-menu";
-    menu.innerHTML = `
-      <div class="user-dropdown" id="user-dropdown">
-        <div class="user-dropdown-item" onclick="AuthModule.openSettings()">
-          <i class="fas fa-user"></i>
-          <span data-i18n="nav.profile">Профиль</span>
-        </div>
-        <div class="user-dropdown-item" onclick="AuthModule.openSettings('company')">
-          <i class="fas fa-building"></i>
-          <span data-i18n="profile.company">Компания</span>
-        </div>
-        <div class="user-dropdown-item" onclick="AuthModule.openSettings('language')">
-          <i class="fas fa-language"></i>
-          <span data-i18n="settings.language">Язык</span>
-        </div>
-        <div class="auth-divider"></div>
-        <div class="user-dropdown-item" onclick="AuthModule.logout()">
-          <i class="fas fa-sign-out-alt"></i>
-          <span data-i18n="nav.logout">Выйти</span>
-        </div>
-      </div>
-      <button class="user-menu-toggle" onclick="AuthModule.toggleUserDropdown()">
-        <div class="user-avatar">${initials}</div>
-        <div class="user-info">
-          <div class="user-name">${u.first_name || u.email}</div>
-          <div class="user-company">${u.company.name}</div>
-        </div>
-        <i class="fas fa-chevron-up"></i>
-      </button>
+    dropdown.innerHTML = `
+      <a href="#" onclick="AuthModule.openSettings(); return false;"><i class="fas fa-user"></i> Профиль</a>
+      <a href="#" onclick="AuthModule.openSettings('company'); return false;"><i class="fas fa-building"></i> Компания</a>
+      <hr>
+      <a href="#" onclick="AuthModule.logout(); return false;"><i class="fas fa-sign-out-alt"></i> Выйти</a>
     `;
-    sidebar.appendChild(menu);
   }
 
   // --- Private: Events ---

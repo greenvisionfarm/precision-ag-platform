@@ -14,6 +14,7 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 import tornado.web
+from shapely.validation import make_valid
 
 from db import database
 from src.models.field import Field, FieldScan
@@ -213,30 +214,41 @@ class UploadHandler(AuthenticatedRequestHandler):
                 )
                 if not shp_file:
                     raise ValueError("No SHP")
-                gdf = gpd.read_file(shp_file).to_crs(epsg=4326)
+                shp_dir = os.path.dirname(shp_file)
+                shp_base = os.path.splitext(shp_file)[0]
+                cpg_file = os.path.join(shp_dir, shp_base + '.cpg')
+                encoding = 'utf-8'
+                if os.path.exists(cpg_file):
+                    with open(cpg_file, 'r') as cf:
+                        encoding = cf.read().strip().lower()
+                gdf = gpd.read_file(shp_file, encoding=encoding).to_crs(epsg=4326)
                 gdf_proj = gdf.to_crs(epsg=3035)
                 gdf['area_sq_m'] = gdf_proj.geometry.area
 
-            with db_connection():
-                with database.atomic():
-                    for _, row in gdf.iterrows():
-                        props = row.drop('geometry').to_dict()
-                        cleaned: Dict[str, Any] = {
-                            k: (None if isinstance(v, float) and math.isnan(v) else v)
-                            for k, v in props.items()
-                        }
-                        field_name = (
-                            cleaned.get('Field_Name') or cleaned.get('name') or
-                            cleaned.get('NAME') or cleaned.get('Name') or
-                            cleaned.get('id') or cleaned.get('ID') or "Поле"
-                        )
-                        Field.create(
-                            name=str(field_name),
-                            geometry_wkt=row.geometry.wkt,
-                            properties_json=json.dumps(cleaned),
-                            company_id=company_id
-                        )
-            self.write({"message": "Shapefile uploaded and processed"})
+            features = []
+            for _, row in gdf.iterrows():
+                props = row.drop('geometry').to_dict()
+                cleaned: Dict[str, Any] = {
+                    k: (None if isinstance(v, float) and math.isnan(v) else v)
+                    for k, v in props.items()
+                }
+                field_name = (
+                    cleaned.get('Field_Name') or cleaned.get('name') or
+                    cleaned.get('NAME') or cleaned.get('Name') or
+                    cleaned.get('id') or cleaned.get('ID') or "Поле"
+                )
+                geom = row.geometry
+                if not geom.is_valid:
+                    geom = make_valid(geom)
+                if geom.geom_type == 'MultiPolygon' and len(geom.geoms) == 1:
+                    geom = geom.geoms[0]
+                features.append({
+                    "name": str(field_name),
+                    "geometry_wkt": geom.wkt,
+                    "properties": cleaned,
+                    "area_ha": round(row.geometry.area / 10000, 2) if hasattr(row, 'geometry') else 0
+                })
+            self.write(json.dumps({"features": features}))
         except Exception as e:
             logger.error(f"Error processing shapefile: {e}")
             self.set_status(500)
@@ -248,6 +260,70 @@ class UploadHandler(AuthenticatedRequestHandler):
             self.write(result)
         except Exception as e:
             logger.error(f"Error processing geotiff: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class ConfirmShapefileImportHandler(AuthenticatedRequestHandler):
+    """Handler для подтверждения импорта Shapefile — сохранение отредактированных полей."""
+
+    def post(self) -> None:
+        user = self.current_user
+        if not user:
+            self.set_status(401)
+            self.write({"error": "Требуется авторизация"})
+            return
+
+        try:
+            from shapely.wkt import loads as wkt_loads
+            data = json.loads(self.request.body)
+            features = data.get("features", [])
+            if not features:
+                self.set_status(400)
+                self.write({"error": "Нет полей для сохранения"})
+                return
+
+            created = []
+            with db_connection():
+                existing_geoms = [
+                    wkt_loads(f.geometry_wkt)
+                    for f in Field.select(Field.geometry_wkt).where(Field.company == user.company_id)
+                ]
+                with database.atomic():
+                    for feat in features:
+                        geom_wkt = feat.get("geometry_wkt")
+                        if not geom_wkt:
+                            continue
+                        new_poly = wkt_loads(geom_wkt)
+                        is_dupe = False
+                        for existing_poly in existing_geoms:
+                            if new_poly.intersects(existing_poly):
+                                intersection_area = new_poly.intersection(existing_poly).area
+                                union_area = new_poly.union(existing_poly).area
+                                if union_area > 0 and intersection_area / union_area > 0.9:
+                                    is_dupe = True
+                                    break
+                        if is_dupe:
+                            continue
+                        name = feat.get("name", "Поле")
+                        props = feat.get("properties", {})
+                        area_ha = feat.get("area_ha", 0)
+                        props["area_sq_m"] = area_ha * 10000
+                        f = Field.create(
+                            name=str(name),
+                            geometry_wkt=geom_wkt,
+                            properties_json=json.dumps(props),
+                            company_id=user.company_id
+                        )
+                        created.append(f.id)
+                        existing_geoms.append(new_poly)
+            skipped = len(features) - len(created)
+            msg = f"Создано полей: {len(created)}"
+            if skipped:
+                msg += f", пропущено (дубли геометрии): {skipped}"
+            self.write(json.dumps({"message": msg, "ids": created, "skipped": skipped}))
+        except Exception as e:
+            logger.error(f"Error confirming shapefile import: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 

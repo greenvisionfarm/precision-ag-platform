@@ -8,7 +8,7 @@ import zipfile
 from typing import Tuple, Optional, List
 
 from shapely import wkt
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, MultiLineString, Polygon, GeometryCollection, MultiPolygon, Point, MultiPoint
 
 
 def calculate_optimal_heading(wkt_str: str) -> int:
@@ -223,6 +223,32 @@ def _get_cache_key(
     return hashlib.md5(key_string.encode()).hexdigest()
 
 
+def _extract_coords(geometry) -> List[Tuple[float, float]]:
+    """Извлекает координаты из любого типа геометрии."""
+    if isinstance(geometry, LineString):
+        return list(geometry.coords)
+    elif isinstance(geometry, Polygon):
+        return list(geometry.exterior.coords)
+    elif isinstance(geometry, MultiLineString):
+        coords = []
+        for sub in geometry.geoms:
+            coords.extend(_extract_coords(sub))
+        return coords
+    elif isinstance(geometry, MultiPolygon):
+        coords = []
+        for sub in geometry.geoms:
+            coords.extend(_extract_coords(sub))
+        return coords
+    elif isinstance(geometry, GeometryCollection):
+        coords = []
+        for sub in geometry.geoms:
+            coords.extend(_extract_coords(sub))
+        return coords
+    elif isinstance(geometry, (Point, MultiPoint)):
+        return []
+    return []
+
+
 def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: int) -> List[Tuple[float, float]]:
     """Генерирует эффективный lawnmower путь внутри полигона."""
     from shapely import affinity
@@ -255,12 +281,7 @@ def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: in
         # Пересечение с полем
         intersection = geom.intersection(line)
         if not intersection.is_empty:
-            if isinstance(intersection, (Polygon,)): # Или MultiLineString
-                coords = list(intersection.exterior.coords)
-            elif hasattr(intersection, 'coords'):
-                coords = list(intersection.coords)
-            else:
-                coords = []
+            coords = _extract_coords(intersection)
                 
             if coords:
                 if direction == 1:

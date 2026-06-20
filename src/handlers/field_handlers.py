@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import tornado.web
 from peewee import JOIN
 from shapely.geometry import mapping, shape
+from shapely.validation import make_valid
 from shapely.wkt import loads as wkt_loads
 
 from db import database
@@ -267,6 +268,10 @@ class FieldActionHandler(FieldApiBaseHandler):
                 return
 
             poly = shape(data['geometry'])
+            if not poly.is_valid:
+                poly = make_valid(poly)
+            if poly.geom_type == 'MultiPolygon' and len(poly.geoms) == 1:
+                poly = poly.geoms[0]
             
             # ПРОВЕРКА НА ДУБЛИКАТЫ (наложение на существующие поля)
             # Если новое поле на 90% и более совпадает с существующим, не даем создать

@@ -40,9 +40,60 @@
         </div>
     </div>
 
-    <button id="sidebar-toggle" aria-label="Открыть меню">
-        <i class="fas fa-bars"></i>
-    </button>
+    <!-- Top Navigation Bar -->
+    <header id="app-header">
+        <div class="header-left">
+            <a href="#map" class="header-brand">
+                <i class="fas fa-seedling"></i>
+                <span>Field Mapper</span>
+            </a>
+        </div>
+        <nav class="header-nav">
+            <a href="#map" class="header-nav-link active" data-nav="map">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>Карта</span>
+            </a>
+            <a href="#fields" class="header-nav-link" data-nav="fields">
+                <i class="fas fa-th-list"></i>
+                <span>Поля</span>
+            </a>
+            <a href="#owners" class="header-nav-link" data-nav="owners">
+                <i class="fas fa-users"></i>
+                <span>Владельцы</span>
+            </a>
+            <a href="#stats" class="header-nav-link" data-nav="stats">
+                <i class="fas fa-chart-pie"></i>
+                <span>Аналитика</span>
+            </a>
+            <a href="#uploads" class="header-nav-link" data-nav="uploads">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Загрузки</span>
+            </a>
+            <a href="#help" class="header-nav-link" data-nav="help">
+                <i class="fas fa-question-circle"></i>
+                <span>Помощь</span>
+            </a>
+        </nav>
+        <div class="header-right">
+            <button id="header-theme-toggle" class="header-icon-btn" title="Сменить тему">
+                <i class="fas fa-moon"></i>
+            </button>
+            <div id="header-user-menu" class="header-user-menu">
+                <button class="header-user-btn">
+                    <div class="header-avatar"></div>
+                    <span class="header-username"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="header-user-dropdown hidden">
+                    <a href="#" id="header-profile"><i class="fas fa-user"></i> Профиль</a>
+                    <a href="#" id="header-company"><i class="fas fa-building"></i> Компания</a>
+                    <a href="/health" target="_blank"><i class="fas fa-heartbeat"></i> Health</a>
+                    <hr>
+                    <a href="#" id="header-logout"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                </div>
+            </div>
+        </div>
+    </header>
 
     <div id="upload-badge-trigger" class="hidden">
         <i class="fas fa-cloud-upload-alt"></i>
@@ -52,27 +103,6 @@
         <div class="upload-panel-header">Загрузки</div>
         <div id="upload-panel-list">
             <div class="upload-panel-empty">Нет загрузок</div>
-        </div>
-    </div>
-
-    <div id="sidebar">
-        <h2>Field Mapper</h2>
-        <nav>
-            <a href="#map" class="nav-link active">🗺️ Карта</a>
-            <a href="#fields" class="nav-link">📋 Список полей</a>
-            <a href="#owners" class="nav-link">👥 Владельцы</a>
-            <a href="#stats" class="nav-link">📊 Статистика</a>
-            <a href="#uploads" class="nav-link">📥 Загрузки</a>
-            <hr style="border-color: #334155; margin: 8px 0;">
-            <a href="#help" class="nav-link">❓ Помощь</a>
-            <a href="/health" class="nav-link" target="_blank">💚 Health</a>
-        </nav>
-        
-        <div class="theme-switch-wrapper">
-            <button id="theme-toggle-btn">
-                <span class="icon">🌙</span>
-                <span class="text">Темная тема</span>
-            </button>
         </div>
     </div>
 
@@ -451,20 +481,20 @@
     <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- Cache bust: 2026-06-17-5 -->
-    <script src="/static/js/modules/auth.js?v=5"></script>
-    <script src="/static/js/modules/api.js?v=5" type="module"></script>
-    <script src="/static/js/modules/map_manager.js?v=5" type="module"></script>
-    <script src="/static/js/modules/tables.js?v=5" type="module"></script>
-    <script src="/static/js/modules/field-detail.js?v=5" type="module"></script>
-    <script src="/static/js/modules/uploads.js?v=5" type="module"></script>
-    <script src="/static/js/modules/modals.js?v=5" type="module"></script>
-    <script src="/static/js/modules/stats.js?v=5" type="module"></script>
-    <script src="/static/js/modules/theme.js?v=5" type="module"></script>
-    <script src="/static/js/modules/map-callbacks.js?v=5" type="module"></script>
-    <script src="/static/js/modules/utils.js?v=5" type="module"></script>
-    <script src="/static/js/modules/router.js?v=5" type="module"></script>
-    <script src="/static/js/main.js?v=5" type="module"></script>
+    <!-- Cache bust: 2026-06-18-1 -->
+    <script src="/static/js/modules/auth.js?v=6"></script>
+    <script src="/static/js/modules/api.js?v=7" type="module"></script>
+    <script src="/static/js/modules/map_manager.js?v=6" type="module"></script>
+    <script src="/static/js/modules/tables.js?v=6" type="module"></script>
+    <script src="/static/js/modules/field-detail.js?v=6" type="module"></script>
+    <script src="/static/js/modules/uploads.js?v=6" type="module"></script>
+    <script src="/static/js/modules/modals.js?v=6" type="module"></script>
+    <script src="/static/js/modules/stats.js?v=6" type="module"></script>
+    <script src="/static/js/modules/theme.js?v=6" type="module"></script>
+    <script src="/static/js/modules/map-callbacks.js?v=6" type="module"></script>
+    <script src="/static/js/modules/utils.js?v=6" type="module"></script>
+    <script src="/static/js/modules/router.js?v=6" type="module"></script>
+    <script src="/static/js/main.js?v=6" type="module"></script>
 
     <script>
         // Service Worker отключён — вызывает проблемы с кэшированием JS модулей

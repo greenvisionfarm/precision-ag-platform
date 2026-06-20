@@ -101,8 +101,188 @@ html, body {
     transition: background-color 0.3s ease;
 }
 
-body.sidebar-open {
-    overflow: hidden;
+/* ===== TOP HEADER BAR ===== */
+#app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--spacing-md);
+    z-index: 1000;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.header-brand i {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.header-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.header-nav-link:hover {
+    background: var(--hover-bg);
+    color: var(--text-color);
+}
+
+.header-nav-link.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.header-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.15s ease;
+}
+
+.header-icon-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-color);
+}
+
+.header-user-menu {
+    position: relative;
+}
+
+.header-user-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.header-user-btn:hover {
+    background: var(--hover-bg);
+}
+
+.header-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.header-username {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.header-user-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    min-width: 180px;
+    padding: 4px;
+    z-index: 1001;
+}
+
+.header-user-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+
+.header-user-dropdown a:hover {
+    background: var(--hover-bg);
+}
+
+.header-user-dropdown hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 4px 0;
+}
+
+/* Mobile header */
+@media (max-width: 768px) {
+    .header-nav span {
+        display: none;
+    }
+    .header-nav-link {
+        padding: 8px 10px;
+    }
+    .header-username {
+        display: none;
+    }
+    .header-brand span {
+        display: none;
+    }
 }
 
 h1, h2, h3 {
@@ -158,123 +338,14 @@ h3 { font-size: var(--font-size-lg); }
     }
 }
 
-/* Десктопная версия: сдвиг контента при открытом сайдбаре */
-@media (min-width: 769px) {
-    body.sidebar-open .main-content {
-        margin-left: var(--sidebar-width);
-        width: calc(100% - var(--sidebar-width));
-    }
-    
-    /* На десктопе кнопка вверху, нужен отступ */
-    .main-content {
-        padding-top: 70px;
-    }
+/* Хедер 56px + отступ */
+.main-content {
+    padding-top: 72px;
 }
 
-/* Сайдбар */
-#sidebar {
-    position: fixed;
-    top: 0;
-    left: calc(-1 * var(--sidebar-width) - 30px);
-    width: var(--sidebar-width);
-    height: 100%;
-    background-color: var(--sidebar-bg);
-    padding: var(--spacing-lg);
-    z-index: 1001;
-    overflow-y: auto;
-    transition: left 0.3s ease, box-shadow 0.3s ease;
-    border-right: 1px solid var(--border-color);
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-}
-
-#sidebar.open {
-    left: 0;
-    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
-}
-
-#sidebar h2 {
-    margin-bottom: var(--spacing-xl);
-}
-
-#sidebar nav {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    flex: 1;
-}
-
-#sidebar a {
-    color: var(--sidebar-link);
-    text-decoration: none;
-    font-weight: 500;
-}
-
-/* Кнопка переключения сайдбара */
-#sidebar-toggle {
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 1002;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.4rem;
-    transition: all 0.3s ease;
-}
-
-#sidebar-toggle:hover {
-    background-color: var(--primary-hover);
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-#sidebar-toggle:active {
-    transform: scale(0.95);
-}
-
-/* Скрываем кнопку когда меню открыто */
-body.sidebar-open #sidebar-toggle {
-    opacity: 0;
-}
-
-/* Анимация иконки при открытом меню */
-#sidebar-toggle i.fa-bars {
-    transition: transform 0.3s ease;
-}
-
-#sidebar-toggle.open i.fa-bars {
-    transform: rotate(90deg);
-}
-
-/* Мобильные: кнопка внизу слева для удобства большого пальца */
 @media (max-width: 768px) {
-    #sidebar-toggle {
-        top: auto;
-        bottom: 20px;
-        left: 20px;
-        width: 56px;
-        height: 56px;
-        font-size: 1.6rem;
-    }
-    
-    /* На мобильных скрываем кнопку когда меню открыто */
-    body.sidebar-open #sidebar-toggle {
-        opacity: 0;
-    }
-    
-    /* На мобильных нет отступа сверху так как кнопка внизу */
     .main-content {
-        padding-top: var(--spacing-lg);
+        padding-top: 64px;
     }
 }
 
@@ -554,14 +625,6 @@ table.dataTable.display tbody tr:hover td {
     }
 
     #view-map { padding: 0; }
-
-    #sidebar {
-        left: -100%;
-    }
-
-    #sidebar.open {
-        left: 0;
-    }
 }
 
 /* ====== Detail Page Header ====== */
@@ -1448,11 +1511,6 @@ table.dataTable.display tbody tr:hover td {
     align-items: center;
     justify-content: center;
     padding: 0 4px;
-}
-
-body.sidebar-open #upload-badge-trigger {
-    opacity: 0;
-    pointer-events: none;
 }
 
 #upload-panel {

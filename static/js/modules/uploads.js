@@ -29,17 +29,13 @@ export function initShapefileUpload() {
 
     fetchApi("/upload", { method: "POST", body: new FormData(this) })
       .then((res) => {
-        statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Успешно загружено!");
-        window.loadMapData?.();
-        window.getFieldsTable?.()?.ajax.reload();
-        form.reset();
-        $(form).find(".file-input-label").html("<i class=\"fas fa-file-upload\"></i> Выберите ZIP файл");
-        btn.addClass("hidden");
-        if (uploadId) complete(uploadId, { status: "completed", message: "Загружен" });
-        setTimeout(() => {
-          statusDiv.removeClass("text-success").html("");
-          btn.prop("disabled", false);
-        }, 3000);
+        if (res.features && res.features.length > 0) {
+          showShapefilePreviewModal(res.features, uploadId);
+        } else {
+          statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Файл загружен, но полей не найдено.");
+          if (uploadId) complete(uploadId, { status: "completed", message: "Полей нет" });
+        }
+        btn.prop("disabled", false);
       })
       .catch(() => {
         statusDiv.addClass("text-danger").html("<i class=\"fas fa-exclamation-triangle\"></i> Ошибка загрузки");
@@ -48,6 +44,108 @@ export function initShapefileUpload() {
         if (uploadId) complete(uploadId, { status: "error", message: "Ошибка загрузки" });
       });
   });
+}
+
+/**
+ * Показывает модальное окно предпросмотра импортированных полей.
+ */
+function showShapefilePreviewModal(features, uploadId) {
+  fetchApi("/api/fields").then((fc) => {
+    const existingNames = new Set((fc.features || []).map(f => (f.properties.name || "").toLowerCase()));
+
+    let rows = features.map((f, i) => {
+      const isDupe = existingNames.has(f.name.toLowerCase());
+      return `
+      <tr data-index="${i}" class="${isDupe ? 'import-dupe-row' : ''}">
+        <td>
+          <input type="text" class="import-field-name" value="${escapeHtml(f.name)}" style="width:100%;padding:4px;border:1px solid ${isDupe ? '#ffc107' : 'var(--border-color)'};border-radius:4px;background:var(--bg-secondary);color:var(--text-color);" title="${isDupe ? 'Внимание: поле с таким именем уже существует!' : ''}">
+          ${isDupe ? '<span style="color:#ffc107;font-size:0.8em;margin-left:4px;"><i class="fas fa-exclamation-triangle"></i> дубль</span>' : ''}
+        </td>
+        <td style="white-space:nowrap;">${f.area_ha} га</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85em;color:var(--text-muted);" title="${escapeHtml(JSON.stringify(f.properties))}">${Object.keys(f.properties).join(', ')}</td>
+        <td><button class="btn btn-sm import-delete-btn" style="color:#dc3545;background:none;border:none;padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
+      </tr>`;
+    }).join('');
+
+    Swal.fire({
+    title: `Импорт полей (${features.length})`,
+    html: `
+      <div style="text-align:left;max-height:60vh;overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border-color);text-align:left;">
+              <th style="padding:6px;">Название</th>
+              <th style="padding:6px;">Площадь</th>
+              <th style="padding:6px;">Свойства</th>
+              <th style="padding:6px;"></th>
+            </tr>
+          </thead>
+          <tbody id="import-preview-body">
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px;font-size:0.85em;color:var(--text-muted);">
+        <i class="fas fa-info-circle"></i> Отредактируйте названия и удалите лишние поля перед сохранением.
+      </p>
+    `,
+    width: "750px",
+    showCancelButton: true,
+    confirmButtonText: '<i class="fas fa-save"></i> Сохранить',
+    cancelButtonText: '<i class="fas fa-times"></i> Отмена',
+    confirmButtonColor: "#28a745",
+    didOpen: () => {
+      const body = Swal.getHtmlContainer().querySelector("#import-preview-body");
+      body.addEventListener("click", (e) => {
+        const btn = e.target.closest(".import-delete-btn");
+        if (btn) btn.closest("tr").remove();
+      });
+    },
+    preConfirm: () => {
+      const rows = Swal.getHtmlContainer().querySelectorAll("#import-preview-body tr");
+      const result = [];
+      rows.forEach((row, i) => {
+        const nameInput = row.querySelector(".import-field-name");
+        const idx = parseInt(row.dataset.index);
+        result.push({
+          name: nameInput ? nameInput.value : features[idx].name,
+          geometry_wkt: features[idx].geometry_wkt,
+          properties: features[idx].properties,
+          area_ha: features[idx].area_ha
+        });
+      });
+      return result;
+    }
+    }).then((result) => {
+    if (!result.isConfirmed) return;
+    if (result.value.length === 0) {
+      showMessage("Все поля удалены, нечего сохранять", "warning");
+      return;
+    }
+    fetchApi("/api/fields/confirm_import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ features: result.value })
+    }).then((res) => {
+      showMessage(res.message || "Поля сохранены", "success");
+      window.loadMapData?.();
+      window.getFieldsTable?.()?.ajax.reload();
+      const statusDiv = $("#upload-status");
+      statusDiv.addClass("text-success").html("<i class=\"fas fa-check\"></i> Поля сохранены!");
+      if (uploadId) complete(uploadId, { status: "completed", message: res.message });
+      setTimeout(() => statusDiv.removeClass("text-success").html(""), 3000);
+    }).catch(() => {
+      showMessage("Ошибка сохранения полей", "error");
+      if (uploadId) complete(uploadId, { status: "error", message: "Ошибка сохранения" });
+    });
+  });
+  }).catch(() => {
+    showMessage("Не удалось загрузить данные для проверки дублей", "warning");
+  });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /**

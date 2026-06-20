@@ -116,21 +116,24 @@ class APIClient {
     const qs = new URLSearchParams(params).toString();
     const url = `/api/field/export/kmz/${fieldId}${qs ? "?" + qs : ""}`;
     const resp = await fetchApi(url);
-    return resp.blob ? resp : resp;
+    return resp.blob ? resp.blob() : resp;
   }
 
   async exportAllKmz(params = {}) {
     const qs = new URLSearchParams(params).toString();
     const url = `/api/field/export/kmz/all${qs ? "?" + qs : ""}`;
-    return fetchApi(url);
+    const resp = await fetchApi(url);
+    return resp.blob ? resp.blob() : resp;
   }
 
-  exportIsoxml(fieldId, params = {}) {
-    return fetchApi(`/api/field/export/isoxml/${fieldId}`, { method: "POST", body: params });
+  async exportIsoxml(fieldId, params = {}) {
+    const resp = await fetchApi(`/api/field/export/isoxml/${fieldId}`, { method: "POST", body: params });
+    return resp.blob ? resp.blob() : resp;
   }
 
-  exportTaskData(fieldId, params = {}) {
-    return fetchApi(`/api/field/export/taskdata/${fieldId}`, { method: "POST", body: params });
+  async exportTaskData(fieldId, params = {}) {
+    const resp = await fetchApi(`/api/field/export/taskdata/${fieldId}`, { method: "POST", body: params });
+    return resp.blob ? resp.blob() : resp;
   }
 }
 
