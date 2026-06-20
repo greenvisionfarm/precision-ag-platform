@@ -252,7 +252,7 @@ class UploadHandler(AuthenticatedRequestHandler):
                     "name": str(field_name),
                     "geometry_wkt": geom.wkt,
                     "properties": cleaned,
-                    "area_ha": round(row.geometry.area / 10000, 2) if hasattr(row, 'geometry') else 0
+                    "area_ha": round(row['area_sq_m'] / 10000, 2) if 'area_sq_m' in row.index else 0
                 })
             logger.info(f"Shapefile parsed: {len(features)} features, columns={list(gdf.columns)}, names={[f['name'] for f in features]}")
             self.set_header("Content-Type", "application/json")

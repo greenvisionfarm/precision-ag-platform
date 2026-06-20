@@ -56,30 +56,72 @@ function showShapefilePreviewModal(features, uploadId) {
   fetchApi("/api/fields").then((fc) => {
     const existingNames = new Set((fc.features || []).map(f => (f.properties.name || "").toLowerCase()));
 
+    function renderRows() {
+      const rows = document.querySelectorAll("#import-preview-body tr");
+      let dupeCount = 0;
+      const usedNames = new Set(
+        Array.from(document.querySelectorAll("#import-preview-body .import-field-name"))
+          .map(el => el.value.toLowerCase())
+      );
+      const existingUsedNames = new Set(
+        Array.from(document.querySelectorAll("#import-preview-body"))
+          .flatMap(() => [])
+      );
+
+      rows.forEach(row => {
+        const nameInput = row.querySelector(".import-field-name");
+        const name = (nameInput?.value || "").toLowerCase();
+        const isOriginalDupe = existingNames.has(name);
+        const input = row.querySelector(".import-field-name");
+        if (input) {
+          input.style.borderColor = isOriginalDupe ? "#ffc107" : "var(--border-color)";
+        }
+        const tag = row.querySelector(".import-dupe-tag");
+        if (tag) tag.style.display = isOriginalDupe ? "" : "none";
+        if (isOriginalDupe) dupeCount++;
+      });
+
+      const saveBtn = Swal.getConfirmButton();
+      if (saveBtn) {
+        saveBtn.disabled = dupeCount > 0;
+        saveBtn.title = dupeCount > 0 ? `Устраните ${dupeCount} дубликат(ов) перед сохранением` : "";
+      }
+      const counter = document.getElementById("import-dupe-counter");
+      if (counter) {
+        counter.textContent = dupeCount > 0
+          ? `${dupeCount} поле(ей) с дублирующимся названием — измените название или удалите`
+          : "Все конфликты разрешены";
+        counter.style.color = dupeCount > 0 ? "#ffc107" : "#28a745";
+      }
+    }
+
+    const KEY_PROPS = ["Main_Crop", "MainCropExp", "ha", "Field_No_"];
     let rows = features.map((f, i) => {
       const isDupe = existingNames.has(f.name.toLowerCase());
+      const crop = f.properties.MainCropExp || f.properties.Main_Crop || "";
+      const ha = f.area_ha > 0 ? `${f.area_ha} га` : "";
+      const fieldNo = f.properties.Field_No_ || "";
+      const details = [crop, ha, fieldNo ? `№${fieldNo}` : ""].filter(Boolean).join(" · ");
       return `
-      <tr data-index="${i}" class="${isDupe ? 'import-dupe-row' : ''}">
-        <td>
-          <input type="text" class="import-field-name" value="${escapeHtml(f.name)}" style="width:100%;padding:4px;border:1px solid ${isDupe ? '#ffc107' : 'var(--border-color)'};border-radius:4px;background:var(--bg-secondary);color:var(--text-color);" title="${isDupe ? 'Внимание: поле с таким именем уже существует!' : ''}">
-          ${isDupe ? '<span style="color:#ffc107;font-size:0.8em;margin-left:4px;"><i class="fas fa-exclamation-triangle"></i> дубль</span>' : ''}
+      <tr data-index="${i}" style="border-bottom:1px solid var(--border-color);">
+        <td style="padding:6px 4px;">
+          <input type="text" class="import-field-name" value="${escapeHtml(f.name)}" style="width:100%;padding:6px;border:1px solid ${isDupe ? '#ffc107' : 'var(--border-color)'};border-radius:4px;background:var(--bg-secondary);color:var(--text-color);font-size:0.95em;">
+          <span class="import-dupe-tag" style="display:${isDupe ? '' : 'none'};color:#ffc107;font-size:0.8em;"><i class="fas fa-exclamation-triangle"></i> дубль</span>
         </td>
-        <td style="white-space:nowrap;">${f.area_ha} га</td>
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85em;color:var(--text-muted);" title="${escapeHtml(JSON.stringify(f.properties))}">${Object.keys(f.properties).join(', ')}</td>
-        <td><button class="btn btn-sm import-delete-btn" style="color:#dc3545;background:none;border:none;padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
+        <td style="padding:6px 4px;white-space:nowrap;font-size:0.9em;">${details || "—"}</td>
+        <td style="padding:6px 4px;"><button class="btn btn-sm import-delete-btn" style="color:#dc3545;background:none;border:none;padding:4px 8px;font-size:1.1em;"><i class="fas fa-trash"></i></button></td>
       </tr>`;
     }).join('');
 
     Swal.fire({
     title: `Импорт полей (${features.length})`,
     html: `
-      <div style="text-align:left;max-height:60vh;overflow:auto;">
+      <div style="text-align:left;max-height:55vh;overflow:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
           <thead>
             <tr style="border-bottom:2px solid var(--border-color);text-align:left;">
               <th style="padding:6px;">Название</th>
-              <th style="padding:6px;">Площадь</th>
-              <th style="padding:6px;">Свойства</th>
+              <th style="padding:6px;">Культура · Площадь</th>
               <th style="padding:6px;"></th>
             </tr>
           </thead>
@@ -88,11 +130,9 @@ function showShapefilePreviewModal(features, uploadId) {
           </tbody>
         </table>
       </div>
-      <p style="margin-top:12px;font-size:0.85em;color:var(--text-muted);">
-        <i class="fas fa-info-circle"></i> Отредактируйте названия и удалите лишние поля перед сохранением.
-      </p>
+      <p id="import-dupe-counter" style="margin-top:10px;font-size:0.85em;font-weight:600;"></p>
     `,
-    width: "750px",
+    width: "650px",
     showCancelButton: true,
     confirmButtonText: '<i class="fas fa-save"></i> Сохранить',
     cancelButtonText: '<i class="fas fa-times"></i> Отмена',
@@ -101,8 +141,15 @@ function showShapefilePreviewModal(features, uploadId) {
       const body = Swal.getHtmlContainer().querySelector("#import-preview-body");
       body.addEventListener("click", (e) => {
         const btn = e.target.closest(".import-delete-btn");
-        if (btn) btn.closest("tr").remove();
+        if (btn) {
+          btn.closest("tr").remove();
+          renderRows();
+        }
       });
+      body.addEventListener("input", (e) => {
+        if (e.target.classList.contains("import-field-name")) renderRows();
+      });
+      renderRows();
     },
     preConfirm: () => {
       const rows = Swal.getHtmlContainer().querySelectorAll("#import-preview-body tr");
