@@ -53,12 +53,17 @@ export class MapManager {
     this.editableLayers.clearLayers();
     if (!geojsonData.features) return;
 
+    const isSmallScreen = window.innerWidth <= 600;
+
     L.geoJSON(geojsonData, {
       style: { color: "#007BFF", weight: 2, fillOpacity: 0.3 },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {};
 
-        if (onFieldClick) {
+        if (isSmallScreen) {
+          const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + " га" : "N/A";
+          layer.bindPopup(`<b>${props.name || "Поле"}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz w-full" data-id="${props.db_id}"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
+        } else if (onFieldClick) {
           layer.on("click", (e) => {
             L.DomEvent.stopPropagation(e);
             onFieldClick(props.db_id);
@@ -66,6 +71,23 @@ export class MapManager {
         } else {
           const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + " га" : "N/A";
           layer.bindPopup(`<b>${props.name || "Поле"}</b><br>Площадь: ${area}<hr><button class="btn btn-primary btn-sm btn-pop-kmz w-full" data-id="${props.db_id}"><i class="fas fa-file-download"></i> Скачать KMZ</button>`);
+        }
+
+        if (isSmallScreen && onFieldClick) {
+          layer.on("click", (e) => {
+            const bar = document.getElementById("quick-export-bar");
+            const nameEl = document.getElementById("qe-field-name");
+            const dlBtn = document.getElementById("qe-download-kmz");
+            const detailBtn = document.getElementById("qe-open-detail");
+            if (bar && nameEl && dlBtn && detailBtn) {
+              nameEl.textContent = props.name || "Поле";
+              dlBtn.onclick = () => {
+                if (window.downloadKmzWithSettings) window.downloadKmzWithSettings(props.db_id);
+              };
+              detailBtn.onclick = () => onFieldClick(props.db_id);
+              bar.classList.add("visible");
+            }
+          });
         }
 
         this.editableLayers.addLayer(layer);
