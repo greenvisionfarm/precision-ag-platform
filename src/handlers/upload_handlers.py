@@ -241,8 +241,11 @@ class UploadHandler(AuthenticatedRequestHandler):
                 field_name = (
                     cleaned.get('Field_Name') or cleaned.get('name') or
                     cleaned.get('NAME') or cleaned.get('Name') or
-                    cleaned.get('id') or cleaned.get('ID') or "Поле"
+                    cleaned.get('Field_Name_') or cleaned.get('field_name') or
+                    "Поле"
                 )
+                if field_name and str(field_name).isdigit():
+                    field_name = f"Поле {field_name}"
                 geom = row.geometry
                 if not geom.is_valid:
                     geom = make_valid(geom)
