@@ -62,6 +62,7 @@ from src.handlers.mission_handlers import (
     MissionDeleteHandler,
     MissionPreviewHandler,
 )
+from src.handlers.audit_handlers import AuditLogHandler
 
 # Настройка логирования
 setup_logging()
@@ -159,6 +160,9 @@ def make_app() -> tornado.web.Application:
         (r"/api/field/([0-9]+)/missions/([0-9]+)", MissionDetailHandler),
         (r"/api/field/([0-9]+)/missions/([0-9]+)/delete", MissionDeleteHandler),
         (r"/api/field/([0-9]+)/missions/preview", MissionPreviewHandler),
+
+        # Audit logs
+        (r"/api/audit-logs", AuditLogHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

@@ -201,6 +201,26 @@ def migrate_db(db_path: str = 'data/fields.db') -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mission_field ON mission(field_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mission_company ON mission(company_id)")
 
+        # 9. Создаём таблицу auditlog (аудит-журнал)
+        logger.info("Создание таблицы auditlog...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auditlog (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER,
+                user_email VARCHAR(255),
+                action VARCHAR(100) NOT NULL,
+                entity_type VARCHAR(100) NOT NULL,
+                entity_id INTEGER,
+                entity_name VARCHAR(255),
+                details TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditlog_company ON auditlog(company_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditlog_action ON auditlog(action)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditlog_created ON auditlog(created_at)")
+
         logger.info("Миграция успешно завершена!")
         
     except Exception as e:

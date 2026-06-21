@@ -344,14 +344,46 @@ class FieldUpdateHandler(FieldApiBaseHandler):
                     self.write({"error": "Field not found"})
                     return
 
+                # Сохраняем старые значения для аудита
+                old_name = field.name
+                old_owner_id = field.owner_id
+
                 data = json.loads(self.request.body)
                 command.execute(field, data)
                 field.save()
+
+                # Логируем изменение
+                self._log_audit(action, field, old_name, old_owner_id, data)
 
             self.write({"message": "OK"})
         except Exception as e:
             self.set_status(500)
             self.write({"error": str(e)})
+
+    def _log_audit(self, action: str, field, old_name, old_owner_id, data: dict) -> None:
+        """Записывает аудит-лог изменения."""
+        try:
+            from src.models.field import AuditLog
+
+            details = {}
+            if action == 'rename':
+                details = {'old_name': old_name, 'new_name': field.name}
+            elif action == 'assign_owner':
+                details = {'old_owner_id': old_owner_id, 'new_owner_id': field.owner_id}
+            elif action == 'update_details':
+                details = {k: v for k, v in data.items() if v is not None}
+
+            AuditLog.create(
+                company=self.current_user.company,
+                user_email=self.current_user.email,
+                action=action,
+                entity_type='field',
+                entity_id=field.id,
+                entity_name=field.name,
+                details=json.dumps(details) if details else None,
+            )
+        except Exception as e:
+            logger.error(f"Audit log error: {e}")
 
 
 class FieldExportKmzHandler(FieldApiBaseHandler):

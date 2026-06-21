@@ -61,6 +61,7 @@ _HEALTH_HTML = """<!DOCTYPE html>
   <p class="subtitle">Self-hosted instance monitoring</p>
   <div id="overall-status"><span class="spinner"></span> Loading...</div>
   <div id="cards"></div>
+  <div id="audit-log-container"></div>
   <div class="refresh-bar" id="refresh-info">Auto-refresh in <span id="countdown">30</span>s</div>
 </div>
 
@@ -96,6 +97,7 @@ function render(data) {
 
   let html = '';
   for (const [name, check] of Object.entries(data.checks)) {
+    if (name === 'audit_log') continue;
     html += '<div class="card">';
     html += '<div class="card-header">';
     html += '<span class="card-title">' + name.toUpperCase() + '</span>';
@@ -118,6 +120,8 @@ function render(data) {
     html += '</div>';
   }
   document.getElementById('cards').innerHTML = html;
+
+  fetchAuditLogs();
 }
 
 async function fetchHealth() {
@@ -138,7 +142,52 @@ setInterval(() => {
   document.getElementById('countdown').textContent = countdown;
   if (countdown <= 0) {
     countdown = INTERVAL;
-    fetchHealth();
+fetchHealth();
+
+async function fetchAuditLogs() {
+  try {
+    const resp = await fetch('/api/audit-logs?limit=10');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const logs = data.logs || [];
+    if (logs.length === 0) {
+      document.getElementById('audit-log-container').innerHTML =
+        '<div class="card"><div class="card-title" style="margin-bottom:0.5rem;">Аудит-журнал</div><div style="color:#94a3b8;font-size:0.9rem;">Нет записей</div></div>';
+      return;
+    }
+
+    let html = '<div class="card"><div class="card-header"><span class="card-title">Аудит-журнал</span>';
+    html += '<span class="badge badge-ok">' + logs.length + ' записей</span></div>';
+    html += '<div style="font-size:0.85rem;">';
+
+    const actionLabels = {
+      rename: 'Переименование',
+      assign_owner: 'Назначение владельца',
+      update_details: 'Обновление деталей',
+      update_geometry: 'Обновление геометрии'
+    };
+
+    logs.forEach(log => {
+      const time = log.created_at ? new Date(log.created_at).toLocaleString('ru-RU') : '';
+      const action = actionLabels[log.action] || log.action;
+      const details = log.details ? Object.entries(log.details).map(([k, v]) => k + '=' + v).join(', ') : '';
+
+      html += '<div class="metric" style="flex-direction:column;align-items:flex-start;gap:2px;">';
+      html += '<div style="display:flex;justify-content:space-between;width:100%;">';
+      html += '<span style="color:#e2e8f0;font-weight:500;">' + action + ' ' + (log.entity_type || '') + (log.entity_name ? ' "' + log.entity_name + '"' : '') + '</span>';
+      html += '<span style="color:#64748b;">' + time + '</span>';
+      html += '</div>';
+      if (details) html += '<div style="color:#94a3b8;font-size:0.8rem;">' + log.user_email + ': ' + details + '</div>';
+      else html += '<div style="color:#94a3b8;font-size:0.8rem;">' + (log.user_email || '') + '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+    document.getElementById('audit-log-container').innerHTML = html;
+  } catch (e) {
+    // silent
+  }
+}
   }
 }, 1000);
 

@@ -194,6 +194,32 @@ class Mission(BaseModel):
         return f"Mission {self.id} - {self.name or 'Unnamed'}"
 
 
+class AuditLog(BaseModel):
+    """Аудит-журнал изменений в системе."""
+
+    company = ForeignKeyField(
+        Company,
+        backref='audit_logs',
+        null=True,
+        on_delete='CASCADE',
+        help_text="Компания"
+    )
+    user_email = CharField(null=True, help_text="Email пользователя")
+    action = CharField(help_text="Действие: rename, assign_owner, update_details, delete_field и т.д.")
+    entity_type = CharField(help_text="Тип объекта: field, owner, scan и т.д.")
+    entity_id = IntegerField(null=True, help_text="ID объекта")
+    entity_name = CharField(null=True, help_text="Название объекта для читаемости")
+    details = TextField(null=True, help_text="JSON с деталями изменения (старое/новое значение)")
+    created_at = DateTimeField(default=datetime.now, help_text="Время записи")
+
+    class Meta:
+        table_name = 'auditlog'
+        db_table = 'auditlog'
+
+    def __str__(self) -> str:
+        return f"[{self.action}] {self.entity_type} #{self.entity_id} by {self.user_email}"
+
+
 class FieldJournal(BaseModel):
     """Журнал полевых работ — история посевов и внесений."""
 

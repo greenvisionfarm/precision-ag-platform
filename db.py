@@ -135,12 +135,12 @@ def initialize_db() -> None:
     # Импортируем новые модели (с company_id и auth)
     try:
         from src.models.auth import Company, User
-        from src.models.field import Field as NewField, FieldScan as NewFieldScan, FieldZone as NewFieldZone, Owner as NewOwner
+        from src.models.field import Field as NewField, FieldScan as NewFieldScan, FieldZone as NewFieldZone, Owner as NewOwner, Mission, AuditLog
 
         # Удаляем в правильном порядке (foreign keys)
-        all_tables = [NewFieldZone, NewFieldScan, NewField, NewOwner, User, Company]
+        all_tables = [NewFieldZone, NewFieldScan, Mission, AuditLog, NewField, NewOwner, User, Company]
         database.drop_tables(all_tables, safe=True)
-        database.create_tables([Company, User, NewOwner, NewField, NewFieldScan, NewFieldZone])
+        database.create_tables([Company, User, NewOwner, NewField, NewFieldScan, NewFieldZone, Mission, AuditLog])
     except ImportError:
         # Fallback для старых тестов без auth
         database.drop_tables([Field, Owner, FieldZone, FieldScan], safe=True)

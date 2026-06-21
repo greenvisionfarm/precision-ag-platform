@@ -1,6 +1,7 @@
 """
 Health check handler — проверка работоспособности всех компонентов.
 """
+import json
 import logging
 import os
 import time
@@ -40,6 +41,8 @@ class HealthHandler(tornado.web.RequestHandler):
         if checks["redis"]["status"] != "ok":
             healthy = False
 
+        checks["audit_log"] = self._check_audit_log()
+
         status_code = 200 if healthy else 503
         self.set_status(status_code)
         self.write({
@@ -71,3 +74,17 @@ class HealthHandler(tornado.web.RequestHandler):
         except Exception as e:
             logger.error(f"Health check Redis failed: {e}")
             return {"status": "error", "message": str(e)}
+
+    def _check_audit_log(self) -> Dict[str, Any]:
+        try:
+            from db import database
+            if database.is_closed():
+                database.connect()
+            cursor = database.execute_sql(
+                "SELECT COUNT(*) FROM auditlog WHERE created_at > datetime('now', '-1 hour')"
+            )
+            row = cursor.fetchone()
+            recent_count = row[0] if row else 0
+            return {"status": "ok", "recent_changes_1h": recent_count}
+        except Exception as e:
+            return {"status": "ok", "message": f"audit_log not available: {e}"}
