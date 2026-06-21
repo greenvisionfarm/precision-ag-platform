@@ -55,6 +55,13 @@ from src.handlers.journal_handlers import (
     FieldJournalCreateHandler,
     FieldJournalDeleteHandler,
 )
+from src.handlers.mission_handlers import (
+    MissionListHandler,
+    MissionCreateHandler,
+    MissionDetailHandler,
+    MissionDeleteHandler,
+    MissionPreviewHandler,
+)
 
 # Настройка логирования
 setup_logging()
@@ -145,6 +152,13 @@ def make_app() -> tornado.web.Application:
         (r"/api/field/([0-9]+)/journal", FieldJournalHandler),
         (r"/api/field/([0-9]+)/journal/add", FieldJournalCreateHandler),
         (r"/api/field/([0-9]+)/journal/([0-9]+)", FieldJournalDeleteHandler),
+
+        # Drone Missions
+        (r"/api/field/([0-9]+)/missions", MissionListHandler),
+        (r"/api/field/([0-9]+)/missions/add", MissionCreateHandler),
+        (r"/api/field/([0-9]+)/missions/([0-9]+)", MissionDetailHandler),
+        (r"/api/field/([0-9]+)/missions/([0-9]+)/delete", MissionDeleteHandler),
+        (r"/api/field/([0-9]+)/missions/preview", MissionPreviewHandler),
 
         # Static & PWA
         (r"/(sw\.js)", tornado.web.StaticFileHandler, {"path": settings['static_path']}),

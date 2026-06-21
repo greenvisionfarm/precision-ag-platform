@@ -141,6 +141,26 @@ class APIClient {
     const resp = await fetchApi(`/api/field/export/taskdata/${fieldId}`, { method: "POST", body: params });
     return resp.blob ? resp.blob() : resp;
   }
+
+  getMissions(fieldId) {
+    return fetchApi(`/api/field/${fieldId}/missions`);
+  }
+
+  getMission(fieldId, missionId) {
+    return fetchApi(`/api/field/${fieldId}/missions/${missionId}`);
+  }
+
+  createMission(fieldId, data) {
+    return fetchApi(`/api/field/${fieldId}/missions/add`, { method: "POST", body: data });
+  }
+
+  deleteMission(fieldId, missionId) {
+    return fetchApi(`/api/field/${fieldId}/missions/${missionId}/delete`, { method: "DELETE" });
+  }
+
+  previewMission(fieldId, params) {
+    return fetchApi(`/api/field/${fieldId}/missions/preview`, { method: "POST", body: params });
+  }
 }
 
 const API = new APIClient();

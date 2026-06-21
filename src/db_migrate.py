@@ -179,7 +179,28 @@ def migrate_db(db_path: str = 'data/fields.db') -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_field ON fieldjournal(field_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_company ON fieldjournal(company_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_crop ON fieldjournal(crop_type)")
-        
+
+        # 8. Создаём таблицу mission (миссии дронов)
+        logger.info("Создание таблицы mission...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mission (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_id INTEGER NOT NULL,
+                company_id INTEGER NOT NULL,
+                name VARCHAR(255),
+                height REAL DEFAULT 100,
+                overlap_h REAL DEFAULT 80,
+                overlap_w REAL DEFAULT 70,
+                direction INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                FOREIGN KEY (field_id) REFERENCES field(id) ON DELETE CASCADE,
+                FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mission_field ON mission(field_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mission_company ON mission(company_id)")
+
         logger.info("Миграция успешно завершена!")
         
     except Exception as e:

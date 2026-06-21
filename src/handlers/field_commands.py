@@ -35,9 +35,9 @@ class AssignOwnerCommand(FieldCommand):
     """Команда для назначения владельца полю."""
 
     def execute(self, field: Field, data: Dict[str, Any]) -> None:
-        owner_id = data.get('owner_id')
-        # Важно: сохраняем owner_id а не объект для корректной работы с Peewee
-        field.owner_id = owner_id if owner_id else None
+        raw = data.get('owner_id')
+        owner_id = int(raw) if raw not in (None, '', 'null') else None
+        field.owner_id = owner_id
 
 
 class UpdateDetailsCommand(FieldCommand):

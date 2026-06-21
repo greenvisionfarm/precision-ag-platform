@@ -7,6 +7,7 @@ import { loadFieldScans, cleanup as _cleanupScans } from "./field-detail/scans.j
 import { renderZonesStats } from "./field-detail/zones.js";
 import { loadJournal, deleteJournalEntry as _deleteJournalEntry, initJournalAddHandler } from "./field-detail/journal.js";
 import { initExportHandlers } from "./field-detail/export.js";
+import { loadMissions, initMissionCreateHandler } from "./field-detail/missions.js";
 
 // Разделяемое состояние view
 const state = {
@@ -35,6 +36,7 @@ export function showFieldDetail(id) {
 
     loadFieldScans(id, state);
     loadJournal(id);
+    loadMissions(id, state);
     $("#journal-add-btn").show();
   });
 }
@@ -47,6 +49,7 @@ window.currentFieldDetail = { renderZonesStats: (zones) => renderZonesStats(zone
 // Инициализация обработчиков (вызывается один раз)
 initJournalAddHandler(() => state.currentFieldId);
 initExportHandlers(() => state.currentFieldId);
+initMissionCreateHandler(() => state.currentFieldId);
 
 // Tabs
 $(document).on("click", ".tab-btn", function() {

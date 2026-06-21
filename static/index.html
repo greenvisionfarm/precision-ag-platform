@@ -131,7 +131,6 @@
                 <table id="fields-table" class="display w-full">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Название</th>
                             <th>Площадь</th>
                             <th>Владелец</th>
@@ -189,6 +188,9 @@
                 <button class="tab-btn active" data-tab="tab-ndvi">
                     <i class="fas fa-seedling"></i> NDVI
                 </button>
+                <button class="tab-btn" data-tab="tab-missions">
+                    <i class="fas fa-plane"></i> Миссии
+                </button>
                 <button class="tab-btn" data-tab="tab-fieldwork">
                     <i class="fas fa-tractor"></i> Полевые работы
                 </button>
@@ -198,6 +200,19 @@
             </div>
 
             <div class="detail-tab-content">
+                <div id="tab-missions" class="tab-panel">
+                    <div class="detail-card info-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                            <h3 style="margin:0;">Миссии дрона</h3>
+                            <button id="mission-create-btn" class="btn btn-sm btn-primary">
+                                <i class="fas fa-plus"></i> Новая миссия
+                            </button>
+                        </div>
+                        <div id="missions-list"></div>
+                        <div id="mission-info" class="detail-card info-card" style="display:none;margin-top:1rem;"></div>
+                    </div>
+                </div>
+
                 <div id="tab-ndvi" class="tab-panel active">
                     <div id="scans-selector" class="scans-selector" style="display: none;">
                         <label><i class="fas fa-satellite"></i> Снимки NDVI:</label>
@@ -320,7 +335,6 @@
                 <table id="owners-table" class="display w-full">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Имя / Название</th>
                             <th>Действия</th>
                         </tr>

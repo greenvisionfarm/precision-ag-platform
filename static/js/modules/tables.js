@@ -58,14 +58,18 @@ function _createFieldsTable() {
         }
       },
       columns: [
-        { data: "id" },
         {
           data: "name",
+          className: "text-right",
           render: (d, t, r) => `<span class="editable-name" data-id="${r.id}">${d}</span>`
         },
-        { data: "area" },
+        {
+          data: "area",
+          className: "text-right"
+        },
         {
           data: "owner_id",
+          className: "text-right",
           render: (d, t, r) => {
             let opts = "<option value=\"\">Не назначен</option>";
             (ownersList || []).forEach(o => {
@@ -76,6 +80,7 @@ function _createFieldsTable() {
         },
         {
           data: "land_status",
+          className: "text-right",
           render: (d, t, r) => {
             let opts = "<option value=\"\">Не указан</option>";
             ["Собственность", "Аренда", "Субаренда"].forEach(s => {
@@ -86,10 +91,12 @@ function _createFieldsTable() {
         },
         {
           data: "parcel_number",
+          className: "text-right",
           render: (d, t, r) => `<span class="editable-parcel" data-id="${r.id}">${d || "N/A"}</span>`
         },
         {
           data: null,
+          className: "text-right",
           render: (d, t, r) => `<div class="btn-group">
                         <button class="btn btn-outline-primary btn-sm btn-kmz-settings" data-id="${r.id}"><i class="fas fa-cog"></i></button>
                         <button class="btn-save-details btn-success btn-sm hidden" data-id="${r.id}"><i class="fas fa-save"></i></button>

@@ -9,6 +9,7 @@ from peewee import (
     DateTimeField,
     FloatField,
     ForeignKeyField,
+    IntegerField,
     TextField,
 )
 
@@ -156,6 +157,41 @@ class FieldZone(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.field.name} - {self.name}"
+
+
+class Mission(BaseModel):
+    """Модель миссии дрона (план полёта)."""
+
+    field = ForeignKeyField(
+        Field,
+        backref='missions',
+        on_delete='CASCADE',
+        help_text="Поле, для которого создана миссия"
+    )
+    company = ForeignKeyField(
+        Company,
+        backref='missions',
+        on_delete='CASCADE',
+        help_text="Компания"
+    )
+
+    # Параметры полёта
+    name = CharField(null=True, help_text="Название миссии")
+    height = FloatField(default=100, help_text="Высота полёта (м)")
+    overlap_h = FloatField(default=80, help_text="Фронтальное перекрытие (%)")
+    overlap_w = FloatField(default=70, help_text="Боковое перекрытие (%)")
+    direction = IntegerField(null=True, help_text="Угол курса (градусы, null = авто)")
+
+    # Метаданные
+    created_at = DateTimeField(default=datetime.now, help_text="Дата создания")
+    notes = TextField(null=True, help_text="Заметки к миссии")
+
+    class Meta:
+        table_name = 'mission'
+        db_table = 'mission'
+
+    def __str__(self) -> str:
+        return f"Mission {self.id} - {self.name or 'Unnamed'}"
 
 
 class FieldJournal(BaseModel):
