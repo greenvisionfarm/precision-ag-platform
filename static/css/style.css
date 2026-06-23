@@ -1408,6 +1408,55 @@ table.dataTable.display tbody tr:hover td {
     background: var(--card-bg);
 }
 
+/* Dark mode: SweetAlert2 */
+[data-theme="dark"] .swal2-popup {
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+[data-theme="dark"] .swal2-backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+[data-theme="dark"] .swal2-title {
+    color: var(--text-color);
+}
+[data-theme="dark"] .swal2-html-container {
+    color: var(--text-color);
+    margin: 0;
+}
+[data-theme="dark"] .swal2-input,
+[data-theme="dark"] .swal2-select,
+[data-theme="dark"] .swal2-textarea {
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+[data-theme="dark"] .swal2-input::placeholder,
+[data-theme="dark"] .swal2-textarea::placeholder {
+    color: var(--text-muted);
+}
+[data-theme="dark"] .swal2-cancel {
+    background: var(--card-header-bg);
+    color: var(--text-color);
+}
+[data-theme="dark"] .swal2-cancel:hover {
+    background: var(--hover-bg);
+}
+[data-theme="dark"] .swal2-close-button {
+    color: var(--text-color);
+}
+[data-theme="dark"] .swal2-close-button:hover {
+    color: var(--danger-color);
+}
+[data-theme="dark"] .swal2-styled:focus {
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.35);
+}
+[data-theme="dark"] .swal2-icon {
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .swal2-timer-progress-bar {
+    background: var(--primary-color);
+}
+
 @media (max-width: 768px) {
     .uploads-container {
         grid-template-columns: 1fr;
