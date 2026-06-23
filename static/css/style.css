@@ -114,8 +114,13 @@ html, body {
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--spacing-md);
-    z-index: 1000;
+    z-index: 1100;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Hide Leaflet layer control — theme switch is in the header */
+.leaflet-control-layers {
+    display: none !important;
 }
 
 .header-left {
@@ -236,15 +241,42 @@ html, body {
 
 .header-user-dropdown {
     position: absolute;
-    top: calc(100% + 4px);
+    top: 100%;
     right: 0;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
     min-width: 180px;
-    padding: 4px;
-    z-index: 1001;
+    z-index: 1101;
+    padding: 4px 0;
+}
+.header-user-dropdown.hidden {
+    display: none;
+}
+.header-user-dropdown a,
+.header-user-dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.9em;
+    cursor: pointer;
+    text-align: left;
+}
+.header-user-dropdown a:hover,
+.header-user-dropdown button:hover {
+    background: var(--hover-bg);
+}
+.header-user-dropdown hr {
+    margin: 4px 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
 }
 
 .header-user-dropdown a {
@@ -472,6 +504,21 @@ table.dataTable tbody td {
     background-color: var(--card-bg) !important;
     color: var(--text-color) !important;
     border-top: 1px solid var(--border-color) !important;
+    padding: 10px 12px !important;
+}
+
+.dataTables_wrapper {
+    margin-top: var(--spacing-md);
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: var(--spacing-sm);
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    margin-top: var(--spacing-sm);
 }
 
 /* Зебра и наведение */

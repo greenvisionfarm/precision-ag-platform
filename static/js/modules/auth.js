@@ -74,8 +74,8 @@ class AuthModule {
   }
 
   openSettings(tab = "profile") {
-    const dropdown = document.getElementById("user-dropdown");
-    if (dropdown) dropdown.classList.remove("active");
+    const dropdown = document.querySelector("#header-user-menu .header-user-dropdown");
+    if (dropdown) dropdown.classList.add("hidden");
 
     this.settingsModal.classList.add("active");
 
@@ -96,8 +96,8 @@ class AuthModule {
   }
 
   toggleUserDropdown() {
-    const dropdown = document.getElementById("user-dropdown");
-    if (dropdown) dropdown.classList.toggle("active");
+    const dropdown = document.querySelector("#header-user-menu .header-user-dropdown");
+    if (dropdown) dropdown.classList.toggle("hidden");
   }
 
   async logout() {
@@ -309,9 +309,14 @@ class AuthModule {
     dropdown.innerHTML = `
       <a href="#" onclick="AuthModule.openSettings(); return false;"><i class="fas fa-user"></i> Профиль</a>
       <a href="#" onclick="AuthModule.openSettings('company'); return false;"><i class="fas fa-building"></i> Компания</a>
+      <a href="/health"><i class="fas fa-heartbeat"></i> Health</a>
       <hr>
       <a href="#" onclick="AuthModule.logout(); return false;"><i class="fas fa-sign-out-alt"></i> Выйти</a>
     `;
+
+    if (window.app?.updateHeaderUser) {
+      window.app.updateHeaderUser();
+    }
   }
 
   // --- Private: Events ---

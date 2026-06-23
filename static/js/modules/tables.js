@@ -97,11 +97,10 @@ function _createFieldsTable() {
         {
           data: null,
           className: "text-right",
-          render: (d, t, r) => `<div class="btn-group">
-                        <button class="btn btn-outline-primary btn-sm btn-kmz-settings" data-id="${r.id}"><i class="fas fa-cog"></i></button>
-                        <button class="btn-save-details btn-success btn-sm hidden" data-id="${r.id}"><i class="fas fa-save"></i></button>
-                        <button class="btn-delete btn-danger btn-sm" data-id="${r.id}"><i class="fas fa-trash"></i></button>
-                    </div>`
+          orderable: false,
+          render: (d, t, r) => `<button class="btn btn-outline-primary btn-sm btn-kmz-settings" data-id="${r.id}" title="Настройки KMZ"><i class="fas fa-cog"></i></button>
+                        <button class="btn-save-details btn-success btn-sm hidden" data-id="${r.id}" title="Сохранить"><i class="fas fa-save"></i></button>
+                        <button class="btn btn-danger btn-sm btn-delete" data-id="${r.id}" title="Удалить"><i class="fas fa-trash"></i></button>`
         }
       ],
       language: {
@@ -258,6 +257,7 @@ export function initOwnersTable() {
         {
           data: null,
           className: "text-right",
+          orderable: false,
           render: (d, t, r) => `<button class="btn btn-danger btn-sm btn-delete-owner" data-id="${r.id}"><i class="fas fa-trash"></i></button>`
         }
       ],
