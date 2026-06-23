@@ -377,6 +377,30 @@ export function initDroneUpload() {
           pollDroneTaskStatus(res.task_id, res.field_id, uploadId);
         }
 
+        if (res.flight_date && res.scan_id) {
+          const detected = new Date(res.flight_date);
+          const dateStr = detected.toISOString().slice(0, 10);
+          const timeStr = detected.toTimeString().slice(0, 5);
+          Swal.fire({
+            title: "Дата съёмки",
+            html: `Обнаружена дата из имени файла:<br><strong>${dateStr} ${timeStr}</strong><br><br>Измените при необходимости:`,
+            input: "date",
+            inputValue: dateStr,
+            showCancelButton: true,
+            confirmButtonText: "Сохранить",
+            cancelButtonText: "Оставить как есть",
+            reverseButtons: true
+          }).then(result => {
+            if (result.isConfirmed && result.value) {
+              const newDate = result.value + "T" + timeStr + ":00";
+              fetchApi(`/api/scan/${res.scan_id}/update_date`, {
+                method: "POST",
+                body: { flight_date: newDate }
+              }).catch(() => {});
+            }
+          });
+        }
+
         form.reset();
         $(form).find(".file-input-label").html("<i class=\"fas fa-file-upload\"></i> Выберите ZIP или снимки");
       } else {

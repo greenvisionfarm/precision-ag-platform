@@ -697,6 +697,50 @@ class ScanCropUpdateHandler(AuthenticatedRequestHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
+
+class ScanDateUpdateHandler(AuthenticatedRequestHandler):
+    """Handler для обновления даты съёмки скана."""
+
+    def post(self, scan_id: int) -> None:
+        try:
+            body = json.loads(self.request.body)
+            flight_date_str = body.get("flight_date")
+
+            if not flight_date_str:
+                self.set_status(400)
+                self.write({"error": "flight_date is required"})
+                return
+
+            from datetime import datetime as dt
+            try:
+                flight_date = dt.fromisoformat(flight_date_str)
+            except ValueError:
+                self.set_status(400)
+                self.write({"error": "Неверный формат даты"})
+                return
+
+            scan = FieldScan.get_by_id(scan_id)
+            field = Field.get_by_id(scan.field_id)
+            if field.company_id != self.current_user.company_id:
+                self.set_status(403)
+                self.write({"error": "Доступ запрещён"})
+                return
+
+            scan.uploaded_at = flight_date
+            scan.save()
+
+            self.write({
+                "success": True,
+                "uploaded_at": scan.uploaded_at.isoformat()
+            })
+
+        except FieldScan.DoesNotExist:
+            self.set_status(404)
+            self.write({"error": "Скан не найден"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
 class CropsMetadataHandler(AuthenticatedRequestHandler):
     """Handler для получения списка доступных культур и их названий."""
 
@@ -724,3 +768,65 @@ class CropsMetadataHandler(AuthenticatedRequestHandler):
         ]
         
         self.write({"crops": result})
+
+
+class ScanMergeHandler(AuthenticatedRequestHandler):
+    """Handler для объединения двух сканов в один (кейс: замена батареи дрона)."""
+
+    def post(self, field_id: int) -> None:
+        try:
+            data = json.loads(self.request.body)
+            scan_id_from = data.get("scan_id_from")
+            scan_id_to = data.get("scan_id_to")
+
+            if not scan_id_from or not scan_id_to:
+                self.set_status(400)
+                self.write({"error": "Требуются scan_id_from и scan_id_to"})
+                return
+
+            if scan_id_from == scan_id_to:
+                self.set_status(400)
+                self.write({"error": "Нельзя объединить скан с самим собой"})
+                return
+
+            field = (
+                Field.select()
+                .where((Field.id == field_id) & (Field.company == self.current_user.company))
+                .first()
+            )
+            if not field:
+                self.set_status(404)
+                self.write({"error": "Поле не найдено"})
+                return
+
+            scan_from = FieldScan.get_or_none(
+                (FieldScan.id == scan_id_from) & (FieldScan.field == field)
+            )
+            scan_to = FieldScan.get_or_none(
+                (FieldScan.id == scan_id_to) & (FieldScan.field == field)
+            )
+
+            if not scan_from or not scan_to:
+                self.set_status(404)
+                self.write({"error": "Один из сканов не найден"})
+                return
+
+            from db import FieldZone
+
+            zones_moved = FieldZone.update(scan=scan_to).where(FieldZone.scan == scan_from).execute()
+
+            merged_zones_count = FieldZone.select().where(FieldZone.scan == scan_to).count()
+
+            scan_from.delete_instance()
+
+            self.write({
+                "success": True,
+                "message": f"Сканы объединены. Перенесено зон: {zones_moved}. Итого зон: {merged_zones_count}",
+                "zones_moved": zones_moved,
+                "merged_zones_count": merged_zones_count,
+                "scan_id": scan_to.id,
+            })
+
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})

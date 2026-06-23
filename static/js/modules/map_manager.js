@@ -5,6 +5,8 @@ export class MapManager {
   constructor() {
     this.instance = null;
     this.editableLayers = null;
+    this.ownerLayers = null;
+    this.ownerColorMap = {};
     this.baseLayers = {};
     this.detailInstance = null;
     this.fullscreenMap = null;
@@ -13,6 +15,11 @@ export class MapManager {
     this.isFullscreenMode = false;
     this._updateZonesRetries = 0;
     this._fullscreenKeyHandler = null;
+    this._ownerPalette = [
+      "#e74c3c", "#2ecc71", "#3498db", "#f39c12", "#9b59b6",
+      "#1abc9c", "#e67e22", "#34495e", "#e91e63", "#00bcd4",
+      "#8bc34a", "#ff5722", "#607d8b", "#795548", "#cddc39"
+    ];
   }
 
   initMainMap(containerId, onCreated, onEdited, onDeleted) {
@@ -28,17 +35,25 @@ export class MapManager {
     this.editableLayers = new L.FeatureGroup();
     this.instance.addLayer(this.editableLayers);
 
+    this.ownerLayers = new L.FeatureGroup();
+
     const drawControl = new L.Control.Draw({
       edit: { featureGroup: this.editableLayers },
       draw: { polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: "#007BFF" } }, polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false }
     });
     this.instance.addControl(drawControl);
 
+    const layerControl = L.control.layers(
+      { "Светлая": this.baseLayers.light, "Тёмная": this.baseLayers.dark },
+      null,
+      { collapsed: false, position: "topright" }
+    );
+    this._layerControl = layerControl;
+    this._layerControl.addTo(this.instance);
+
     if (onCreated) this.instance.on(L.Draw.Event.CREATED, onCreated);
     if (onEdited) this.instance.on(L.Draw.Event.EDITED, onEdited);
     if (onDeleted) this.instance.on(L.Draw.Event.DELETED, onDeleted);
-
-    this.instance.locate({ setView: true, maxZoom: 16 });
 
     const locateBtn = L.control({ position: "topleft" });
     locateBtn.onAdd = () => {
@@ -59,9 +74,15 @@ export class MapManager {
       const btn = document.querySelector(".leaflet-control-locate");
       if (btn) btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
     });
-    this.instance.on("locationerror", () => {
+    this.instance.on("locationerror", (e) => {
       const btn = document.querySelector(".leaflet-control-locate");
       if (btn) btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+      if (location.protocol === "https:") {
+        const msg = e.code === 1 ? "Доступ к геолокации запрещён" :
+                    e.code === 2 ? "Местоположение недоступно" :
+                    "Тайм-аут геолокации";
+        L.popup().setLatLng(this.instance.getCenter()).setContent(msg).openOn(this.instance);
+      }
     });
   }
 
@@ -75,9 +96,11 @@ export class MapManager {
   renderFields(geojsonData, onDownloadKmz, onFieldClick) {
     if (!this.editableLayers) return;
     this.editableLayers.clearLayers();
+    if (this.ownerLayers) this.ownerLayers.clearLayers();
     if (!geojsonData.features) return;
 
     const isSmallScreen = window.innerWidth <= 600;
+    const ownerColors = {};
 
     L.geoJSON(geojsonData, {
       style: { color: "#007BFF", weight: 2, fillOpacity: 0.3 },
@@ -115,6 +138,18 @@ export class MapManager {
         }
 
         this.editableLayers.addLayer(layer);
+
+        if (this.ownerLayers) {
+          const ownerId = props.owner_id;
+          const ownerName = props.owner_name || "Без владельца";
+          const color = props.owner_color || (ownerId ? this._ownerPalette[ownerId % this._ownerPalette.length] : "#9ca3af");
+          const ownerLayer = L.geoJSON(feature, {
+            style: { color, weight: 2, fillOpacity: 0.4, fillColor: color }
+          });
+          const area = props.area_sq_m ? (props.area_sq_m / 10000).toFixed(2) + " га" : "N/A";
+          ownerLayer.bindPopup(`<b>${props.name || "Поле"}</b><br>Владелец: ${ownerName}<br>Площадь: ${area}`);
+          this.ownerLayers.addLayer(ownerLayer);
+        }
       }
     });
 
@@ -124,6 +159,15 @@ export class MapManager {
 
     if (this.editableLayers.getBounds().isValid()) {
       this.instance.fitBounds(this.editableLayers.getBounds());
+    }
+
+    if (this._layerControl) {
+      if (this.ownerLayers.getLayers().length > 0) {
+        if (!this._ownerOverlayAdded) {
+          this._layerControl.addOverlay(this.ownerLayers, "По владельцам");
+          this._ownerOverlayAdded = true;
+        }
+      }
     }
   }
 

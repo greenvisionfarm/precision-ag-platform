@@ -18,9 +18,10 @@ from src.models.auth import Company
 
 
 class Owner(BaseModel):
-    """Модель владельца поля (устаревшая, оставлена для совместимости)."""
+    """Модель владельца поля."""
 
     name = CharField(unique=True, help_text="Имя владельца")
+    color = CharField(null=True, max_length=7, help_text="Цвет владельца (#hex)")
     company = ForeignKeyField(
         Company,
         backref='owners',

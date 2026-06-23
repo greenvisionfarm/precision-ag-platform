@@ -120,29 +120,8 @@ function render(data) {
     html += '</div>';
   }
   document.getElementById('cards').innerHTML = html;
-
   fetchAuditLogs();
 }
-
-async function fetchHealth() {
-  try {
-    const resp = await fetch(API);
-    const data = await resp.json();
-    render(data);
-  } catch (e) {
-    document.getElementById('overall-status').innerHTML =
-      '<span style="color:#fca5a5">&#10060; Cannot reach server</span>';
-    document.getElementById('cards').innerHTML =
-      '<div class="error-msg">' + e.message + '</div>';
-  }
-}
-
-setInterval(() => {
-  countdown--;
-  document.getElementById('countdown').textContent = countdown;
-  if (countdown <= 0) {
-    countdown = INTERVAL;
-fetchHealth();
 
 async function fetchAuditLogs() {
   try {
@@ -188,6 +167,27 @@ async function fetchAuditLogs() {
     // silent
   }
 }
+
+async function fetchHealth() {
+  try {
+    const resp = await fetch(API);
+    const data = await resp.json();
+    render(data);
+  } catch (e) {
+    document.getElementById('overall-status').innerHTML =
+      '<span style="color:#fca5a5">&#10060; Cannot reach server</span>';
+    document.getElementById('cards').innerHTML =
+      '<div class="error-msg">' + e.message + '</div>';
+  }
+}
+
+setInterval(() => {
+  countdown--;
+  document.getElementById('countdown').textContent = countdown;
+  if (countdown <= 0) {
+    countdown = INTERVAL;
+    fetchHealth();
+    fetchAuditLogs();
   }
 }, 1000);
 

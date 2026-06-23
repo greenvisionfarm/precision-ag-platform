@@ -221,6 +221,14 @@ def migrate_db(db_path: str = 'data/fields.db') -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditlog_action ON auditlog(action)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditlog_created ON auditlog(created_at)")
 
+        # 10. Добавляем поле color в таблицу owner
+        logger.info("Добавление поля color в owner...")
+        cursor.execute("PRAGMA table_info(owner)")
+        owner_columns = [col[1] for col in cursor.fetchall()]
+        if 'color' not in owner_columns:
+            cursor.execute("ALTER TABLE owner ADD COLUMN color VARCHAR")
+            logger.info("Поле color добавлено в owner")
+
         logger.info("Миграция успешно завершена!")
         
     except Exception as e:

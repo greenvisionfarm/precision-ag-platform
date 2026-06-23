@@ -27,6 +27,9 @@ export function loadFieldScans(fieldId, state) {
         <button id="btn-compare-scans" class="btn btn-sm btn-outline-primary" style="float: right; margin-top: -5px;">
           <i class="fas fa-columns"></i> Сравнить
         </button>
+        <button id="btn-merge-scans" class="btn btn-sm btn-outline-warning" style="float: right; margin-top: -5px; margin-right: 5px;">
+          <i class="fas fa-object-group"></i> Объединить
+        </button>
       `);
     }
 
@@ -90,6 +93,10 @@ export function loadFieldScans(fieldId, state) {
 
       $(document).on("click", "#btn-compare-scans", function() {
         compareSelectedScans(state.currentFieldId);
+      });
+
+      $(document).on("click", "#btn-merge-scans", function() {
+        mergeSelectedScans(state);
       });
     }
 
@@ -185,4 +192,38 @@ export function cleanup(state) {
     state.processingPollInterval = null;
   }
   destroyChart();
+}
+
+function mergeSelectedScans(state) {
+  const checked = $(".scan-checkbox:checked");
+  if (checked.length !== 2) {
+    showMessage("Выберите ровно 2 снимка для объединения", "warning");
+    return;
+  }
+
+  const ids = checked.map(function() { return parseInt($(this).val()); }).get();
+  const scans = ids.map(id => state.allScans.find(s => s.id === id));
+  const names = scans.map(s => {
+    const date = new Date(s.uploaded_at).toLocaleDateString("ru-RU");
+    return `${date} (${s.filename || "скан"})`;
+  }).join(" + ");
+
+  Swal.fire({
+    title: "Объединить снимки?",
+    text: `${names}\n\nЗоны из первого снимка будут перенесены во второй. Первый снимок будет удалён.`,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Объединить",
+    cancelButtonText: "Отмена"
+  }).then(result => {
+    if (result.isConfirmed) {
+      API.mergeScans(state.currentFieldId, ids[0], ids[1]).then(data => {
+        showMessage(data.message || "Снимки объединены", "success");
+        loadFieldScans(state.currentFieldId, state);
+      }).catch(err => {
+        console.error("Ошибка объединения:", err);
+        showMessage("Не удалось объединить снимки", "error");
+      });
+    }
+  });
 }

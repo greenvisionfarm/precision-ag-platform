@@ -82,6 +82,10 @@ class APIClient {
     return fetchApi(`/api/owner/delete/${id}`, { method: "DELETE" });
   }
 
+  updateOwner(id, data) {
+    return fetchApi(`/api/owner/update/${id}`, { method: "PUT", body: data });
+  }
+
   uploadFile(formData) {
     return fetchApi("/upload", { method: "POST", body: formData });
   }
@@ -100,6 +104,13 @@ class APIClient {
 
   deleteScan(fieldId, scanId) {
     return fetchApi(`/api/field/${fieldId}/scans/${scanId}`, { method: "DELETE" });
+  }
+
+  mergeScans(fieldId, scanIdFrom, scanIdTo) {
+    return fetchApi(`/api/field/${fieldId}/scans/merge`, {
+      method: "POST",
+      body: { scan_id_from: scanIdFrom, scan_id_to: scanIdTo }
+    });
   }
 
   getScanZones(scanId) {

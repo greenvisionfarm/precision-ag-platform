@@ -87,10 +87,14 @@ class FieldsApiHandler(FieldApiBaseHandler):
     """Handler для получения всех полей в формате GeoJSON."""
 
     def get(self) -> None:
-        """Получает все поля текущей компании."""
+        """Получает все поля текущей компании (с информацией о владельце)."""
         try:
             with db_connection():
-                fields_from_db = self.get_company_fields_query()
+                fields_from_db = (
+                    Field.select(Field, Owner)
+                    .join(Owner, JOIN.LEFT_OUTER)
+                    .where(Field.company == self.current_user.company)
+                )
                 features: List[Dict[str, Any]] = []
                 for field in fields_from_db:
                     geom = wkt_loads(field.geometry_wkt)
@@ -98,6 +102,9 @@ class FieldsApiHandler(FieldApiBaseHandler):
                     properties['db_id'] = field.id
                     if field.name:
                         properties['name'] = field.name
+                    properties['owner_id'] = field.owner_id
+                    properties['owner_name'] = field.owner.name if field.owner_id and field.owner else None
+                    properties['owner_color'] = field.owner.color if field.owner_id and field.owner else None
                     features.append({
                         "type": "Feature",
                         "geometry": mapping(geom),

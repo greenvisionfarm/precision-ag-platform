@@ -223,74 +223,79 @@ def _get_cache_key(
     return hashlib.md5(key_string.encode()).hexdigest()
 
 
-def _extract_coords(geometry) -> List[Tuple[float, float]]:
-    """Извлекает координаты из любого типа геометрии."""
+def _extract_longest_line(geometry) -> List[Tuple[float, float]]:
+    """Извлекает координаты из геометрии, объединяя все сегменты."""
     if isinstance(geometry, LineString):
         return list(geometry.coords)
-    elif isinstance(geometry, Polygon):
-        return list(geometry.exterior.coords)
     elif isinstance(geometry, MultiLineString):
-        coords = []
+        all_coords = []
         for sub in geometry.geoms:
-            coords.extend(_extract_coords(sub))
-        return coords
-    elif isinstance(geometry, MultiPolygon):
-        coords = []
-        for sub in geometry.geoms:
-            coords.extend(_extract_coords(sub))
-        return coords
+            all_coords.extend(list(sub.coords))
+        return all_coords
     elif isinstance(geometry, GeometryCollection):
-        coords = []
+        all_coords = []
         for sub in geometry.geoms:
-            coords.extend(_extract_coords(sub))
-        return coords
-    elif isinstance(geometry, (Point, MultiPoint)):
-        return []
+            if isinstance(sub, (LineString, MultiLineString)):
+                all_coords.extend(_extract_longest_line(sub))
+        return all_coords
     return []
 
 
 def generate_lawnmower_path(wkt_str: str, height: int, overlap_w: int, angle: int) -> List[Tuple[float, float]]:
-    """Генерирует эффективный lawnmower путь внутри полигона."""
+    """Генерирует lawnmower путь внутри полигона с разворотами между галсами."""
     from shapely import affinity
     geom = wkt.loads(wkt_str)
     
-    # 1. Поворот полигона
     rotated_geom = affinity.rotate(geom, angle, origin='centroid')
     minx, miny, maxx, maxy = rotated_geom.bounds
     
-    # Расчет шага на основе высоты и бокового перекрытия
-    # DJI Mavic 3M multispectral: горизонтальный FOV ~47.2°
+    margin = 0.001
+    miny -= margin
+    maxy += margin
+    
     camera_fov_rad = math.radians(47.2)
     coverage_m = 2 * height * math.tan(camera_fov_rad / 2)
     spacing_m = coverage_m * (1 - overlap_w / 100)
-    
-    # Конвертация метров в градусы (приблизительно, широта ~48°)
-    # 1° широты ≈ 111км, 1° долготы ≈ 74км → среднее ~92км
     spacing_deg = spacing_m / 92000
     
-    path = []
-    x = minx
-    direction = 1
-    while x <= maxx:
-        # Создаем линию (галс)
+    swaths = []
+    x = minx - spacing_deg
+    while x <= maxx + spacing_deg:
         line = affinity.rotate(
-            wkt.loads(f"LINESTRING({x} {miny}, {x} {maxy})"), 
+            wkt.loads(f"LINESTRING({x} {miny}, {x} {maxy})"),
             -angle, origin='centroid'
         )
-        
-        # Пересечение с полем
         intersection = geom.intersection(line)
         if not intersection.is_empty:
-            coords = _extract_coords(intersection)
-                
+            coords = _extract_longest_line(intersection)
             if coords:
-                if direction == 1:
-                    path.extend(coords)
-                else:
-                    path.extend(reversed(coords))
-                direction *= -1
+                swaths.append(coords)
         x += spacing_deg
-    return path
+    
+    if not swaths:
+        return []
+    
+    path = []
+    for i, swath in enumerate(swaths):
+        if i % 2 == 0:
+            path.extend(swath)
+        else:
+            path.extend(reversed(swath))
+        
+        if i < len(swaths) - 1:
+            next_swath = swaths[i + 1]
+            start_next = next_swath[-1] if i % 2 == 0 else next_swath[0]
+            path.append(start_next)
+    
+    if not path:
+        return []
+    
+    deduped = [path[0]]
+    for pt in path[1:]:
+        if pt != deduped[-1]:
+            deduped.append(pt)
+    
+    return deduped
 
 def _generate_kmz_inner(
     field_id: int,

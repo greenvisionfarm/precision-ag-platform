@@ -39,6 +39,8 @@ from src.handlers.upload_handlers import (
     FieldScansHandler,
     FieldScanZonesHandler,
     ISOXMLExportHandler,
+    ScanDateUpdateHandler,
+    ScanMergeHandler,
     TaskDataExportHandler,
     RasterUploadHandler,
     ScanCropUpdateHandler,
@@ -131,6 +133,7 @@ def make_app() -> tornado.web.Application:
         # API: Owners
         (r"/api/owners", OwnersDataApiHandler),
         (r"/api/owner/add", OwnerActionHandler),
+        (r"/api/owner/update/([0-9]+)", OwnerActionHandler),
         (r"/api/owner/delete/([0-9]+)", OwnerActionHandler),
 
         # Upload
@@ -142,7 +145,9 @@ def make_app() -> tornado.web.Application:
         (r"/api/field/export/taskdata/([0-9]+)", TaskDataExportHandler),
         (r"/api/field/([0-9]+)/scans", FieldScansHandler),
         (r"/api/field/([0-9]+)/scans/([0-9]+)", FieldScansHandler),  # DELETE /api/field/{id}/scans/{scan_id}
+        (r"/api/field/([0-9]+)/scans/merge", ScanMergeHandler),
         (r"/api/scan/([0-9]+)/update_crop", ScanCropUpdateHandler),
+        (r"/api/scan/([0-9]+)/update_date", ScanDateUpdateHandler),
         (r"/api/crops", CropsMetadataHandler),
         (r"/api/scan/([0-9]+)/zones", FieldScanZonesHandler),
 

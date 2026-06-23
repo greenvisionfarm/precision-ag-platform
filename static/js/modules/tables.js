@@ -150,23 +150,30 @@ function setupTableEvents() {
 
   // Изменение owner/status — показываем кнопку сохранения
   tb.on("change", ".owner-select, .status-select", function() {
-    $(this).closest("tr").find(".btn-save-details").show();
+    $(this).closest("tr").find(".btn-save-details").removeClass("hidden");
   });
 
   // Кнопка сохранения
-  tb.on("click", ".btn-save-details", function() {
+  tb.on("click", ".btn-save-details", async function() {
     const b = $(this);
     const id = b.data("id");
     const r = b.closest("tr");
 
-    API.updateField(id, "assign_owner", {
-      owner_id: r.find(".owner-select").val()
-    });
+    try {
+      await API.updateField(id, "assign_owner", {
+        owner_id: r.find(".owner-select").val()
+      });
 
-    API.updateField(id, "update_details", {
-      land_status: r.find(".status-select").val(),
-      parcel_number: r.find(".editable-parcel").text()
-    }).then(() => b.hide());
+      await API.updateField(id, "update_details", {
+        land_status: r.find(".status-select").val(),
+        parcel_number: r.find(".editable-parcel").text()
+      });
+
+      b.addClass("hidden");
+      fieldsTable.ajax.reload(null, false);
+    } catch (e) {
+      console.error("[tables] save failed:", e);
+    }
   });
 
   // Редактирование имени
@@ -220,30 +227,58 @@ export function initOwnersTable() {
     return;
   }
 
-  ownersTable = $("#owners-table").DataTable({
-    ajax: "/api/owners",
-    columns: [
-      { data: "id" },
-      { data: "name" },
-      {
-        data: null,
-        render: (d, t, r) => `<button class="btn btn-danger btn-sm btn-delete-owner" data-id="${r.id}"><i class="fas fa-trash"></i></button>`
+  // Привязываем обработчик формы ДО инициализации таблицы,
+  // чтобы он работал даже если DataTable упадёт
+  if (!$("#add-owner-form").data("bound")) {
+    $("#add-owner-form").data("bound", true).on("submit", function(e) {
+      e.preventDefault();
+      const name = $("#owner-name").val();
+      if (!name) return;
+      API.addOwner(name).then(() => {
+        $("#owner-name").val("");
+        if (ownersTable) ownersTable.ajax.reload();
+      });
+    });
+  }
+
+  try {
+    ownersTable = $("#owners-table").DataTable({
+      destroy: true,
+      ajax: "/api/owners",
+      columns: [
+        { data: "name", className: "text-right" },
+        {
+          data: "color",
+          className: "text-right",
+          render: (d, t, r) => {
+            const color = d || '#3498db';
+            return `<input type="color" class="owner-color-picker" data-id="${r.id}" value="${color}" style="width:32px;height:28px;border:none;cursor:pointer;background:transparent;">`;
+          }
+        },
+        {
+          data: null,
+          className: "text-right",
+          render: (d, t, r) => `<button class="btn btn-danger btn-sm btn-delete-owner" data-id="${r.id}"><i class="fas fa-trash"></i></button>`
+        }
+      ],
+      language: {
+        processing: "Обработка...",
+        search: "Поиск:",
+        lengthMenu: "Показать _MENU_ записей",
+        info: "Записи с _START_ до _END_ из _TOTAL_",
+        infoEmpty: "Нет записей",
+        infoFiltered: "(отфильтровано из _MAX_)",
+        loadingRecords: "Загрузка...",
+        zeroRecords: "Ничего не найдено",
+        emptyTable: "В таблице отсутствуют данные",
+        paginate: { first: "Первая", previous: "Предыдущая", next: "Следующая", last: "Последняя" },
+        aria: { sortAscending: ": активировать для сортировки столбца по возрастанию", sortDescending: ": активировать для сортировки столбца по убыванию" }
       }
-    ],
-    language: {
-      processing: "Обработка...",
-      search: "Поиск:",
-      lengthMenu: "Показать _MENU_ записей",
-      info: "Записи с _START_ до _END_ из _TOTAL_",
-      infoEmpty: "Нет записей",
-      infoFiltered: "(отфильтровано из _MAX_)",
-      loadingRecords: "Загрузка...",
-      zeroRecords: "Ничего не найдено",
-      emptyTable: "В таблице отсутствуют данные",
-      paginate: { first: "Первая", previous: "Предыдущая", next: "Следующая", last: "Последняя" },
-      aria: { sortAscending: ": активировать для сортировки столбца по возрастанию", sortDescending: ": активировать для сортировки столбца по убыванию" }
-    }
-  });
+    });
+  } catch (e) {
+    console.error("[tables] owners DataTable init failed:", e);
+    return;
+  }
 
   // Удаление владельца
   $("#owners-table tbody").on("click", ".btn-delete-owner", function() {
@@ -258,12 +293,12 @@ export function initOwnersTable() {
     });
   });
 
-  // Добавление владельца
-  $("#add-owner-form").on("submit", function(e) {
-    e.preventDefault();
-    API.addOwner($("#owner-name").val()).then(() => {
-      $("#owner-name").val("");
-      ownersTable.ajax.reload();
+  // Изменение цвета владельца
+  $("#owners-table tbody").on("change", ".owner-color-picker", function() {
+    const id = $(this).data("id");
+    const color = $(this).val();
+    API.updateOwner(id, { color }).then(() => {
+      if (window.loadMapData) window.loadMapData();
     });
   });
 }

@@ -9,9 +9,11 @@ Handlers для загрузки и обработки снимков с дро�
 import json
 import logging
 import os
+import re
 import shutil
 import tempfile
 import uuid
+import zipfile
 from datetime import datetime
 from typing import Optional
 
@@ -25,6 +27,27 @@ from src.utils.db_utils import db_connection
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1024 * 1024
+DJI_FILENAME_RE = re.compile(r"DJI_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})")
+
+
+def extract_flight_date_from_zip(zip_path: str) -> Optional[str]:
+    """Извлекает дату полёта из имени первого DJI файла в ZIP архиве.
+
+    Формат имени: DJI_YYYYMMDDHHMMSS_XXXX_X.JPG
+    Возвращает ISO дату или None.
+    """
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            for name in zf.namelist():
+                basename = os.path.basename(name)
+                m = DJI_FILENAME_RE.search(basename)
+                if m:
+                    y, mo, d, h, mi, s = m.groups()
+                    dt = datetime(int(y), int(mo), int(d), int(h), int(mi), int(s))
+                    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        pass
+    return None
 
 
 class DroneUploadHandler(AuthenticatedRequestHandler):
@@ -191,9 +214,22 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
             crop_type = form_data.get("crop_type", "auto")
             total_fertilizer_kg = form_data.get("total_fertilizer_kg")
             processing_mode = form_data.get("processing_mode", "fast")
+            flight_date_str = form_data.get("flight_date")
 
             file_size = os.path.getsize(zip_path)
             logger.info(f"Загружен архив для быстрой обработки: {uploaded_filename}, {file_size} байт")
+
+            # Определяем дату полёта
+            flight_date = None
+            if flight_date_str:
+                try:
+                    flight_date = datetime.fromisoformat(flight_date_str)
+                except ValueError:
+                    pass
+            if not flight_date:
+                detected = extract_flight_date_from_zip(zip_path)
+                if detected:
+                    flight_date = datetime.fromisoformat(detected)
 
             # Если field_id не указан — пытаемся определить по GPS из первого снимка
             if not field_id:
@@ -231,7 +267,7 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                     field=field,
                     file_path=zip_path,
                     filename=uploaded_filename,
-                    uploaded_at=datetime.now(),
+                    uploaded_at=flight_date or datetime.now(),
                     processed='pending',
                     source=scan_source,
                     crop_type=crop_type if crop_type != 'auto' else None
@@ -264,6 +300,7 @@ class DroneUploadHandler(AuthenticatedRequestHandler):
                 "field_id": field_id,
                 "scan_id": scan.id,
                 "processing_mode": processing_mode,
+                "flight_date": flight_date.isoformat() if flight_date else None,
             })
 
         except Exception as e:
