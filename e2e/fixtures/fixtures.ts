@@ -113,7 +113,7 @@ export const test = base.extend<{
    * Авторизованный API request context с cookie
    */
   authedRequest: async ({ browser, baseURL }, use) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL });
     const request = context.request;
     
     // Логинимся через API — cookie автоматически сохранятся в контекст
@@ -129,6 +129,7 @@ export const test = base.extend<{
   authenticatedPage: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
+      baseURL,
     });
     
     // Логинимся через API в этом контексте
