@@ -100,9 +100,10 @@ export const test = base.extend<{
   createTestOwner: (ownerData?: Partial<typeof TEST_OWNER>) => Promise<number>;
   takeScreenshot: (name: string) => Promise<void>;
 }>({
-  page: async ({ browser }, use) => {
+  page: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
+      baseURL,
     });
     const page = await context.newPage();
     await use(page);
@@ -143,9 +144,9 @@ export const test = base.extend<{
   /**
    * Фикстура для входа тестового пользователя через UI
    */
-  loginTestUser: async ({ page }, use) => {
+  loginTestUser: async ({ page, baseURL }, use) => {
     const loginFn = async () => {
-      await page.goto('/');
+      await page.goto(`${baseURL || ''}/`);
       await page.waitForTimeout(500);
       
       const emailInput = page.locator('input[type="email"], input[name="email"]').first();
@@ -165,10 +166,10 @@ export const test = base.extend<{
   /**
    * Фикстура для выхода
    */
-  logout: async ({ page }, use) => {
+  logout: async ({ page, baseURL }, use) => {
     const logoutFn = async () => {
       try {
-        await page.request.post('/api/auth/logout');
+        await page.request.post(`${baseURL || ''}/api/auth/logout`);
       } catch (e) {
         // ignore
       }
