@@ -16,15 +16,33 @@ export const TEST_USER = {
 };
 
 /**
- * Тестовые данные для поля
+ * Тестовые данные для поля (уникальные координаты чтобы не конфликтовать)
  */
-export const TEST_FIELD = {
+export function makeTestField(overrides?: Partial<typeof TEST_FIELD_BASE>) {
+  const ts = Date.now();
+  const base = 48.0 + (ts % 1000) * 0.00001;
+  const lon = 19.0 + (ts % 777) * 0.00001;
+  return {
+    ...TEST_FIELD_BASE,
+    name: `E2E Поле ${ts}`,
+    geometry: {
+      type: 'Polygon' as const,
+      coordinates: [[[lon, base], [lon + 0.01, base], [lon + 0.01, base + 0.01], [lon, base + 0.01], [lon, base]]],
+    },
+    ...overrides,
+  };
+}
+
+const TEST_FIELD_BASE = {
   name: 'Тестовое Поле E2E',
   geometry: {
-    type: 'Polygon',
+    type: 'Polygon' as const,
     coordinates: [[[19.0, 48.0], [19.01, 48.0], [19.01, 48.01], [19.0, 48.01], [19.0, 48.0]]],
   },
 };
+
+/** @deprecated Use makeTestField() instead to avoid coordinate conflicts */
+export const TEST_FIELD = TEST_FIELD_BASE;
 
 /**
  * Тестовые данные для владельца
@@ -34,16 +52,39 @@ export const TEST_OWNER = {
 };
 
 /**
- * Логин через API request context
+ * Логин через API request context.
+ * Если пользователь не существует — регистрирует его автоматически.
  */
-async function apiLogin(request: APIRequestContext): Promise<boolean> {
-  const response = await request.post('/api/auth/login', {
+async function apiLogin(request: APIRequestContext, baseURL?: string): Promise<boolean> {
+  const base = baseURL || '';
+  const response = await request.post(`${base}/api/auth/login`, {
     data: {
       email: TEST_USER.email,
       password: TEST_USER.password,
     },
   });
-  return response.ok();
+  if (response.ok()) return true;
+
+  // Пользователь не найден — регистрируем
+  const regResp = await request.post(`${base}/api/auth/register`, {
+    data: {
+      email: TEST_USER.email,
+      password: TEST_USER.password,
+      first_name: TEST_USER.firstName,
+      last_name: TEST_USER.lastName,
+      company_name: 'E2E Test Company',
+    },
+  });
+  if (!regResp.ok()) return false;
+
+  // Логинимся после регистрации
+  const loginResp = await request.post(`${base}/api/auth/login`, {
+    data: {
+      email: TEST_USER.email,
+      password: TEST_USER.password,
+    },
+  });
+  return loginResp.ok();
 }
 
 /**
@@ -71,12 +112,12 @@ export const test = base.extend<{
   /**
    * Авторизованный API request context с cookie
    */
-  authedRequest: async ({ browser }, use) => {
+  authedRequest: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext();
     const request = context.request;
     
     // Логинимся через API — cookie автоматически сохранятся в контекст
-    await apiLogin(request);
+    await apiLogin(request, baseURL);
     
     await use(request);
     await context.close();
@@ -85,13 +126,13 @@ export const test = base.extend<{
   /**
    * Страница с авторизованным пользователем
    */
-  authenticatedPage: async ({ browser }, use) => {
+  authenticatedPage: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
     });
     
     // Логинимся через API в этом контексте
-    await apiLogin(context.request);
+    await apiLogin(context.request, baseURL);
     
     const page = await context.newPage();
     await use(page);

@@ -307,12 +307,23 @@ class AuthModule {
 
     const u = this.currentUser;
     dropdown.innerHTML = `
-      <a href="#" onclick="AuthModule.openSettings(); return false;"><i class="fas fa-user"></i> Профиль</a>
-      <a href="#" onclick="AuthModule.openSettings('company'); return false;"><i class="fas fa-building"></i> Компания</a>
+      <a href="#" data-action="profile"><i class="fas fa-user"></i> Профиль</a>
+      <a href="#" data-action="company"><i class="fas fa-building"></i> Компания</a>
       <a href="/health"><i class="fas fa-heartbeat"></i> Health</a>
       <hr>
-      <a href="#" onclick="AuthModule.logout(); return false;"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+      <a href="#" data-action="logout"><i class="fas fa-sign-out-alt"></i> Выйти</a>
     `;
+
+    dropdown.querySelectorAll("[data-action]").forEach(link => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const action = link.dataset.action;
+        if (action === "profile") this.openSettings("profile");
+        else if (action === "company") this.openSettings("company");
+        else if (action === "logout") this.logout();
+      });
+    });
 
     if (window.app?.updateHeaderUser) {
       window.app.updateHeaderUser();

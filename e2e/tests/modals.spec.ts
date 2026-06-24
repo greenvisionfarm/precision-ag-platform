@@ -35,7 +35,7 @@ test.describe('Модальные окна', () => {
     await expect(page.locator('#swal-h')).toHaveValue('100');
     await expect(page.locator('#swal-oh')).toHaveValue('80');
     await expect(page.locator('#swal-ow')).toHaveValue('70');
-    await expect(page.locator('#swal-dir')).toHaveValue('0');
+    await expect(page.locator('#swal-dir')).toHaveAttribute('placeholder', /Авто/);
   });
 
   test('модалка поля должна содержать карту и кнопки при клике на строку таблицы', async ({ authenticatedPage }) => {

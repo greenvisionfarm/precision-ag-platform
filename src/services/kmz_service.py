@@ -224,20 +224,25 @@ def _get_cache_key(
 
 
 def _extract_longest_line(geometry) -> List[Tuple[float, float]]:
-    """Извлекает координаты из геометрии, объединяя все сегменты."""
+    """Извлекает самый длинный непрерывный LineString из геометрии.
+
+    При пересечении вертикальной линии с полигоном shapely может вернуть
+    GeometryCollection с несколькими разрозненными сегментами. Эта функция
+    возвращает только самый длинный непрерывный сегмент, чтобы путь дрона
+    не прыгал между несвязанными отрезками.
+    """
     if isinstance(geometry, LineString):
         return list(geometry.coords)
     elif isinstance(geometry, MultiLineString):
-        all_coords = []
-        for sub in geometry.geoms:
-            all_coords.extend(list(sub.coords))
-        return all_coords
+        # Возвращаем самый длинный сегмент
+        longest = max(geometry.geoms, key=lambda g: g.length)
+        return list(longest.coords)
     elif isinstance(geometry, GeometryCollection):
-        all_coords = []
-        for sub in geometry.geoms:
-            if isinstance(sub, (LineString, MultiLineString)):
-                all_coords.extend(_extract_longest_line(sub))
-        return all_coords
+        lines = [sub for sub in geometry.geoms if isinstance(sub, LineString)]
+        if not lines:
+            return []
+        longest = max(lines, key=lambda g: g.length)
+        return list(longest.coords)
     return []
 
 

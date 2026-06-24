@@ -153,6 +153,7 @@ def ensure_db_exists() -> None:
     """
     Гарантирует существование базы данных, создавая таблицы если их нет.
     Безопасная функция для production — не удаляет существующие данные.
+    Также запускает миграции для добавления отсутствующих колонок.
     """
     if not database.is_closed():
         database.close()
@@ -191,3 +192,13 @@ def ensure_db_exists() -> None:
             pass  # Модуль auth может отсутствовать в тестовом окружении
 
     database.close()
+
+    # Запускаем миграции для добавления отсутствующих колонок
+    try:
+        from src.db_migrate import migrate_db
+        db_path = os.environ.get('FIELD_MAPPER_DB')
+        if not db_path:
+            db_path = TEST_DB_FILE if os.environ.get('FIELD_MAPPER_ENV') == 'test' else 'fields.db'
+        migrate_db(db_path)
+    except Exception:
+        pass  # Миграции не критичны если таблицы уже актуальны
